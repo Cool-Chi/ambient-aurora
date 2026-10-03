@@ -7,7 +7,7 @@
   <title>Ambient Fluid Aurora - WebGL Pro</title>
   <style>
     :root {
-      /* Emil Kowalski Easing Tokens[cite: 4] */
+      /* Emil Kowalski Easing Tokens[cite: 11] */
       --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
       --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
       
@@ -45,34 +45,35 @@
     .gl-canvas.crossfading { filter: blur(12px); }
 
     /* =========================================
-       2. 時鐘與日期層 (Dynamic Evasion 自動避讓)
+       2. 時鐘與日期層 (幾何智慧避讓 Geometry-Aware Dynamic Evasion)
        ========================================= */
     .clock-layer {
       position: absolute; inset: 0; display: flex; flex-direction: column;
       align-items: center; justify-content: center; pointer-events: none;
-      opacity: 1; transform: scale(1); 
-      /* 平滑退讓動畫設定 400ms */
+      opacity: 1; 
+      
+      /* 空間計算 CSS 變數：解耦避讓與閒置的縮放邏輯 */
+      --evade-x: 0px;
+      --evade-y: 0px;
+      --evade-scale: 1;
+      --idle-scale: 1;
+      
+      transform: translate(var(--evade-x), var(--evade-y)) scale(calc(var(--evade-scale) * var(--idle-scale)));
       transition: transform 400ms var(--ease-out), opacity 400ms var(--ease-out);
     }
     
-    /* 閒置沉浸狀態 */
+    /* 閒置狀態僅控制透明度與閒置專屬的微縮放 */
     body.is-idle .clock-layer { 
-      opacity: 0.35; transform: scale(0.96); 
+      opacity: 0.35; 
+      --idle-scale: 0.96;
       transition: opacity 1500ms var(--ease-in-out), transform 1500ms var(--ease-in-out); 
     }
 
-    /* 退出破壞性動畫 */
+    /* 退出狀態的高優先級覆寫 */
     body .clock-layer.exiting { 
-      transition: opacity 2s linear, transform 2s linear; opacity: 0.1; transform: scale(0.9); 
-    }
-
-    /* 設置面板開啟時：時鐘向上退讓並微縮 */
-    body.panel-open .clock-layer {
-      transform: translateY(-16vh) scale(0.85);
-    }
-    body.is-idle.panel-open .clock-layer {
-      transform: translateY(-16vh) scale(0.8);
-      opacity: 0.35;
+      transition: opacity 2s linear, transform 2s linear; 
+      opacity: 0.1; 
+      --idle-scale: 0.9; 
     }
 
     #clock {
@@ -97,9 +98,7 @@
       width: 48px; height: 48px; border-radius: 50%; background: rgba(255, 255, 255, 0.08);
       backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1);
       color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; outline: none;
-      opacity: 1; transform: scale(1); 
-      /* UI 動畫嚴格 <300ms[cite: 6] */
-      transition: transform 160ms var(--ease-out), background 200ms var(--ease-out), opacity 200ms var(--ease-out);
+      opacity: 1; transform: scale(1); transition: transform 160ms var(--ease-out), background 200ms var(--ease-out), opacity 200ms var(--ease-out);
     }
     .icon-btn:active { transform: scale(0.97); background: rgba(255, 255, 255, 0.15); }
     @media (hover: hover) and (pointer: fine) { .icon-btn:hover { background: rgba(255, 255, 255, 0.15); } }
@@ -122,19 +121,22 @@
        ========================================= */
     .settings-panel {
       pointer-events: auto; position: absolute; left: 24px; bottom: calc(env(safe-area-inset-bottom, 24px) + 84px);
-      width: 320px; 
-      /* 物理玻璃厚度與光影 */
-      background: rgba(30, 30, 30, 0.55);
+      width: 320px; background: rgba(30, 30, 30, 0.55);
       backdrop-filter: blur(40px) saturate(200%); -webkit-backdrop-filter: blur(40px) saturate(200%);
-      border: none; border-radius: 24px; padding: 16px;
-      box-sizing: border-box; 
+      border: none; border-radius: 24px; padding: 16px; box-sizing: border-box; 
       box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25),
                   inset 0 0 0 1px rgba(255, 255, 255, 0.05),
                   0 32px 64px rgba(0, 0, 0, 0.4);
       opacity: 0; transform: scale(0.95); transform-origin: bottom left; visibility: hidden;
       transition: opacity 250ms var(--ease-out), transform 250ms var(--ease-out), visibility 250ms;
       display: flex; flex-direction: column; gap: 16px; 
+      
+      /* 隱藏原生捲軸，保護毛玻璃質感 */
+      scrollbar-width: none; 
+      -ms-overflow-style: none;
     }
+    .settings-panel::-webkit-scrollbar { display: none; }
+    
     .settings-panel.active { opacity: 1; transform: scale(1); visibility: visible; }
     body.is-fullscreen .settings-panel.active { opacity: 1; transform: scale(1); }
 
@@ -155,7 +157,6 @@
       position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc(33.333% - 1.33px);
       background: rgba(255, 255, 255, 0.15); border-radius: 6px;
       transition: transform 250ms var(--ease-out); pointer-events: none;
-      /* 滑動塊實體立體落影 */
       box-shadow: 0 3px 8px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
     }
     .segment-btn {
@@ -164,55 +165,44 @@
       transition: color 150ms var(--ease-out), transform 160ms var(--ease-out); margin: 0; padding: 0;
     }
     .segment-btn.active { color: #fff; }
-    .segment-btn:active { transform: scale(0.95); } /* 160ms scale down[cite: 4] */
+    .segment-btn:active { transform: scale(0.95); }
 
     /* iOS 風格的卡片群組 (Block) */
-    .settings-block {
-      background: rgba(255, 255, 255, 0.06);
-      border-radius: 12px; overflow: hidden;
-      flex-shrink: 0;
-    }
+    .settings-block { background: rgba(255, 255, 255, 0.06); border-radius: 12px; overflow: hidden; flex-shrink: 0; }
 
     /* 每一行控制項 (Row)：嚴格 44px 空間秩序 */
     .settings-row {
       display: flex; align-items: center; justify-content: space-between;
-      min-height: 44px; padding: 0 16px;
-      border-bottom: 0.5px solid rgba(255, 255, 255, 0.12);
+      min-height: 44px; padding: 0 16px; border-bottom: 0.5px solid rgba(255, 255, 255, 0.12);
     }
     .settings-row:last-child { border-bottom: none; }
-    .row-label { font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.85); flex-shrink: 0; width: 64px; }
+    .row-label { font-size: 14px; font-weight: 400; color: rgba(255, 255, 255, 0.85); flex-shrink: 0; width: 64px; }
     .row-label.auto-w { width: auto; }
 
     /* Apple Color Ring (自訂色盤) 與呼吸外環 */
     .swatches-container { display: flex; gap: 6px; align-items: center; justify-content: flex-end; width: 100%; height: 44px; }
-    
     .swatch-wrapper { 
       position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; 
       background: transparent; border: 2px solid transparent; padding: 2px; border-radius: 50%; 
       cursor: pointer; outline: none; flex-shrink: 0; 
       transition: transform 160ms var(--ease-out), border-color 200ms var(--ease-out);
     }
-    /* 確保隱形 44x44px 觸控防禦熱區[cite: 7] */
     .swatch-wrapper::before { content: ''; position: absolute; top: -6px; left: -6px; right: -6px; bottom: -6px; }
-
-    .swatch-color { width: 100%; height: 100%; border-radius: 50%; }
+    .swatch-color { width: 100%; height: 100%; border-radius: 50%; transition: transform 150ms var(--ease-out); }
     .swatch-wrapper:active { transform: scale(0.85); }
-    /* 選中狀態呼吸外環 */
     .swatch-wrapper.active { border-color: rgba(255, 255, 255, 0.8); }
 
     .custom-picker-ring {
       background: conic-gradient(#ff3b30, #ffcc00, #4cd964, #5ac8fa, #007aff, #5856d6, #ff2d55, #ff3b30);
-      /* 挖空中心，保留 3px 寬度的邊環 */
-      -webkit-mask-image: radial-gradient(circle, transparent 9px, black 10px);
-      mask-image: radial-gradient(circle, transparent 9px, black 10px);
+      -webkit-mask-image: radial-gradient(circle, transparent 10px, black 11px);
+      mask-image: radial-gradient(circle, transparent 10px, black 11px);
     }
     #custom-color-input { opacity: 0; position: absolute; inset: -6px; width: 44px; height: 44px; cursor: pointer; z-index: 10; padding: 0; border: none; }
 
     /* 原生拉桿與 Active Track 實心填充 */
     .range-container { flex: 1; display: flex; align-items: center; height: 44px; margin-left: 12px; }
     input[type=range] { 
-      -webkit-appearance: none; width: 100%; background: transparent; margin: 0; cursor: grab; height: 36px; 
-      --val: 50%; /* CSS Variable for fill */
+      -webkit-appearance: none; width: 100%; background: transparent; margin: 0; cursor: grab; height: 36px; --val: 50%;
     }
     input[type=range]:focus { outline: none; }
     input[type=range]::-webkit-slider-runnable-track { 
@@ -472,6 +462,42 @@
     }
     requestAnimationFrame(renderLoop);
 
+    /* --- 空間智慧避讓 Geometry-Aware Dynamic Evasion --- */
+    const panel = document.getElementById('settings-panel');
+    const clockLayerObj = document.getElementById('clock-layer');
+    
+    function updateClockEvasion() {
+      if (!panel.classList.contains('active')) {
+        clockLayerObj.style.setProperty('--evade-x', '0px');
+        clockLayerObj.style.setProperty('--evade-y', '0px');
+        clockLayerObj.style.setProperty('--evade-scale', '1');
+        return;
+      }
+      
+      const rect = panel.getBoundingClientRect();
+      const ww = window.innerWidth;
+      const wh = window.innerHeight;
+      
+      if (ww <= 600) {
+        const evadeY = (rect.top / 2) - (wh / 2);
+        clockLayerObj.style.setProperty('--evade-x', '0px');
+        clockLayerObj.style.setProperty('--evade-y', `${evadeY}px`);
+        clockLayerObj.style.setProperty('--evade-scale', '0.85');
+      } else {
+        if (rect.right + 40 > (ww / 2) - 150) {
+          const evadeX = ((ww + rect.right) / 2) - (ww / 2);
+          const evadeY = -wh * 0.08;
+          clockLayerObj.style.setProperty('--evade-x', `${evadeX}px`);
+          clockLayerObj.style.setProperty('--evade-y', `${evadeY}px`);
+          clockLayerObj.style.setProperty('--evade-scale', '0.85');
+        } else {
+          clockLayerObj.style.setProperty('--evade-x', '0px');
+          clockLayerObj.style.setProperty('--evade-y', '0px');
+          clockLayerObj.style.setProperty('--evade-scale', '0.9');
+        }
+      }
+    }
+
     const root = document.documentElement;
     document.querySelectorAll('input[type="range"]').forEach(slider => {
       slider.addEventListener('input', (e) => {
@@ -510,32 +536,61 @@
       colorTarget = hexToRgb(e.target.value); saveSettings(); wakeUp();
     });
 
-    const panel = document.getElementById('settings-panel');
     document.getElementById('btn-settings').addEventListener('click', (e) => { 
       e.stopPropagation(); 
       panel.classList.toggle('active'); 
-      document.body.classList.toggle('panel-open', panel.classList.contains('active'));
+      updateClockEvasion();
       wakeUp(); 
     });
+    
     panel.addEventListener('click', (e) => { e.stopPropagation(); wakeUp(); });
+    
     window.addEventListener('click', () => { 
-      panel.classList.remove('active'); 
-      document.body.classList.remove('panel-open');
+      if(panel.classList.contains('active')) {
+        panel.classList.remove('active'); 
+        updateClockEvasion();
+      }
     });
 
-    function checkFullscreen() { const isFS = (window.innerHeight >= window.screen.height - 1) || !!document.fullscreenElement; document.body.classList.toggle('is-fullscreen', isFS); wakeUp(); }
-    document.getElementById('btn-fullscreen').addEventListener('click', (e) => { e.stopPropagation(); if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {}); else if (document.exitFullscreen) document.exitFullscreen(); wakeUp(); });
-    document.addEventListener('fullscreenchange', checkFullscreen); window.addEventListener('resize', checkFullscreen);
+    function checkFullscreen() { 
+      const isFS = (window.innerHeight >= window.screen.height - 1) || !!document.fullscreenElement; 
+      document.body.classList.toggle('is-fullscreen', isFS); 
+      wakeUp(); 
+    }
+    
+    document.getElementById('btn-fullscreen').addEventListener('click', (e) => { 
+      e.stopPropagation(); 
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {}); 
+      else if (document.exitFullscreen) document.exitFullscreen(); 
+      wakeUp(); 
+    });
+    
+    document.addEventListener('fullscreenchange', checkFullscreen); 
+    window.addEventListener('resize', () => {
+      checkFullscreen();
+      if(panel.classList.contains('active')) updateClockEvasion();
+    });
 
     let idleTimer;
-    function setIdle() { if(!document.body.classList.contains('is-idle')) { document.body.classList.add('is-idle'); panel.classList.remove('active'); document.body.classList.remove('panel-open'); if (document.activeElement) document.activeElement.blur(); } }
-    function wakeUp() { if(document.body.classList.contains('is-idle')) document.body.classList.remove('is-idle'); clearTimeout(idleTimer); idleTimer = setTimeout(setIdle, 3000); }
+    function setIdle() { 
+      if(!document.body.classList.contains('is-idle')) { 
+        document.body.classList.add('is-idle'); 
+        panel.classList.remove('active'); 
+        if (document.activeElement) document.activeElement.blur(); 
+        updateClockEvasion();
+      } 
+    }
+    function wakeUp() { 
+      if(document.body.classList.contains('is-idle')) document.body.classList.remove('is-idle'); 
+      clearTimeout(idleTimer); 
+      idleTimer = setTimeout(setIdle, 3000); 
+    }
     ['mousemove', 'pointermove', 'touchstart', 'keydown', 'click'].forEach(evt => window.addEventListener(evt, wakeUp, { passive: true }));
 
     let holdTimeout, isHolding = false, touchStartX = 0, touchStartY = 0;
-    const bgLayer = document.getElementById('bg-layer'), clockLayer = document.getElementById('clock-layer');
-    function startExit() { if (isHolding) return; isHolding = true; bgLayer.classList.add('exiting'); clockLayer.classList.add('exiting'); holdTimeout = setTimeout(() => { isHolding = false; document.body.classList.add('disconnected'); setTimeout(() => { try { window.close(); } catch (err) {} }, 800); }, 2000); }
-    function cancelExit() { if (!isHolding) return; isHolding = false; clearTimeout(holdTimeout); bgLayer.classList.remove('exiting'); clockLayer.classList.remove('exiting'); }
+    const bgLayer = document.getElementById('bg-layer');
+    function startExit() { if (isHolding) return; isHolding = true; bgLayer.classList.add('exiting'); clockLayerObj.classList.add('exiting'); holdTimeout = setTimeout(() => { isHolding = false; document.body.classList.add('disconnected'); setTimeout(() => { try { window.close(); } catch (err) {} }, 800); }, 2000); }
+    function cancelExit() { if (!isHolding) return; isHolding = false; clearTimeout(holdTimeout); bgLayer.classList.remove('exiting'); clockLayerObj.classList.remove('exiting'); }
     
     document.addEventListener('keydown', (e) => { if (document.activeElement.tagName === 'INPUT') return; if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) startExit(); } });
     document.addEventListener('keyup', (e) => { if (e.code === 'Space') cancelExit(); }); window.addEventListener('blur', cancelExit);
@@ -545,7 +600,10 @@
 
     loadSettings(); updateClock(); wakeUp();
     document.querySelectorAll('input[type="range"]').forEach(updateSliderFill);
-    requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.remove('no-transitions')));
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      document.body.classList.remove('no-transitions');
+      updateClockEvasion();
+    }));
   </script>
 </body>
 </html>
