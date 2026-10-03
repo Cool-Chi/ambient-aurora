@@ -16,6 +16,12 @@
       --bg-color: #000000;
     }
 
+    /* Boot-up Defense: 阻斷初始化時的歸位閃爍動畫 */
+    body.no-transitions * {
+      transition: none !important;
+      animation: none !important;
+    }
+
     html, body {
       margin: 0;
       padding: 0;
@@ -70,7 +76,7 @@
     }
 
     /* =========================================
-       2. 時鐘與日期層 (Proportional Typography)
+       2. 時鐘與日期層
        ========================================= */
     .clock-layer {
       position: absolute;
@@ -254,10 +260,23 @@
     input[type=range]::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(0.9); }
 
     .swatches-container { display: flex; gap: 4px; margin-top: 4px; }
-    .swatch-wrapper { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; padding: 0; cursor: pointer; outline: none; }
+    .swatch-wrapper { position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; padding: 0; cursor: pointer; outline: none; }
     .swatch-color { width: 24px; height: 24px; border-radius: 50%; transition: transform 150ms var(--ease-out), outline 150ms var(--ease-out); }
     .swatch-wrapper:active .swatch-color { transform: scale(0.90); }
     .swatch-wrapper.active .swatch-color { outline: 2px solid rgba(255, 255, 255, 0.8); outline-offset: 2px; }
+
+    /* 原生選色器隱形熱區 */
+    #custom-color-input {
+      opacity: 0;
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+      z-index: 10;
+      padding: 0;
+      border: none;
+    }
 
     .toggle-switch {
       appearance: none; width: 40px; height: 22px; background: rgba(255, 255, 255, 0.15);
@@ -277,7 +296,7 @@
     body.is-fullscreen .fs-bottom-right { transform: translate(-2px, -2px); }
   </style>
 </head>
-<body>
+<body class="no-transitions">
 
   <div class="background-layer" id="bg-layer">
     <canvas id="gl-canvas" class="gl-canvas"></canvas>
@@ -316,6 +335,12 @@
           <button class="swatch-wrapper" data-rgb="0.47,0.14,0.11" aria-label="Sunset Orange">
             <div class="swatch-color" style="background: linear-gradient(135deg, #78261e, #0a0a0a);"></div>
           </button>
+          
+          <!-- 無極自訂選色器 -->
+          <div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color">
+            <div class="swatch-color" style="background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);"></div>
+            <input type="color" id="custom-color-input" value="#ff0000" aria-label="Pick custom color">
+          </div>
         </div>
       </div>
       
@@ -348,6 +373,108 @@
   </div>
 
   <script>
+    // ==========================================
+    // 0. 狀態持久化 (State Persistence) 與轉換
+    // ==========================================
+    function hexToRgb(hex) {
+      const bigint = parseInt(hex.substring(1), 16);
+      return [((bigint >> 16) & 255) / 255, ((bigint >> 8) & 255) / 255, (bigint & 255) / 255];
+    }
+    
+    function rgbToHex(r, g, b) {
+      const toHex = (c) => Math.max(0, Math.min(255, Math.round(c * 255))).toString(16).padStart(2, '0');
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+
+    let is24Hour = true;
+    let showSeconds = false;
+    let bgSpeed = 1;
+    let currentMode = 1;
+    let targetMode = 1;
+    let colorLive = [0.21, 0.11, 0.47];
+    let colorTarget = [0.21, 0.11, 0.47];
+
+    function saveSettings() {
+      const settings = {
+        mode: targetMode,
+        colorTarget: colorTarget,
+        size: parseFloat(document.getElementById('ctrl-size').value),
+        weight: parseInt(document.getElementById('ctrl-weight').value),
+        speed: bgSpeed,
+        is24Hour: is24Hour,
+        showSeconds: showSeconds
+      };
+      try {
+        localStorage.setItem('aurora_settings', JSON.stringify(settings));
+      } catch (e) {}
+    }
+
+    function loadSettings() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('aurora_settings'));
+        if (!saved) return;
+
+        if (saved.mode) {
+          targetMode = currentMode = saved.mode;
+          const segBtns = document.querySelectorAll('.segment-btn');
+          segBtns.forEach(b => b.classList.remove('active'));
+          const activeBtn = document.querySelector(`.segment-btn[data-mode="${saved.mode}"]`);
+          if (activeBtn) activeBtn.classList.add('active');
+          document.getElementById('seg-highlight').style.transform = `translateX(${(saved.mode - 1) * 100}%)`;
+        }
+
+        if (saved.colorTarget) {
+          colorTarget = [...saved.colorTarget];
+          colorLive = [...saved.colorTarget]; 
+          
+          const allSwatches = document.querySelectorAll('.swatch-wrapper');
+          allSwatches.forEach(s => s.classList.remove('active'));
+          
+          let matched = false;
+          document.querySelectorAll('.swatch-wrapper[data-rgb]').forEach(btn => {
+            const btnRgb = btn.dataset.rgb.split(',').map(Number);
+            if (Math.abs(btnRgb[0] - colorTarget[0]) < 0.01 && 
+                Math.abs(btnRgb[1] - colorTarget[1]) < 0.01 && 
+                Math.abs(btnRgb[2] - colorTarget[2]) < 0.01) {
+              btn.classList.add('active');
+              matched = true;
+            }
+          });
+
+          if (!matched) {
+            const customWrapper = document.getElementById('custom-swatch-wrapper');
+            customWrapper.classList.add('active');
+          }
+          // 確保 Custom Input UI 與存檔色彩一致
+          document.getElementById('custom-color-input').value = rgbToHex(colorTarget[0], colorTarget[1], colorTarget[2]);
+        }
+
+        if (saved.size !== undefined) {
+          document.getElementById('ctrl-size').value = saved.size;
+          document.documentElement.style.setProperty('--clock-size', `clamp(4rem, ${saved.size}vw, 25vw)`);
+        }
+        if (saved.weight !== undefined) {
+          document.getElementById('ctrl-weight').value = saved.weight;
+          document.documentElement.style.setProperty('--clock-weight', saved.weight);
+        }
+        if (saved.speed !== undefined) {
+          document.getElementById('ctrl-speed').value = saved.speed;
+          bgSpeed = saved.speed;
+        }
+        if (saved.is24Hour !== undefined) {
+          is24Hour = saved.is24Hour;
+          document.getElementById('ctrl-24hr').checked = is24Hour;
+        }
+        if (saved.showSeconds !== undefined) {
+          showSeconds = saved.showSeconds;
+          document.getElementById('ctrl-seconds').checked = showSeconds;
+        }
+      } catch (e) {}
+    }
+
+    // ==========================================
+    // 1. Energy Saving & Clock Logic
+    // ==========================================
     let wakeLock = null;
     let isRendering = true;
 
@@ -368,8 +495,6 @@
 
     const clockElement = document.getElementById('clock');
     const dateElement = document.getElementById('date');
-    let is24Hour = true;
-    let showSeconds = false;
     const locale = navigator.language || 'zh-TW';
     const dateOptions = { month: 'long', day: 'numeric', weekday: 'long' };
 
@@ -392,15 +517,13 @@
       const msUntilNextUpdate = 1000 - (Date.now() % 1000);
       setTimeout(updateClock, msUntilNextUpdate);
     }
-    updateClock();
 
     // ==========================================
-    // WebGL Shader Compilation & Error Boundary
+    // 2. WebGL Shader Compilation & Guard
     // ==========================================
     const canvas = document.getElementById('gl-canvas');
     const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
 
-    // WebGL 錯誤邊界防護：確實攔截並 Log 任何編譯失敗
     function compileShader(gl, source, type) {
       const shader = gl.createShader(type);
       gl.shaderSource(shader, source);
@@ -413,10 +536,7 @@
       return shader;
     }
 
-    const vsSource = `
-      attribute vec2 position;
-      void main() { gl_Position = vec4(position, 0.0, 1.0); }
-    `;
+    const vsSource = `attribute vec2 position; void main() { gl_Position = vec4(position, 0.0, 1.0); }`;
 
     const fsSource = `
       precision highp float;
@@ -427,18 +547,11 @@
       uniform int u_mode2;
       uniform float u_mix;
 
-      // GLSL Hash 函式重載 (Overload Fix)，支援 float 與 vec2，防禦呼叫點型別不匹配
-      float hash(float n) {
-          return fract(sin(n) * 43758.5453);
-      }
-
-      float hash(vec2 p) {
-          return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-      }
+      float hash(float n) { return fract(sin(n) * 43758.5453); }
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
       
       float noise(vec2 p) {
-          vec2 i = floor(p); 
-          vec2 f = fract(p);
+          vec2 i = floor(p); vec2 f = fract(p);
           vec2 u = f*f*(3.0-2.0*f);
           return mix(mix(hash(i + vec2(0.0,0.0)), hash(i + vec2(1.0,0.0)), u.x),
                      mix(hash(i + vec2(0.0,1.0)), hash(i + vec2(1.0,1.0)), u.x), u.y);
@@ -456,16 +569,31 @@
       vec3 renderSilk(vec2 uv) {
           vec2 p = uv * 2.0 - 1.0;
           p.x *= u_resolution.x / u_resolution.y;
-          
-          vec2 q = vec2(fbm(p + u_time * 0.1), fbm(p + vec2(1.0) + u_time * 0.13));
-          vec2 r = vec2(fbm(p + 2.0*q + vec2(1.7, 9.2) + u_time * 0.15), 
-                        fbm(p + 2.0*q + vec2(8.3, 2.8) + u_time * 0.126));
-          float f = fbm(p + r);
-          
-          vec3 col2 = u_color * 0.2; 
-          vec3 col3 = u_color * 1.5; 
-          vec3 col = mix(col2, u_color, f);
-          col = mix(col, col3, length(q)*0.5);
+          float t = u_time * 0.25;
+
+          vec2 q = p;
+          q.x += sin(p.y * 1.5 + t * 0.8) * 0.6;
+          q.y += cos(p.x * 1.5 + t * 0.6) * 0.6;
+
+          vec2 r = p;
+          r.x += cos(q.y * 2.0 + sin(q.x * 1.8 + t)) * 0.5;
+          r.y += sin(q.x * 2.0 + cos(q.y * 1.8 + t * 0.9)) * 0.5;
+
+          float wave1 = sin(r.x * 2.5 + r.y * 2.0 + t);
+          float wave2 = cos(r.x * 1.8 - r.y * 2.2 - t * 0.7);
+          float folds = (wave1 + wave2) * 0.5;
+
+          float sheen = pow(clamp(folds * 0.5 + 0.5, 0.0, 1.0), 3.0);
+          float deepShadow = smoothstep(-1.0, 0.5, folds);
+
+          vec3 shadowColor = u_color * 0.15;
+          vec3 midColor = u_color * 1.1;
+          vec3 highlightColor = mix(u_color * 1.8, vec3(1.0), 0.35); 
+
+          vec3 col = mix(shadowColor, midColor, deepShadow);
+          col += highlightColor * sheen * 0.65;
+
+          col *= 1.0 - length(p * 0.3) * 0.4;
           return col;
       }
 
@@ -474,10 +602,8 @@
           float edgeX = pow(dc.x, 8.0);
           float edgeY = pow(dc.y, 8.0);
           float edge = max(edgeX, edgeY);
-          
           float n = fbm(uv * 2.0 - u_time * 0.2);
           float glow = smoothstep(0.4, 1.2, edge + n * 0.4);
-          
           glow *= smoothstep(0.0, 0.4, length(dc));
           return u_color * glow * 3.0;
       }
@@ -485,12 +611,10 @@
       vec3 renderStardust(vec2 uv) {
           vec2 p = (uv - 0.5) * 2.0;
           p.x *= u_resolution.x / u_resolution.y;
-          
           float n1 = fbm(p * 1.5 - u_time * 0.05);
           float n2 = fbm(p * 3.0 + u_time * 0.08);
           float nebula = pow((n1 * 0.6 + n2 * 0.4), 2.5) * 1.5;
 
-          // 型別安全的粒子星塵運算
           vec2 grid = p * 20.0;
           vec2 id = floor(grid);
           vec2 fv = fract(grid) - 0.5;
@@ -514,13 +638,11 @@
 
       void main() {
           vec2 uv = gl_FragCoord.xy / u_resolution.xy;
-          
           vec3 c1 = getModeColor(u_mode1, uv);
           vec3 c2 = getModeColor(u_mode2, uv);
           vec3 finalColor = mix(c1, c2, u_mix);
           
-          // Anti-Banding Fix: 強制型別包裝為 vec3，解決 GLSL 嚴格型別加法錯誤
-          float noiseVal = (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453) - 0.5) * 0.03;
+          float noiseVal = (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453) - 0.5) * 0.008;
           finalColor += vec3(noiseVal);
           
           gl_FragColor = vec4(finalColor, 1.0);
@@ -533,19 +655,15 @@
     if (gl) {
       const vs = compileShader(gl, vsSource, gl.VERTEX_SHADER);
       const fs = compileShader(gl, fsSource, gl.FRAGMENT_SHADER);
-      
       if (vs && fs) {
         const program = gl.createProgram();
         gl.attachShader(program, vs);
         gl.attachShader(program, fs);
         gl.linkProgram(program);
-        
-        // Link Error 防禦攔截
         if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
           console.error('WebGL Program Link Error:', gl.getProgramInfoLog(program));
         } else {
           gl.useProgram(program);
-
           const positionBuffer = gl.createBuffer();
           gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
           gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
@@ -559,24 +677,16 @@
           uMode1 = gl.getUniformLocation(program, 'u_mode1');
           uMode2 = gl.getUniformLocation(program, 'u_mode2');
           uMix = gl.getUniformLocation(program, 'u_mix');
-          
           glReady = true;
         }
       }
-    } else {
-      console.warn('WebGL is not supported in this browser.');
     }
 
-    let bgSpeed = 1;
     let globalTime = 0;
     let lastTime = performance.now();
-    let currentMode = 1;
-    let targetMode = 1;
     let mixRatio = 0.0;
     let isTransitioning = false;
     let transitionStart = 0;
-    let colorLive = [0.21, 0.11, 0.47];
-    let colorTarget = [0.21, 0.11, 0.47];
 
     function resizeCanvas() {
       if (!glReady) return;
@@ -591,13 +701,11 @@
     function renderLoop(timestamp) {
       if (!isRendering) return;
       if (!timestamp) timestamp = performance.now();
-      
       const dt = timestamp - lastTime;
       lastTime = timestamp;
       
       if (glReady) {
         globalTime += 0.01 * bgSpeed * (dt / 16.666);
-        
         colorLive[0] += (colorTarget[0] - colorLive[0]) * 0.05;
         colorLive[1] += (colorTarget[1] - colorLive[1]) * 0.05;
         colorLive[2] += (colorTarget[2] - colorLive[2]) * 0.05;
@@ -606,7 +714,6 @@
           let elapsed = timestamp - transitionStart;
           let progress = Math.min(elapsed / 1500, 1.0);
           mixRatio = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-          
           if (progress >= 1.0) {
             isTransitioning = false;
             currentMode = targetMode;
@@ -620,7 +727,6 @@
         gl.uniform1i(uMode1, currentMode);
         gl.uniform1i(uMode2, targetMode);
         gl.uniform1f(uMix, mixRatio);
-        
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
       requestAnimationFrame(renderLoop);
@@ -628,14 +734,15 @@
     requestAnimationFrame(renderLoop);
 
     // ==========================================
-    // UI 控制邏輯
+    // 3. UI 綁定與控制邏輯
     // ==========================================
     const root = document.documentElement;
-    document.getElementById('ctrl-size').addEventListener('input', (e) => { root.style.setProperty('--clock-size', `clamp(4rem, ${e.target.value}vw, 25vw)`); wakeUp(); });
-    document.getElementById('ctrl-weight').addEventListener('input', (e) => { root.style.setProperty('--clock-weight', e.target.value); wakeUp(); });
-    document.getElementById('ctrl-speed').addEventListener('input', (e) => { bgSpeed = parseFloat(e.target.value); wakeUp(); });
-    document.getElementById('ctrl-24hr').addEventListener('change', (e) => { is24Hour = e.target.checked; updateClock(); wakeUp(); });
-    document.getElementById('ctrl-seconds').addEventListener('change', (e) => { showSeconds = e.target.checked; updateClock(); wakeUp(); });
+    
+    document.getElementById('ctrl-size').addEventListener('input', (e) => { root.style.setProperty('--clock-size', `clamp(4rem, ${e.target.value}vw, 25vw)`); saveSettings(); wakeUp(); });
+    document.getElementById('ctrl-weight').addEventListener('input', (e) => { root.style.setProperty('--clock-weight', e.target.value); saveSettings(); wakeUp(); });
+    document.getElementById('ctrl-speed').addEventListener('input', (e) => { bgSpeed = parseFloat(e.target.value); saveSettings(); wakeUp(); });
+    document.getElementById('ctrl-24hr').addEventListener('change', (e) => { is24Hour = e.target.checked; updateClock(); saveSettings(); wakeUp(); });
+    document.getElementById('ctrl-seconds').addEventListener('change', (e) => { showSeconds = e.target.checked; updateClock(); saveSettings(); wakeUp(); });
 
     const segBtns = document.querySelectorAll('.segment-btn');
     const segHighlight = document.getElementById('seg-highlight');
@@ -650,18 +757,32 @@
         isTransitioning = true;
         transitionStart = performance.now();
         if (glReady) canvas.classList.add('crossfading');
+        saveSettings();
         wakeUp();
       });
     });
 
-    const swatches = document.querySelectorAll('.swatch-wrapper');
-    swatches.forEach(btn => {
+    const allSwatches = document.querySelectorAll('.swatch-wrapper');
+    const presetSwatches = document.querySelectorAll('.swatch-wrapper[data-rgb]');
+    const customSwatchWrapper = document.getElementById('custom-swatch-wrapper');
+    const customColorInput = document.getElementById('custom-color-input');
+
+    presetSwatches.forEach(btn => {
       btn.addEventListener('click', () => {
-        swatches.forEach(s => s.classList.remove('active'));
+        allSwatches.forEach(s => s.classList.remove('active'));
         btn.classList.add('active');
         colorTarget = btn.dataset.rgb.split(',').map(Number);
+        saveSettings();
         wakeUp();
       });
+    });
+
+    customColorInput.addEventListener('input', (e) => {
+      allSwatches.forEach(s => s.classList.remove('active'));
+      customSwatchWrapper.classList.add('active');
+      colorTarget = hexToRgb(e.target.value);
+      saveSettings();
+      wakeUp();
     });
 
     const panel = document.getElementById('settings-panel');
@@ -697,8 +818,7 @@
       idleTimer = setTimeout(setIdle, 3000);
     }
     ['mousemove', 'pointermove', 'touchstart', 'keydown', 'click'].forEach(evt => window.addEventListener(evt, wakeUp, { passive: true }));
-    wakeUp();
-
+    
     let holdTimeout, isHolding = false;
     let touchStartX = 0, touchStartY = 0;
     const bgLayer = document.getElementById('bg-layer');
@@ -745,6 +865,21 @@
     }, { passive: true });
     document.addEventListener('touchend', cancelExit);
     document.addEventListener('touchcancel', cancelExit);
+
+    // ==========================================
+    // 4. 初始化啟動程序 (Boot Sequence)
+    // ==========================================
+    loadSettings();
+    updateClock();
+    wakeUp();
+    
+    // Boot-up Defense: 等待首幀渲染完成後再解除 no-transitions，阻絕 UI 歸位閃爍
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.body.classList.remove('no-transitions');
+      });
+    });
+
   </script>
 </body>
 </html>
