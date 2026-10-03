@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+  <meta name="theme-color" content="#000000" />
+  <title>Ambient Fluid Aurora - WebGL Pro</title>
+  <style>
+    :root {
+      /* Emil Kowalski Easing Tokens */
+      --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+      --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+      
+      --clock-size: clamp(4rem, 15vw, 25vw);
+      --clock-weight: 200;
+      --bg-color: #000000;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100dvh;
+      background-color: var(--bg-color);
+      overflow: hidden;
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent; 
+      -webkit-touch-callout: none;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "San Francisco", "Inter", system-ui, sans-serif;
+      color: #fff;
+      transition: opacity 800ms var(--ease-out);
+    }
+
+    body.disconnected { opacity: 0; pointer-events: none; }
+    body.is-fullscreen { cursor: none; }
+    body.is-fullscreen .settings-panel { cursor: default; }
+
+    /* =========================================
+       1. 背景層 (WebGL Canvas)
+       ========================================= */
+    .background-layer {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      transition: filter 1500ms var(--ease-in-out), transform 1500ms var(--ease-in-out);
+    }
+
+    body.is-idle .background-layer {
+      filter: brightness(0.65);
+    }
+
+    body .background-layer.exiting {
+      transition: filter 2s linear, transform 2s linear;
+      transform: scale(1.15);
+      filter: brightness(1.5) contrast(1.2);
+    }
+
+    .gl-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      transition: filter 1500ms var(--ease-in-out);
+    }
+
+    .gl-canvas.crossfading {
+      filter: blur(12px);
+    }
+
+    /* =========================================
+       2. 時鐘與日期層 (Proportional Typography)
+       ========================================= */
+    .clock-layer {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      opacity: 1;
+      transform: scale(1);
+      transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+    }
+
+    body.is-idle .clock-layer {
+      opacity: 0.35;
+      transform: scale(0.96);
+      transition: opacity 1500ms var(--ease-in-out), transform 1500ms var(--ease-in-out);
+    }
+
+    body .clock-layer.exiting {
+      transition: opacity 2s linear, transform 2s linear;
+      opacity: 0.1;
+      transform: scale(0.9);
+    }
+
+    #clock {
+      margin: 0;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      overflow-wrap: normal;
+      font-size: var(--clock-size);
+      font-weight: var(--clock-weight);
+      color: rgba(255, 255, 255, 0.9);
+      letter-spacing: -0.03em;
+      text-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 4px rgba(255, 255, 255, 0.2);
+    }
+
+    .date-display {
+      margin-top: 0.25em;
+      font-size: calc(var(--clock-size) * 0.22);
+      font-weight: var(--clock-weight);
+      color: rgba(255, 255, 255, 0.6);
+      letter-spacing: 0.02em;
+      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    /* =========================================
+       3. UI 互動與防禦層
+       ========================================= */
+    .ui-layer { position: absolute; inset: 0; pointer-events: none; }
+    body.is-idle .ui-layer > * {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transition: opacity 1500ms var(--ease-in-out), transform 1500ms var(--ease-in-out) !important;
+    }
+
+    .icon-btn {
+      pointer-events: auto;
+      position: absolute;
+      bottom: calc(env(safe-area-inset-bottom, 24px) + 20px);
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      outline: none;
+      opacity: 1;
+      transform: scale(1);
+      transition: transform 160ms var(--ease-out), background 200ms var(--ease-out), opacity 200ms var(--ease-out);
+    }
+    
+    .icon-btn:active { transform: scale(0.97); background: rgba(255, 255, 255, 0.15); }
+
+    @media (hover: hover) and (pointer: fine) {
+      .icon-btn:hover { background: rgba(255, 255, 255, 0.15); }
+    }
+
+    body.is-fullscreen .icon-btn { opacity: 0; pointer-events: none; transform: scale(0.9); }
+    .btn-settings { left: 24px; }
+    .btn-fullscreen { right: 24px; }
+
+    .exit-hint {
+      position: absolute;
+      bottom: calc(env(safe-area-inset-bottom, 24px) + 20px);
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 14px;
+      font-weight: 300;
+      letter-spacing: 0.05em;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 200ms var(--ease-out);
+    }
+
+    .exit-hint::after { content: "長按空白鍵可退出"; }
+    @media (pointer: coarse) { .exit-hint::after { content: "長按畫面可退出"; } }
+    body.is-fullscreen .exit-hint { opacity: 1; }
+
+    /* =========================================
+       4. 玻璃面板與內部控制項
+       ========================================= */
+    .settings-panel {
+      pointer-events: auto;
+      position: absolute;
+      left: 24px;
+      bottom: calc(env(safe-area-inset-bottom, 24px) + 84px);
+      width: 280px;
+      background: rgba(20, 20, 20, 0.6);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 20px;
+      box-sizing: border-box;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      opacity: 0;
+      transform: scale(0.95);
+      transform-origin: bottom left;
+      visibility: hidden;
+      transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out), visibility 200ms;
+    }
+
+    .settings-panel.active { opacity: 1; transform: scale(1); visibility: visible; }
+    body.is-fullscreen .settings-panel.active { opacity: 1; transform: scale(1); }
+
+    @media (max-width: 600px) {
+      .settings-panel {
+        left: 16px; right: 16px; width: auto;
+        bottom: calc(env(safe-area-inset-bottom, 24px) + 84px);
+        max-height: 45vh; padding: 16px; overflow-y: auto;
+        transform-origin: bottom center;
+      }
+    }
+
+    .settings-panel h3 { margin: 0 0 16px 0; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; color: rgba(255, 255, 255, 0.5); text-transform: uppercase; }
+    .control-group { margin-bottom: 14px; }
+    .control-group:last-child { margin-bottom: 0; }
+    .control-header { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 6px; color: rgba(255, 255, 255, 0.85); }
+    
+    .segmented-control {
+      position: relative;
+      display: flex;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      padding: 3px;
+    }
+    
+    .segmented-highlight {
+      position: absolute;
+      top: 3px; bottom: 3px;
+      left: 3px;
+      width: calc(33.333% - 2px);
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      transition: transform 250ms var(--ease-out);
+      pointer-events: none;
+    }
+
+    .segment-btn {
+      flex: 1; min-height: 36px; border: none; background: transparent;
+      color: rgba(255, 255, 255, 0.5); font-size: 12px; font-weight: 500; z-index: 1;
+      cursor: pointer; transition: color 150ms var(--ease-out), transform 150ms var(--ease-out);
+      margin: -4px 0; padding: 4px 0;
+    }
+    .segment-btn.active { color: #fff; }
+    .segment-btn:active { transform: scale(0.95); }
+
+    input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; margin: 0; cursor: grab; height: 36px; }
+    input[type=range]:focus { outline: none; }
+    input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: rgba(255, 255, 255, 0.15); border-radius: 2px; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: #ffffff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); margin-top: -8px; transition: transform 150ms var(--ease-out); }
+    input[type=range]::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(0.9); }
+
+    .swatches-container { display: flex; gap: 4px; margin-top: 4px; }
+    .swatch-wrapper { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; padding: 0; cursor: pointer; outline: none; }
+    .swatch-color { width: 24px; height: 24px; border-radius: 50%; transition: transform 150ms var(--ease-out), outline 150ms var(--ease-out); }
+    .swatch-wrapper:active .swatch-color { transform: scale(0.90); }
+    .swatch-wrapper.active .swatch-color { outline: 2px solid rgba(255, 255, 255, 0.8); outline-offset: 2px; }
+
+    .toggle-switch {
+      appearance: none; width: 40px; height: 22px; background: rgba(255, 255, 255, 0.15);
+      border-radius: 12px; position: relative; cursor: pointer; outline: none; transition: background 200ms var(--ease-out); margin: 0; flex-shrink: 0;
+    }
+    .toggle-switch::after {
+      content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+      border-radius: 50%; background: #ffffff; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); transition: transform 200ms var(--ease-out);
+    }
+    .toggle-switch:checked { background: #34c759; }
+    .toggle-switch:checked::after { transform: translateX(18px); }
+
+    .fs-icon path { transition: transform 250ms var(--ease-out); transform-origin: center; }
+    body.is-fullscreen .fs-top-left { transform: translate(2px, 2px); }
+    body.is-fullscreen .fs-top-right { transform: translate(-2px, 2px); }
+    body.is-fullscreen .fs-bottom-left { transform: translate(2px, -2px); }
+    body.is-fullscreen .fs-bottom-right { transform: translate(-2px, -2px); }
+  </style>
+</head>
+<body>
+
+  <div class="background-layer" id="bg-layer">
+    <canvas id="gl-canvas" class="gl-canvas"></canvas>
+  </div>
+
+  <div class="clock-layer" id="clock-layer">
+    <h1 id="clock">00:00</h1>
+    <div id="date" class="date-display"></div>
+  </div>
+
+  <div class="ui-layer">
+    <div class="exit-hint"></div>
+
+    <div class="settings-panel" id="settings-panel">
+      <div class="control-group">
+        <div class="segmented-control" role="radiogroup">
+          <div class="segmented-highlight" id="seg-highlight"></div>
+          <button class="segment-btn active" data-mode="1">Silk</button>
+          <button class="segment-btn" data-mode="2">Glow</button>
+          <button class="segment-btn" data-mode="3">Dust</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <div class="control-header"><span>Theme</span></div>
+        <div class="swatches-container">
+          <button class="swatch-wrapper active" data-rgb="0.21,0.11,0.47" aria-label="Midnight Purple">
+            <div class="swatch-color" style="background: linear-gradient(135deg, #371e78, #0a0a0a);"></div>
+          </button>
+          <button class="swatch-wrapper" data-rgb="0.06,0.36,0.27" aria-label="Aurora Green">
+            <div class="swatch-color" style="background: linear-gradient(135deg, #105c45, #0a0a0a);"></div>
+          </button>
+          <button class="swatch-wrapper" data-rgb="0.05,0.23,0.42" aria-label="Deep Ocean">
+            <div class="swatch-color" style="background: linear-gradient(135deg, #0e3b6d, #0a0a0a);"></div>
+          </button>
+          <button class="swatch-wrapper" data-rgb="0.47,0.14,0.11" aria-label="Sunset Orange">
+            <div class="swatch-color" style="background: linear-gradient(135deg, #78261e, #0a0a0a);"></div>
+          </button>
+        </div>
+      </div>
+      
+      <div class="control-group">
+        <div class="control-header"><span>Size</span></div>
+        <input type="range" id="ctrl-size" min="5" max="35" step="0.5" value="15">
+      </div>
+      <div class="control-group">
+        <div class="control-header"><span>Weight</span></div>
+        <input type="range" id="ctrl-weight" min="100" max="900" step="100" value="200">
+      </div>
+      <div class="control-group">
+        <div class="control-header"><span>Speed</span></div>
+        <input type="range" id="ctrl-speed" min="0.2" max="3" step="0.1" value="1">
+      </div>
+      <div class="control-group">
+        <div class="control-header"><span>24-Hour Time</span><input type="checkbox" id="ctrl-24hr" class="toggle-switch" checked></div>
+      </div>
+      <div class="control-group">
+        <div class="control-header"><span>Show Seconds</span><input type="checkbox" id="ctrl-seconds" class="toggle-switch"></div>
+      </div>
+    </div>
+
+    <button class="icon-btn btn-settings" id="btn-settings" aria-label="Settings">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+    </button>
+    <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen">
+      <svg class="fs-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path class="fs-top-left" d="M8 3H5a2 2 0 0 0-2 2v3"></path><path class="fs-top-right" d="M16 3h3a2 2 0 0 1 2 2v3"></path><path class="fs-bottom-left" d="M8 21H5a2 2 0 0 1-2-2v-3"></path><path class="fs-bottom-right" d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg>
+    </button>
+  </div>
+
+  <script>
+    let wakeLock = null;
+    let isRendering = true;
+
+    async function requestWakeLock() {
+      try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      isRendering = !document.hidden;
+      if (isRendering) {
+        if (wakeLock !== null) requestWakeLock();
+        lastTime = performance.now();
+        requestAnimationFrame(renderLoop);
+        updateClock();
+      }
+    });
+    requestWakeLock();
+
+    const clockElement = document.getElementById('clock');
+    const dateElement = document.getElementById('date');
+    let is24Hour = true;
+    let showSeconds = false;
+    const locale = navigator.language || 'zh-TW';
+    const dateOptions = { month: 'long', day: 'numeric', weekday: 'long' };
+
+    function updateClock() {
+      if (!isRendering) return;
+      const now = new Date();
+      let hh = now.getHours();
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+
+      if (!is24Hour) hh = hh % 12 || 12;
+      const hhStr = String(hh).padStart(2, '0');
+      const timeString = showSeconds ? `${hhStr}:${mm}:${ss}` : `${hhStr}:${mm}`;
+      
+      if (clockElement.textContent !== timeString) clockElement.textContent = timeString;
+      
+      const dateString = now.toLocaleDateString(locale, dateOptions);
+      if (dateElement.textContent !== dateString) dateElement.textContent = dateString;
+      
+      const msUntilNextUpdate = 1000 - (Date.now() % 1000);
+      setTimeout(updateClock, msUntilNextUpdate);
+    }
+    updateClock();
+
+    // ==========================================
+    // WebGL Shader Compilation & Error Boundary
+    // ==========================================
+    const canvas = document.getElementById('gl-canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+
+    // WebGL 錯誤邊界防護：確實攔截並 Log 任何編譯失敗
+    function compileShader(gl, source, type) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error('WebGL Shader Compilation Error:', gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+        return null;
+      }
+      return shader;
+    }
+
+    const vsSource = `
+      attribute vec2 position;
+      void main() { gl_Position = vec4(position, 0.0, 1.0); }
+    `;
+
+    const fsSource = `
+      precision highp float;
+      uniform vec2 u_resolution;
+      uniform float u_time;
+      uniform vec3 u_color;
+      uniform int u_mode1;
+      uniform int u_mode2;
+      uniform float u_mix;
+
+      // GLSL Hash 函式重載 (Overload Fix)，支援 float 與 vec2，防禦呼叫點型別不匹配
+      float hash(float n) {
+          return fract(sin(n) * 43758.5453);
+      }
+
+      float hash(vec2 p) {
+          return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+      }
+      
+      float noise(vec2 p) {
+          vec2 i = floor(p); 
+          vec2 f = fract(p);
+          vec2 u = f*f*(3.0-2.0*f);
+          return mix(mix(hash(i + vec2(0.0,0.0)), hash(i + vec2(1.0,0.0)), u.x),
+                     mix(hash(i + vec2(0.0,1.0)), hash(i + vec2(1.0,1.0)), u.x), u.y);
+      }
+      
+      float fbm(vec2 p) {
+          float f = 0.0; float amp = 0.5;
+          for(int i = 0; i < 4; i++) {
+              f += amp * noise(p);
+              p *= 2.0; amp *= 0.5;
+          }
+          return f;
+      }
+
+      vec3 renderSilk(vec2 uv) {
+          vec2 p = uv * 2.0 - 1.0;
+          p.x *= u_resolution.x / u_resolution.y;
+          
+          vec2 q = vec2(fbm(p + u_time * 0.1), fbm(p + vec2(1.0) + u_time * 0.13));
+          vec2 r = vec2(fbm(p + 2.0*q + vec2(1.7, 9.2) + u_time * 0.15), 
+                        fbm(p + 2.0*q + vec2(8.3, 2.8) + u_time * 0.126));
+          float f = fbm(p + r);
+          
+          vec3 col2 = u_color * 0.2; 
+          vec3 col3 = u_color * 1.5; 
+          vec3 col = mix(col2, u_color, f);
+          col = mix(col, col3, length(q)*0.5);
+          return col;
+      }
+
+      vec3 renderIntelligence(vec2 uv) {
+          vec2 dc = abs(uv - 0.5) * 2.0; 
+          float edgeX = pow(dc.x, 8.0);
+          float edgeY = pow(dc.y, 8.0);
+          float edge = max(edgeX, edgeY);
+          
+          float n = fbm(uv * 2.0 - u_time * 0.2);
+          float glow = smoothstep(0.4, 1.2, edge + n * 0.4);
+          
+          glow *= smoothstep(0.0, 0.4, length(dc));
+          return u_color * glow * 3.0;
+      }
+
+      vec3 renderStardust(vec2 uv) {
+          vec2 p = (uv - 0.5) * 2.0;
+          p.x *= u_resolution.x / u_resolution.y;
+          
+          float n1 = fbm(p * 1.5 - u_time * 0.05);
+          float n2 = fbm(p * 3.0 + u_time * 0.08);
+          float nebula = pow((n1 * 0.6 + n2 * 0.4), 2.5) * 1.5;
+
+          // 型別安全的粒子星塵運算
+          vec2 grid = p * 20.0;
+          vec2 id = floor(grid);
+          vec2 fv = fract(grid) - 0.5;
+          vec2 offset = vec2(hash(id + vec2(1.3, 7.1)), hash(id + vec2(7.1, 1.3))) - 0.5;
+          float dist = length(fv - offset);
+          
+          float star = smoothstep(0.12, 0.0, dist);
+          float twinkle = sin(u_time * 2.0 + hash(dot(id, vec2(1.0, 25.0))) * 25.0) * 0.5 + 0.5;
+          star *= twinkle * step(0.7, hash(dot(id, vec2(3.7, 1.7)))); 
+
+          float vignette = 1.0 - length(p) * 0.4;
+          return (u_color * nebula + vec3(star * 0.8)) * vignette;
+      }
+
+      vec3 getModeColor(int mode, vec2 uv) {
+          if (mode == 1) return renderSilk(uv);
+          if (mode == 2) return renderIntelligence(uv);
+          if (mode == 3) return renderStardust(uv);
+          return vec3(0.0);
+      }
+
+      void main() {
+          vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+          
+          vec3 c1 = getModeColor(u_mode1, uv);
+          vec3 c2 = getModeColor(u_mode2, uv);
+          vec3 finalColor = mix(c1, c2, u_mix);
+          
+          // Anti-Banding Fix: 強制型別包裝為 vec3，解決 GLSL 嚴格型別加法錯誤
+          float noiseVal = (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453) - 0.5) * 0.03;
+          finalColor += vec3(noiseVal);
+          
+          gl_FragColor = vec4(finalColor, 1.0);
+      }
+    `;
+
+    let uRes, uTime, uColor, uMode1, uMode2, uMix;
+    let glReady = false;
+
+    if (gl) {
+      const vs = compileShader(gl, vsSource, gl.VERTEX_SHADER);
+      const fs = compileShader(gl, fsSource, gl.FRAGMENT_SHADER);
+      
+      if (vs && fs) {
+        const program = gl.createProgram();
+        gl.attachShader(program, vs);
+        gl.attachShader(program, fs);
+        gl.linkProgram(program);
+        
+        // Link Error 防禦攔截
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          console.error('WebGL Program Link Error:', gl.getProgramInfoLog(program));
+        } else {
+          gl.useProgram(program);
+
+          const positionBuffer = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+          const posAttr = gl.getAttribLocation(program, 'position');
+          gl.enableVertexAttribArray(posAttr);
+          gl.vertexAttribPointer(posAttr, 2, gl.FLOAT, false, 0, 0);
+
+          uRes = gl.getUniformLocation(program, 'u_resolution');
+          uTime = gl.getUniformLocation(program, 'u_time');
+          uColor = gl.getUniformLocation(program, 'u_color');
+          uMode1 = gl.getUniformLocation(program, 'u_mode1');
+          uMode2 = gl.getUniformLocation(program, 'u_mode2');
+          uMix = gl.getUniformLocation(program, 'u_mix');
+          
+          glReady = true;
+        }
+      }
+    } else {
+      console.warn('WebGL is not supported in this browser.');
+    }
+
+    let bgSpeed = 1;
+    let globalTime = 0;
+    let lastTime = performance.now();
+    let currentMode = 1;
+    let targetMode = 1;
+    let mixRatio = 0.0;
+    let isTransitioning = false;
+    let transitionStart = 0;
+    let colorLive = [0.21, 0.11, 0.47];
+    let colorTarget = [0.21, 0.11, 0.47];
+
+    function resizeCanvas() {
+      if (!glReady) return;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.uniform2f(uRes, canvas.width, canvas.height);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    if (glReady) resizeCanvas();
+
+    function renderLoop(timestamp) {
+      if (!isRendering) return;
+      if (!timestamp) timestamp = performance.now();
+      
+      const dt = timestamp - lastTime;
+      lastTime = timestamp;
+      
+      if (glReady) {
+        globalTime += 0.01 * bgSpeed * (dt / 16.666);
+        
+        colorLive[0] += (colorTarget[0] - colorLive[0]) * 0.05;
+        colorLive[1] += (colorTarget[1] - colorLive[1]) * 0.05;
+        colorLive[2] += (colorTarget[2] - colorLive[2]) * 0.05;
+
+        if (isTransitioning) {
+          let elapsed = timestamp - transitionStart;
+          let progress = Math.min(elapsed / 1500, 1.0);
+          mixRatio = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+          
+          if (progress >= 1.0) {
+            isTransitioning = false;
+            currentMode = targetMode;
+            mixRatio = 0.0;
+            canvas.classList.remove('crossfading');
+          }
+        }
+
+        gl.uniform1f(uTime, globalTime);
+        gl.uniform3f(uColor, colorLive[0], colorLive[1], colorLive[2]);
+        gl.uniform1i(uMode1, currentMode);
+        gl.uniform1i(uMode2, targetMode);
+        gl.uniform1f(uMix, mixRatio);
+        
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+      requestAnimationFrame(renderLoop);
+    }
+    requestAnimationFrame(renderLoop);
+
+    // ==========================================
+    // UI 控制邏輯
+    // ==========================================
+    const root = document.documentElement;
+    document.getElementById('ctrl-size').addEventListener('input', (e) => { root.style.setProperty('--clock-size', `clamp(4rem, ${e.target.value}vw, 25vw)`); wakeUp(); });
+    document.getElementById('ctrl-weight').addEventListener('input', (e) => { root.style.setProperty('--clock-weight', e.target.value); wakeUp(); });
+    document.getElementById('ctrl-speed').addEventListener('input', (e) => { bgSpeed = parseFloat(e.target.value); wakeUp(); });
+    document.getElementById('ctrl-24hr').addEventListener('change', (e) => { is24Hour = e.target.checked; updateClock(); wakeUp(); });
+    document.getElementById('ctrl-seconds').addEventListener('change', (e) => { showSeconds = e.target.checked; updateClock(); wakeUp(); });
+
+    const segBtns = document.querySelectorAll('.segment-btn');
+    const segHighlight = document.getElementById('seg-highlight');
+    segBtns.forEach((btn, index) => {
+      btn.addEventListener('click', () => {
+        if (btn.classList.contains('active')) return;
+        segBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        segHighlight.style.transform = `translateX(${index * 100}%)`;
+        
+        targetMode = parseInt(btn.dataset.mode);
+        isTransitioning = true;
+        transitionStart = performance.now();
+        if (glReady) canvas.classList.add('crossfading');
+        wakeUp();
+      });
+    });
+
+    const swatches = document.querySelectorAll('.swatch-wrapper');
+    swatches.forEach(btn => {
+      btn.addEventListener('click', () => {
+        swatches.forEach(s => s.classList.remove('active'));
+        btn.classList.add('active');
+        colorTarget = btn.dataset.rgb.split(',').map(Number);
+        wakeUp();
+      });
+    });
+
+    const panel = document.getElementById('settings-panel');
+    document.getElementById('btn-settings').addEventListener('click', (e) => { e.stopPropagation(); panel.classList.toggle('active'); wakeUp(); });
+    panel.addEventListener('click', (e) => { e.stopPropagation(); wakeUp(); });
+    window.addEventListener('click', () => panel.classList.remove('active'));
+
+    function checkFullscreen() {
+      const isFS = (window.innerHeight >= window.screen.height - 1) || !!document.fullscreenElement;
+      document.body.classList.toggle('is-fullscreen', isFS);
+      wakeUp();
+    }
+    document.getElementById('btn-fullscreen').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+      else if (document.exitFullscreen) document.exitFullscreen();
+      wakeUp();
+    });
+    document.addEventListener('fullscreenchange', checkFullscreen);
+    window.addEventListener('resize', checkFullscreen);
+
+    let idleTimer;
+    function setIdle() {
+      if(!document.body.classList.contains('is-idle')) {
+        document.body.classList.add('is-idle');
+        panel.classList.remove('active');
+        if (document.activeElement) document.activeElement.blur();
+      }
+    }
+    function wakeUp() {
+      if(document.body.classList.contains('is-idle')) document.body.classList.remove('is-idle');
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(setIdle, 3000);
+    }
+    ['mousemove', 'pointermove', 'touchstart', 'keydown', 'click'].forEach(evt => window.addEventListener(evt, wakeUp, { passive: true }));
+    wakeUp();
+
+    let holdTimeout, isHolding = false;
+    let touchStartX = 0, touchStartY = 0;
+    const bgLayer = document.getElementById('bg-layer');
+    const clockLayer = document.getElementById('clock-layer');
+
+    function startExit() {
+      if (isHolding) return;
+      isHolding = true;
+      bgLayer.classList.add('exiting');
+      clockLayer.classList.add('exiting');
+      holdTimeout = setTimeout(() => {
+        isHolding = false;
+        document.body.classList.add('disconnected');
+        setTimeout(() => { try { window.close(); } catch (err) {} }, 800);
+      }, 2000);
+    }
+
+    function cancelExit() {
+      if (!isHolding) return;
+      isHolding = false;
+      clearTimeout(holdTimeout);
+      bgLayer.classList.remove('exiting');
+      clockLayer.classList.remove('exiting');
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (document.activeElement.tagName === 'INPUT') return;
+      if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) startExit(); }
+    });
+    document.addEventListener('keyup', (e) => { if (e.code === 'Space') cancelExit(); });
+    window.addEventListener('blur', cancelExit);
+
+    document.addEventListener('touchstart', (e) => {
+      if (e.target.closest('button, .settings-panel, .swatch-wrapper, input')) return;
+      const touch = e.touches[0];
+      touchStartX = touch.clientX; touchStartY = touch.clientY;
+      startExit();
+    }, { passive: true });
+    
+    document.addEventListener('touchmove', (e) => {
+      if (!isHolding) return;
+      const touch = e.touches[0];
+      if (Math.abs(touch.clientX - touchStartX) > 15 || Math.abs(touch.clientY - touchStartY) > 15) cancelExit();
+    }, { passive: true });
+    document.addEventListener('touchend', cancelExit);
+    document.addEventListener('touchcancel', cancelExit);
+  </script>
+</body>
+</html>
