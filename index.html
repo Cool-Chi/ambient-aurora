@@ -7,10 +7,8 @@
   <title>Ambient Fluid Aurora - WebGL Pro</title>
   <style>
     :root {
-      /* Emil Kowalski Easing Tokens[cite: 1] */
       --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
       --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
-      
       --clock-size: clamp(4rem, 15vw, 25vw);
       --clock-weight: 200;
       --bg-color: #000000;
@@ -31,6 +29,11 @@
     body.is-fullscreen { cursor: none; }
     body.is-fullscreen .settings-panel { cursor: default; }
 
+    /* 共用 Flex 居中選擇器壓縮 */
+    .icon-btn, .segment-btn, .swatch-wrapper, .digit-old, .digit-new {
+      display: flex; align-items: center; justify-content: center;
+    }
+
     /* =========================================
        1. 背景層 (WebGL Canvas)
        ========================================= */
@@ -46,9 +49,7 @@
        ========================================= */
     .clock-layer {
       position: absolute; inset: 0; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; pointer-events: none;
-      opacity: 1; 
-      
+      align-items: center; justify-content: center; pointer-events: none; opacity: 1; 
       --evade-x: 0px; --evade-y: 0px; --evade-scale: 1; --idle-scale: 1;
       transform: translate(var(--evade-x), var(--evade-y)) scale(calc(var(--evade-scale) * var(--idle-scale)));
       transition: transform 400ms var(--ease-out), opacity 400ms var(--ease-out);
@@ -68,7 +69,7 @@
       position: relative; display: inline-grid; place-items: center; vertical-align: bottom;
       clip-path: inset(0 -40px 0 -40px); height: 1em; line-height: 1; text-shadow: none;
     }
-    .digit-old, .digit-new { grid-area: 1 / 1; position: relative !important; width: 100%; display: flex; align-items: center; justify-content: center; }
+    .digit-old, .digit-new { grid-area: 1 / 1; position: relative !important; width: 100%; }
     .digit-new { opacity: 0; }
 
     .date-display {
@@ -86,8 +87,8 @@
       pointer-events: auto; position: absolute; bottom: calc(env(safe-area-inset-bottom, 24px) + 20px);
       width: 48px; height: 48px; border-radius: 50%; background: rgba(255, 255, 255, 0.08);
       backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1);
-      color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; outline: none;
-      opacity: 1; transform: scale(1); transition: transform 160ms var(--ease-out), background 200ms var(--ease-out), opacity 200ms var(--ease-out);
+      color: white; cursor: pointer; outline: none; opacity: 1; transform: scale(1); 
+      transition: transform 160ms var(--ease-out), background 200ms var(--ease-out), opacity 200ms var(--ease-out);
     }
     .icon-btn:active { transform: scale(0.97); background: rgba(255, 255, 255, 0.15); }
     @media (hover: hover) and (pointer: fine) { .icon-btn:hover { background: rgba(255, 255, 255, 0.15); } }
@@ -106,7 +107,7 @@
     body.is-fullscreen .exit-hint { opacity: 1; }
 
     /* =========================================
-       4. Apple Design 設置面板 (iOS Inline Grouped List)
+       4. Apple Design 設置面板
        ========================================= */
     .settings-panel {
       pointer-events: auto; position: absolute; left: 24px; bottom: calc(env(safe-area-inset-bottom, 24px) + 84px);
@@ -116,8 +117,7 @@
       box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25), inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 32px 64px rgba(0, 0, 0, 0.4);
       opacity: 0; transform: scale(0.95); transform-origin: bottom left; visibility: hidden;
       transition: opacity 250ms var(--ease-out), transform 250ms var(--ease-out), visibility 250ms;
-      display: flex; flex-direction: column; gap: 16px; 
-      scrollbar-width: none; -ms-overflow-style: none;
+      display: flex; flex-direction: column; gap: 16px; scrollbar-width: none; -ms-overflow-style: none;
     }
     .settings-panel::-webkit-scrollbar { display: none; }
     .settings-panel.active { opacity: 1; transform: scale(1); visibility: visible; }
@@ -131,7 +131,6 @@
     }
 
     .settings-block { background: rgba(255, 255, 255, 0.06); border-radius: 12px; overflow: hidden; flex-shrink: 0; }
-    
     .settings-row {
       display: flex; align-items: center; justify-content: space-between;
       min-height: 44px; padding: 0 16px; border-bottom: 0.5px solid rgba(255, 255, 255, 0.12);
@@ -139,63 +138,43 @@
     .settings-row:last-child { border-bottom: none; }
     .row-label { font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.85); flex-shrink: 0; width: auto; flex: 1; }
 
-    /* Apple iOS Slider Style 重構 */
-    .slider-row {
-      display: flex; align-items: center; justify-content: center;
-      min-height: 44px; padding: 0 16px; border-bottom: 0.5px solid rgba(255, 255, 255, 0.12);
-    }
+    /* Sliders */
+    .slider-row { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-bottom: 0.5px solid rgba(255, 255, 255, 0.12); }
     .slider-row:last-child { border-bottom: none; }
-    .slider-icon {
-      width: 16px; height: 16px; fill: none; stroke: rgba(255, 255, 255, 0.5); 
-      stroke-width: 2; flex-shrink: 0;
-    }
+    .slider-icon { width: 16px; height: 16px; fill: none; stroke: rgba(255, 255, 255, 0.5); stroke-width: 2; flex-shrink: 0; }
     .slider-icon.max-icon { width: 22px; height: 22px; }
-    .range-container {
-      flex: 1; display: flex; align-items: center; justify-content: center;
-      margin: 0 16px; height: 44px;
-    }
-
+    .range-container { flex: 1; display: flex; align-items: center; justify-content: center; margin: 0 16px; height: 44px; }
+    
     input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; margin: 0; cursor: grab; height: 36px; --val: 50%; }
     input[type=range]:focus { outline: none; }
-    input[type=range]::-webkit-slider-runnable-track { 
-      width: 100%; height: 4px; border-radius: 2px; background: linear-gradient(to right, #fff var(--val), rgba(255, 255, 255, 0.15) var(--val));
-    }
-    input[type=range]::-webkit-slider-thumb { 
-      -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: #ffffff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); 
-      margin-top: -8px; transition: transform 160ms var(--ease-out); 
-    }
+    input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; border-radius: 2px; background: linear-gradient(to right, #fff var(--val), rgba(255, 255, 255, 0.15) var(--val)); }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: #ffffff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); margin-top: -8px; transition: transform 160ms var(--ease-out); }
     input[type=range]::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(0.9); }
 
-    /* 微縮內聯 Segmented Control */
-    .top-nav-group { display: flex; flex-direction: column; gap: 8px; }
+    /* Segmented Control */
     .segmented-control {
-      position: relative; display: flex; background: rgba(0, 0, 0, 0.25);
-      border-radius: 6px; box-sizing: border-box; box-shadow: inset 0 1px 2px rgba(0,0,0,0.2); 
+      position: relative; display: flex; background: rgba(0, 0, 0, 0.25); border-radius: 6px; box-sizing: border-box; box-shadow: inset 0 1px 2px rgba(0,0,0,0.2); 
     }
     .inline-seg { flex: 0 0 150px; height: 28px; padding: 2px; }
-    
     .segmented-highlight {
       position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc(33.333% - 1.33px);
       background: rgba(255, 255, 255, 0.15); border-radius: 4px; transition: transform 250ms var(--ease-out); pointer-events: none;
       box-shadow: 0 3px 8px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
     }
     .segment-btn {
-      flex: 1; border: none; background: transparent; color: rgba(255, 255, 255, 0.5);
-      font-weight: 500; z-index: 1; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      flex: 1; border: none; background: transparent; color: rgba(255, 255, 255, 0.5); font-weight: 500; z-index: 1; cursor: pointer; 
       transition: color 150ms var(--ease-out), transform 160ms var(--ease-out); margin: 0; padding: 0;
     }
     .inline-seg .segment-btn { font-size: 12px; }
     .segment-btn.active { color: #fff; }
     .segment-btn:active { transform: scale(0.95); }
 
-    /* Apple Color Ring 與微縮色盤 */
+    /* Swatches & Toggles */
     .swatches-container { display: flex; gap: 4px; align-items: center; justify-content: flex-end; height: 44px; flex: 1; }
     .swatch-wrapper { 
-      position: relative; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; 
-      background: transparent; border: 2px solid transparent; padding: 2px; border-radius: 50%; 
+      position: relative; width: 28px; height: 28px; background: transparent; border: 2px solid transparent; padding: 2px; border-radius: 50%; 
       cursor: pointer; outline: none; flex-shrink: 0; transition: transform 160ms var(--ease-out), border-color 200ms var(--ease-out);
     }
-    /* 確保 44px 觸控防禦熱區 */
     .swatch-wrapper::before { content: ''; position: absolute; top: -8px; left: -8px; right: -8px; bottom: -8px; }
     .swatch-color { width: 100%; height: 100%; border-radius: 50%; transition: transform 150ms var(--ease-out); }
     .swatch-wrapper:active { transform: scale(0.85); }
@@ -208,7 +187,6 @@
     .custom-swatch-color.has-color::before, .custom-swatch-color.has-color::after { opacity: 0; }
     #custom-color-input { opacity: 0; position: absolute; inset: -8px; width: 44px; height: 44px; cursor: pointer; z-index: 10; padding: 0; border: none; }
 
-    /* Apple 比例 Toggle Switch */
     .toggle-switch {
       appearance: none; width: 44px; height: 26px; background: rgba(255, 255, 255, 0.15);
       border-radius: 13px; position: relative; cursor: pointer; outline: none; 
@@ -231,106 +209,34 @@
 </head>
 <body class="no-transitions">
 
-  <div class="background-layer" id="bg-layer">
-    <canvas id="gl-canvas" class="gl-canvas"></canvas>
-  </div>
-
-  <div class="clock-layer" id="clock-layer">
-    <div id="clock">00:00</div>
-    <div id="date" class="date-display"></div>
-  </div>
+  <div class="background-layer" id="bg-layer"><canvas id="gl-canvas" class="gl-canvas"></canvas></div>
+  <div class="clock-layer" id="clock-layer"><div id="clock">00:00</div><div id="date" class="date-display"></div></div>
 
   <div class="ui-layer">
     <div class="exit-hint"></div>
-
     <div class="settings-panel" id="settings-panel">
-      
-      <!-- Block 1: Time & Display -->
       <div class="settings-block">
-        <div class="settings-row">
-          <span class="row-label auto-w">24-Hour Time</span>
-          <input type="checkbox" id="ctrl-24hr" class="toggle-switch" checked>
-        </div>
-        <div class="settings-row">
-          <span class="row-label auto-w">Show Seconds</span>
-          <input type="checkbox" id="ctrl-seconds" class="toggle-switch">
-        </div>
+        <div class="settings-row"><span class="row-label auto-w">24-Hour Time</span><input type="checkbox" id="ctrl-24hr" class="toggle-switch" checked></div>
+        <div class="settings-row"><span class="row-label auto-w">Show Seconds</span><input type="checkbox" id="ctrl-seconds" class="toggle-switch"></div>
         <div class="settings-row">
           <span class="row-label auto-w">Tick Anim</span>
           <div class="segmented-control inline-seg" data-prop="clockAnimMode" role="radiogroup">
-            <div class="segmented-highlight"></div>
-            <button class="segment-btn active" data-value="0">Inst</button>
-            <button class="segment-btn" data-value="1">Smooth</button>
-            <button class="segment-btn" data-value="2">Roll</button>
+            <div class="segmented-highlight"></div><button class="segment-btn active" data-value="0">Inst</button><button class="segment-btn" data-value="1">Smooth</button><button class="segment-btn" data-value="2">Roll</button>
           </div>
         </div>
       </div>
 
-      <!-- Block 2: Style -->
       <div class="settings-block">
         <div class="settings-row">
           <span class="row-label auto-w">Mode</span>
           <div class="segmented-control inline-seg" data-prop="mode" role="radiogroup">
-            <div class="segmented-highlight"></div>
-            <button class="segment-btn active" data-value="1">Silk</button>
-            <button class="segment-btn" data-value="2">Glow</button>
-            <button class="segment-btn" data-value="3">Dust</button>
+            <div class="segmented-highlight"></div><button class="segment-btn active" data-value="1">Silk</button><button class="segment-btn" data-value="2">Glow</button><button class="segment-btn" data-value="3">Dust</button>
           </div>
         </div>
-        <div class="settings-row">
-          <span class="row-label auto-w">Theme</span>
-          <div class="swatches-container">
-            <button class="swatch-wrapper active" data-rgb="0.21,0.11,0.47" aria-label="Midnight Purple">
-              <div class="swatch-color" style="background: linear-gradient(135deg, #371e78, #0a0a0a);"></div>
-            </button>
-            <button class="swatch-wrapper" data-rgb="0.06,0.36,0.27" aria-label="Aurora Green">
-              <div class="swatch-color" style="background: linear-gradient(135deg, #105c45, #0a0a0a);"></div>
-            </button>
-            <button class="swatch-wrapper" data-rgb="0.05,0.23,0.42" aria-label="Deep Ocean">
-              <div class="swatch-color" style="background: linear-gradient(135deg, #0e3b6d, #0a0a0a);"></div>
-            </button>
-            <button class="swatch-wrapper" data-rgb="0.47,0.14,0.11" aria-label="Sunset Orange">
-              <div class="swatch-color" style="background: linear-gradient(135deg, #78261e, #0a0a0a);"></div>
-            </button>
-            <button class="swatch-wrapper" data-rgb="0.45,0.05,0.15" aria-label="Crimson Velvet">
-              <div class="swatch-color" style="background: linear-gradient(135deg, #a31636, #0a0a0a);"></div>
-            </button>
-            <button class="swatch-wrapper" data-rgb="0.02,0.35,0.45" aria-label="Cyber Cyan">
-              <div class="swatch-color" style="background: linear-gradient(135deg, #0a82a8, #0a0a0a);"></div>
-            </button>
-            <div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color">
-              <div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div>
-              <input type="color" id="custom-color-input" value="#ffffff" aria-label="Pick custom color">
-            </div>
-          </div>
-        </div>
+        <div class="settings-row"><span class="row-label auto-w">Theme</span><div class="swatches-container" id="swatches-container"></div></div>
       </div>
-
-      <!-- Block 3: Adjustments (Apple iOS Slider Style) -->
-      <div class="settings-block">
-        <div class="slider-row" aria-label="Size">
-          <svg class="slider-icon min-icon" viewBox="0 0 24 24"><path d="M12 6L8 18M12 6L16 18M9.5 14H14.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="range-container">
-            <input type="range" id="ctrl-size" min="5" max="35" step="1" value="15" aria-label="Size">
-          </div>
-          <svg class="slider-icon max-icon" viewBox="0 0 24 24"><path d="M12 3L5 21M12 3L19 21M8 15H16" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
-        <div class="slider-row" aria-label="Weight">
-          <svg class="slider-icon min-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke-width="1"/></svg>
-          <div class="range-container">
-            <input type="range" id="ctrl-weight" min="100" max="900" step="100" value="200" aria-label="Weight">
-          </div>
-          <svg class="slider-icon max-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke-width="4"/></svg>
-        </div>
-        <div class="slider-row" aria-label="Speed">
-          <svg class="slider-icon min-icon" viewBox="0 0 24 24"><path d="M4 12h10M4 8h6M4 16h8" stroke-linecap="round"/></svg>
-          <div class="range-container">
-            <input type="range" id="ctrl-speed" min="0.1" max="4" step="0.01" value="1" aria-label="Speed">
-          </div>
-          <svg class="slider-icon max-icon" viewBox="0 0 24 24"><path d="M2 12h16M2 8h12M2 16h14M18 12a2 2 0 1 0-2-2M14 8a2 2 0 1 0-2-2M16 16a2 2 0 1 1-2 2" stroke-linecap="round"/></svg>
-        </div>
-      </div>
-
+      
+      <div class="settings-block" id="sliders-block"></div>
     </div>
 
     <button class="icon-btn btn-settings" id="btn-settings" aria-label="Settings">
@@ -342,18 +248,21 @@
   </div>
 
   <script>
-    // --- Utilities & State ---
-    const hexToRgb = h => [parseInt(h.slice(1,3),16)/255, parseInt(h.slice(3,5),16)/255, parseInt(h.slice(5,7),16)/255];
-    const rgbToHex = (r, g, b) => `#${[r,g,b].map(x => Math.max(0, Math.min(255, Math.round(x * 255))).toString(16).padStart(2, '0')).join('')}`;
+    // --- Configuration & Data-Driven Templates ---
+    const THEMES = [
+      {rgb: '0.21,0.11,0.47', grad: '#371e78, #0a0a0a', label: 'Midnight Purple'},
+      {rgb: '0.06,0.36,0.27', grad: '#105c45, #0a0a0a', label: 'Aurora Green'},
+      {rgb: '0.05,0.23,0.42', grad: '#0e3b6d, #0a0a0a', label: 'Deep Ocean'},
+      {rgb: '0.47,0.14,0.11', grad: '#78261e, #0a0a0a', label: 'Sunset Orange'},
+      {rgb: '0.45,0.05,0.15', grad: '#a31636, #0a0a0a', label: 'Crimson Velvet'},
+      {rgb: '0.02,0.35,0.45', grad: '#0a82a8, #0a0a0a', label: 'Cyber Cyan'}
+    ];
 
-    const state = { mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, showSeconds: false, clockAnimMode: 0 };
-    const root = document.documentElement;
-    const panel = document.getElementById('settings-panel');
-    const canvas = document.getElementById('gl-canvas');
-    const clockElement = document.getElementById('clock');
-    const dateElement = document.getElementById('date');
-    const clockLayerObj = document.getElementById('clock-layer');
-    const bgLayer = document.getElementById('bg-layer');
+    const SLIDERS = [
+      { id: 'ctrl-size', label: 'Size', min: 5, max: 35, step: 1, svgMin: '<path d="M12 6L8 18M12 6L16 18M9.5 14H14.5" stroke-linecap="round" stroke-linejoin="round"/>', svgMax: '<path d="M12 3L5 21M12 3L19 21M8 15H16" stroke-linecap="round" stroke-linejoin="round"/>' },
+      { id: 'ctrl-weight', label: 'Weight', min: 100, max: 900, step: 100, svgMin: '<circle cx="12" cy="12" r="8" stroke-width="1"/>', svgMax: '<circle cx="12" cy="12" r="8" stroke-width="4"/>' },
+      { id: 'ctrl-speed', label: 'Speed', min: 0.1, max: 4, step: 0.01, svgMin: '<path d="M4 12h10M4 8h6M4 16h8" stroke-linecap="round"/>', svgMax: '<path d="M2 12h16M2 8h12M2 16h14M18 12a2 2 0 1 0-2-2M14 8a2 2 0 1 0-2-2M16 16a2 2 0 1 1-2 2" stroke-linecap="round"/>' }
+    ];
 
     const UI_BINDINGS = {
       size: { id: 'ctrl-size', prop: 'value', cssVar: '--clock-size', format: v => `clamp(4rem, ${v}vw, 25vw)` },
@@ -363,15 +272,28 @@
       showSeconds: { id: 'ctrl-seconds', prop: 'checked' }
     };
 
+    const ANIM_OPT = { duration: 300, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' };
+
+    // --- Utilities & State ---
+    const hexToRgb = h => [parseInt(h.slice(1,3),16)/255, parseInt(h.slice(3,5),16)/255, parseInt(h.slice(5,7),16)/255];
+    const rgbToHex = (r, g, b) => `#${[r,g,b].map(x => Math.max(0, Math.min(255, Math.round(x * 255))).toString(16).padStart(2, '0')).join('')}`;
+    
+    const state = { mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, showSeconds: false, clockAnimMode: 0 };
+    const root = document.documentElement;
+    const panel = document.getElementById('settings-panel'), canvas = document.getElementById('gl-canvas'), clockLayerObj = document.getElementById('clock-layer');
+    let currentMode = 1, targetMode = 1, colorLive = [0.21, 0.11, 0.47], glReady = false, uniforms = {};
+
+    // --- Dynamic UI Initialization ---
+    const UI_INIT = () => {
+      document.getElementById('swatches-container').innerHTML = THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('') + `<div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff" aria-label="Pick custom color"></div>`;
+      document.getElementById('sliders-block').innerHTML = SLIDERS.map(s => `<div class="slider-row" aria-label="${s.label}"><svg class="slider-icon min-icon" viewBox="0 0 24 24">${s.svgMin}</svg><div class="range-container"><input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}" aria-label="${s.label}"></div><svg class="slider-icon max-icon" viewBox="0 0 24 24">${s.svgMax}</svg></div>`).join('');
+    };
+
     const updateSliderFill = el => el.style.setProperty('--val', `${((el.value - (el.min || 0)) / ((el.max || 100) - (el.min || 0))) * 100}%`);
     const saveSettings = () => { try { localStorage.setItem('aurora_settings', JSON.stringify(state)); } catch(e){} };
 
-    let currentMode = 1, targetMode = 1, colorLive = [0.21, 0.11, 0.47];
-    let glReady = false, uniforms = {};
-
-    function loadSettings() {
-      try { const saved = JSON.parse(localStorage.getItem('aurora_settings')); if (saved) Object.assign(state, saved); } catch(e){}
-      
+    // --- State Hydration (syncUI) ---
+    function syncUI() {
       Object.entries(UI_BINDINGS).forEach(([k, b]) => {
         const el = document.getElementById(b.id);
         if (el) {
@@ -380,161 +302,109 @@
           if (el.type === 'range') updateSliderFill(el);
         }
       });
-
-      document.querySelectorAll('.segmented-control').forEach(container => {
-        const prop = container.dataset.prop;
-        if (state[prop] !== undefined) {
-          const val = state[prop];
-          container.querySelectorAll('.segment-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.value) === val));
-          const btn = container.querySelector(`.segment-btn[data-value="${val}"]`);
-          if (btn) {
-            const idx = Array.from(container.querySelectorAll('.segment-btn')).indexOf(btn);
-            container.querySelector('.segmented-highlight').style.transform = `translateX(${idx * 100}%)`;
-          }
+      document.querySelectorAll('.segmented-control').forEach(c => {
+        const val = state[c.dataset.prop];
+        if (val !== undefined) {
+          c.querySelectorAll('.segment-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.value) === val));
+          const btn = c.querySelector(`.segment-btn[data-value="${val}"]`);
+          if (btn) c.querySelector('.segmented-highlight').style.transform = `translateX(${Array.from(c.querySelectorAll('.segment-btn')).indexOf(btn) * 100}%)`;
         }
       });
-      targetMode = currentMode = state.mode;
-
-      colorLive = [...state.colorTarget];
       document.querySelectorAll('.swatch-wrapper').forEach(s => s.classList.remove('active'));
       const activeSwatch = document.querySelector(`.swatch-wrapper[data-rgb="${state.colorTarget.join(',')}"]`);
-      const customColorEl = document.getElementById('custom-swatch-color');
-      
+      const customEl = document.getElementById('custom-swatch-color');
       if (activeSwatch) {
-        activeSwatch.classList.add('active');
-        customColorEl.style.background = '';
-        customColorEl.classList.remove('has-color');
+        activeSwatch.classList.add('active'); customEl.style.background = ''; customEl.classList.remove('has-color');
       } else {
         document.getElementById('custom-swatch-wrapper').classList.add('active');
         const hex = rgbToHex(...state.colorTarget);
         document.getElementById('custom-color-input').value = hex;
-        customColorEl.style.background = hex;
-        customColorEl.classList.add('has-color');
+        customEl.style.background = hex; customEl.classList.add('has-color');
       }
     }
 
-    // --- Energy Saving & Zero-Artifact Clock Engine ---
-    let wakeLock = null, isRendering = true;
+    function loadSettings() {
+      try { const saved = JSON.parse(localStorage.getItem('aurora_settings')); if (saved) Object.assign(state, saved); } catch(e){}
+      targetMode = currentMode = state.mode; colorLive = [...state.colorTarget];
+      syncUI();
+    }
+
+    // --- Clock Engine & Power Saving ---
+    let wakeLock = null, isRendering = true, lastTimeStr = "";
     async function requestWakeLock() { 
       if (wakeLock) { await wakeLock.release().catch(()=>{}); wakeLock = null; }
       try { if ('wakeLock' in navigator && !document.hidden) wakeLock = await navigator.wakeLock.request('screen'); } catch(e){} 
     }
-    
     document.addEventListener('visibilitychange', () => {
       isRendering = !document.hidden;
-      if (isRendering) { 
-        requestWakeLock(); lastTime = performance.now(); requestAnimationFrame(renderLoop); updateClock(); 
-      } else {
-        if (wakeLock) { wakeLock.release().catch(()=>{}); wakeLock = null; }
-      }
+      if (isRendering) { requestWakeLock(); lastTime = performance.now(); requestAnimationFrame(renderLoop); updateClock(); } 
+      else if (wakeLock) { wakeLock.release().catch(()=>{}); wakeLock = null; }
     });
-
-    const locale = navigator.language || 'zh-TW', dateOpts = { month: 'long', day: 'numeric', weekday: 'long' };
-    let lastTimeStr = "";
 
     function updateClock() {
       if (!isRendering) return;
       const now = new Date();
-      let hh = now.getHours();
-      if (!state.is24Hour) hh = hh % 12 || 12;
+      let hh = now.getHours(); if (!state.is24Hour) hh = hh % 12 || 12;
       const timeStr = `${String(hh).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}${state.showSeconds ? ':' + String(now.getSeconds()).padStart(2, '0') : ''}`;
       
       if (lastTimeStr !== timeStr) {
-        if (clockElement.children.length !== timeStr.length) {
-          clockElement.innerHTML = timeStr.split('').map(c => `<span><div class="digit-old">${c}</div><div class="digit-new"></div></span>`).join('');
+        const clockEl = document.getElementById('clock');
+        if (clockEl.children.length !== timeStr.length) {
+          clockEl.innerHTML = timeStr.split('').map(c => `<span><div class="digit-old">${c}</div><div class="digit-new"></div></span>`).join('');
         } else {
           for (let i = 0; i < timeStr.length; i++) {
-            const newC = timeStr[i];
-            const oldC = lastTimeStr[i];
-            if (newC !== oldC) {
-              const span = clockElement.children[i];
-              const oldEl = span.querySelector('.digit-old');
-              const newEl = span.querySelector('.digit-new');
-
-              if (state.clockAnimMode === 0) { 
-                oldEl.textContent = newC;
-              } else if (state.clockAnimMode === 1) { 
-                oldEl.textContent = newC;
-                oldEl.animate([
-                  { opacity: 0, transform: 'scale(0.95) translateY(-4px)' },
-                  { opacity: 1, transform: 'scale(1) translateY(0)' }
-                ], { duration: 300, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
-              } else if (state.clockAnimMode === 2) { 
-                oldEl.textContent = oldC;
-                newEl.textContent = newC;
-                newEl.style.opacity = '1';
-                
-                const opts = { duration: 300, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' };
-                oldEl.animate([
-                  { transform: 'translateY(0)', opacity: 1 },
-                  { transform: 'translateY(-100%)', opacity: 0 }
-                ], opts);
-                const anim = newEl.animate([
-                  { transform: 'translateY(100%)', opacity: 0 },
-                  { transform: 'translateY(0)', opacity: 1 }
-                ], opts);
-                
-                anim.onfinish = () => { 
-                  oldEl.textContent = newC;
-                  oldEl.style.transform = 'translateY(0)';
-                  oldEl.style.opacity = '1';
-                  newEl.style.opacity = '0';
-                };
+            if (timeStr[i] !== lastTimeStr[i]) {
+              const oldEl = clockEl.children[i].querySelector('.digit-old'), newEl = clockEl.children[i].querySelector('.digit-new');
+              if (state.clockAnimMode === 0) {
+                oldEl.textContent = timeStr[i];
+              } else if (state.clockAnimMode === 1) {
+                oldEl.textContent = timeStr[i];
+                oldEl.animate([{ opacity: 0, transform: 'scale(0.95) translateY(-4px)' }, { opacity: 1, transform: 'scale(1) translateY(0)' }], ANIM_OPT);
+              } else {
+                oldEl.textContent = lastTimeStr[i]; newEl.textContent = timeStr[i]; newEl.style.opacity = '1';
+                oldEl.animate([{ transform: 'translateY(0)', opacity: 1 }, { transform: 'translateY(-100%)', opacity: 0 }], ANIM_OPT);
+                const anim = newEl.animate([{ transform: 'translateY(100%)', opacity: 0 }, { transform: 'translateY(0)', opacity: 1 }], ANIM_OPT);
+                anim.onfinish = () => { oldEl.textContent = timeStr[i]; oldEl.style.transform = 'translateY(0)'; oldEl.style.opacity = '1'; newEl.style.opacity = '0'; };
               }
             }
           }
         }
         lastTimeStr = timeStr;
       }
-
-      const dateStr = now.toLocaleDateString(locale, dateOpts);
-      if (dateElement.textContent !== dateStr) dateElement.textContent = dateStr;
+      document.getElementById('date').textContent = now.toLocaleDateString(navigator.language || 'zh-TW', { month: 'long', day: 'numeric', weekday: 'long' });
       setTimeout(updateClock, 1000 - (Date.now() % 1000));
     }
 
-    // --- High Performance WebGL Engine ---
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-    function compileShader(gl, source, type) {
+    // --- WebGL Engine ---
+    const compileShader = (gl, source, type) => {
       const shader = gl.createShader(type); gl.shaderSource(shader, source); gl.compileShader(shader);
-      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) { console.error(gl.getShaderInfoLog(shader)); gl.deleteShader(shader); return null; }
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) { gl.deleteShader(shader); return null; }
       return shader;
-    }
+    };
     
     const vsSource = `attribute vec2 position; void main() { gl_Position = vec4(position, 0.0, 1.0); }`;
     const fsSource = `
-      precision highp float; 
-      uniform vec2 u_resolution; uniform float u_time; uniform vec3 u_color; 
+      precision highp float; uniform vec2 u_resolution; uniform float u_time; uniform vec3 u_color; 
       uniform int u_mode1; uniform int u_mode2; uniform float u_mix; uniform float u_brightness;
-      
-      float hash(float n) { return fract(sin(n) * 43758.5453); }
-      float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+      float hash(float n) { return fract(sin(n) * 43758.5453); } float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
       float noise(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); vec2 u = f*f*(3.0-2.0*f); return mix(mix(hash(i + vec2(0.0,0.0)), hash(i + vec2(1.0,0.0)), u.x), mix(hash(i + vec2(0.0,1.0)), hash(i + vec2(1.0,1.0)), u.x), u.y); }
       float fbm(vec2 p) { float f = 0.0; float amp = 0.5; for(int i = 0; i < 4; i++) { f += amp * noise(p); p *= 2.0; amp *= 0.5; } return f; }
-      
       vec3 renderSilk(vec2 uv) { vec2 p = uv * 2.0 - 1.0; p.x *= u_resolution.x / u_resolution.y; float t = u_time * 0.25; vec2 q = p; q.x += sin(p.y * 1.5 + t * 0.8) * 0.6; q.y += cos(p.x * 1.5 + t * 0.6) * 0.6; vec2 r = p; r.x += cos(q.y * 2.0 + sin(q.x * 1.8 + t)) * 0.5; r.y += sin(q.x * 2.0 + cos(q.y * 1.8 + t * 0.9)) * 0.5; float folds = (sin(r.x * 2.5 + r.y * 2.0 + t) + cos(r.x * 1.8 - r.y * 2.2 - t * 0.7)) * 0.5; float sheen = pow(clamp(folds * 0.5 + 0.5, 0.0, 1.0), 3.0); vec3 col = mix(u_color * 0.15, u_color * 1.1, smoothstep(-1.0, 0.5, folds)); col += mix(u_color * 1.8, vec3(1.0), 0.35) * sheen * 0.65; return col * (1.0 - length(p * 0.3) * 0.4); }
       vec3 renderIntelligence(vec2 uv) { vec2 dc = abs(uv - 0.5) * 2.0; float edge = max(pow(dc.x, 8.0), pow(dc.y, 8.0)); return u_color * smoothstep(0.4, 1.2, edge + fbm(uv * 2.0 - u_time * 0.2) * 0.4) * smoothstep(0.0, 0.4, length(dc)) * 3.0; }
       vec3 renderStardust(vec2 uv) { vec2 p = (uv - 0.5) * 2.0; p.x *= u_resolution.x / u_resolution.y; float nebula = pow((fbm(p * 1.5 - u_time * 0.05) * 0.6 + fbm(p * 3.0 + u_time * 0.08) * 0.4), 2.5) * 1.5; vec2 grid = p * 20.0; vec2 id = floor(grid); vec2 fv = fract(grid) - 0.5; float dist = length(fv - (vec2(hash(id + vec2(1.3, 7.1)), hash(id + vec2(7.1, 1.3))) - 0.5)); float star = smoothstep(0.12, 0.0, dist) * (sin(u_time * 2.0 + hash(dot(id, vec2(1.0, 25.0))) * 25.0) * 0.5 + 0.5) * step(0.7, hash(dot(id, vec2(3.7, 1.7)))); return (u_color * nebula + vec3(star * 0.8)) * (1.0 - length(p) * 0.4); }
       vec3 getModeColor(int mode, vec2 uv) { if (mode == 1) return renderSilk(uv); if (mode == 2) return renderIntelligence(uv); if (mode == 3) return renderStardust(uv); return vec3(0.0); }
-      
-      void main() { 
-          vec2 uv = gl_FragCoord.xy / u_resolution.xy; 
-          vec3 finalColor;
-          if (u_mix <= 0.0) { finalColor = getModeColor(u_mode1, uv); } 
-          else if (u_mix >= 1.0) { finalColor = getModeColor(u_mode2, uv); } 
-          else { finalColor = mix(getModeColor(u_mode1, uv), getModeColor(u_mode2, uv), u_mix); }
-          finalColor += vec3((fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453) - 0.5) * 0.008); 
-          gl_FragColor = vec4(finalColor * u_brightness, 1.0); 
-      }
+      void main() { vec2 uv = gl_FragCoord.xy / u_resolution.xy; vec3 c = u_mix <= 0.0 ? getModeColor(u_mode1, uv) : (u_mix >= 1.0 ? getModeColor(u_mode2, uv) : mix(getModeColor(u_mode1, uv), getModeColor(u_mode2, uv), u_mix)); gl_FragColor = vec4((c + vec3((fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453) - 0.5) * 0.008)) * u_brightness, 1.0); }
     `;
     
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
     if (gl) {
       const vs = compileShader(gl, vsSource, gl.VERTEX_SHADER), fs = compileShader(gl, fsSource, gl.FRAGMENT_SHADER);
       if (vs && fs) {
         const program = gl.createProgram(); gl.attachShader(program, vs); gl.attachShader(program, fs); gl.linkProgram(program);
         if (gl.getProgramParameter(program, gl.LINK_STATUS)) {
           gl.useProgram(program);
-          const positionBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
-          const posAttr = gl.getAttribLocation(program, 'position'); gl.enableVertexAttribArray(posAttr); gl.vertexAttribPointer(posAttr, 2, gl.FLOAT, false, 0, 0);
+          const pb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, pb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+          const pos = gl.getAttribLocation(program, 'position'); gl.enableVertexAttribArray(pos); gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
           ['u_resolution', 'u_time', 'u_color', 'u_mode1', 'u_mode2', 'u_mix', 'u_brightness'].forEach(n => uniforms[n] = gl.getUniformLocation(program, n));
           glReady = true;
         }
@@ -542,7 +412,6 @@
     }
 
     let globalTime = 0, lastTime = performance.now(), mixRatio = 0.0, isTransitioning = false, transitionStart = 0, currentBrightness = 1.0;
-
     function renderLoop(timestamp) {
       if (!isRendering) return; if (!timestamp) timestamp = performance.now();
       const dt = timestamp - lastTime;
@@ -553,42 +422,33 @@
         globalTime += 0.01 * state.speed * (dt / 16.666);
         colorLive.forEach((_, i) => colorLive[i] += (state.colorTarget[i] - colorLive[i]) * 0.05);
         if (isTransitioning) {
-          let progress = Math.min((timestamp - transitionStart) / 1500, 1.0);
-          mixRatio = progress < 0.5 ? 4 * progress ** 3 : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-          if (progress >= 1.0) { isTransitioning = false; currentMode = targetMode; mixRatio = 0.0; }
+          let p = Math.min((timestamp - transitionStart) / 1500, 1.0);
+          mixRatio = p < 0.5 ? 4 * p ** 3 : 1 - Math.pow(-2 * p + 2, 3) / 2;
+          if (p >= 1.0) { isTransitioning = false; currentMode = targetMode; mixRatio = 0.0; }
         }
-
-        const targetBrightness = isHolding ? 1.5 : (document.body.classList.contains('is-idle') ? 0.65 : 1.0);
-        currentBrightness += (targetBrightness - currentBrightness) * 0.05;
-
-        gl.uniform1f(uniforms.u_time, globalTime); 
-        gl.uniform3f(uniforms.u_color, ...colorLive); 
-        gl.uniform1i(uniforms.u_mode1, currentMode); 
-        gl.uniform1i(uniforms.u_mode2, targetMode); 
-        gl.uniform1f(uniforms.u_mix, mixRatio);
-        gl.uniform1f(uniforms.u_brightness, currentBrightness);
+        currentBrightness += ((isHolding ? 1.5 : (document.body.classList.contains('is-idle') ? 0.65 : 1.0)) - currentBrightness) * 0.05;
+        gl.uniform1f(uniforms.u_time, globalTime); gl.uniform3f(uniforms.u_color, ...colorLive); 
+        gl.uniform1i(uniforms.u_mode1, currentMode); gl.uniform1i(uniforms.u_mode2, targetMode); 
+        gl.uniform1f(uniforms.u_mix, mixRatio); gl.uniform1f(uniforms.u_brightness, currentBrightness);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
       requestAnimationFrame(renderLoop);
     }
     requestAnimationFrame(renderLoop);
 
-    // --- Dynamic Geometry Evasion ---
+    // --- Dynamic Evasion ---
     function updateClockEvasion() {
       if (!panel.classList.contains('active')) {
-        clockLayerObj.style.setProperty('--evade-x', '0px'); clockLayerObj.style.setProperty('--evade-y', '0px'); clockLayerObj.style.setProperty('--evade-scale', '1');
-        return;
+        clockLayerObj.style.setProperty('--evade-x', '0px'); clockLayerObj.style.setProperty('--evade-y', '0px'); clockLayerObj.style.setProperty('--evade-scale', '1'); return;
       }
       const rect = panel.getBoundingClientRect(), ww = window.innerWidth, wh = window.innerHeight;
       if (ww <= 600) {
         clockLayerObj.style.setProperty('--evade-x', '0px'); clockLayerObj.style.setProperty('--evade-y', `${(rect.top / 2) - (wh / 2)}px`); clockLayerObj.style.setProperty('--evade-scale', '0.85');
       } else {
-        const safeGap = 48, availableLeft = rect.right + safeGap, availableRight = ww - safeGap;
-        if (availableLeft < availableRight) {
-          const availableCenter = (availableLeft + availableRight) / 2, evadeX = availableCenter - (ww / 2);
-          const availableWidth = availableRight - availableLeft, currentClockWidth = clockElement.offsetWidth || 1;
-          const evadeScale = Math.min(0.95, availableWidth / currentClockWidth);
-          clockLayerObj.style.setProperty('--evade-x', `${evadeX}px`); clockLayerObj.style.setProperty('--evade-y', '0px'); clockLayerObj.style.setProperty('--evade-scale', evadeScale.toFixed(3));
+        const gap = 48, availL = rect.right + gap, availR = ww - gap;
+        if (availL < availR) {
+          clockLayerObj.style.setProperty('--evade-x', `${((availL + availR) / 2) - (ww / 2)}px`); clockLayerObj.style.setProperty('--evade-y', '0px'); 
+          clockLayerObj.style.setProperty('--evade-scale', Math.min(0.95, (availR - availL) / (document.getElementById('clock').offsetWidth || 1)).toFixed(3));
         } else {
           clockLayerObj.style.setProperty('--evade-x', '0px'); clockLayerObj.style.setProperty('--evade-y', '0px'); clockLayerObj.style.setProperty('--evade-scale', '0.9');
         }
@@ -598,70 +458,45 @@
     // --- Global Event Delegation ---
     document.addEventListener('input', e => {
       if (e.target.type === 'range') clockLayerObj.style.transition = 'none';
-
       const entry = Object.entries(UI_BINDINGS).find(([, b]) => b.id === e.target.id);
       if (entry) {
-        const [k, b] = entry;
-        state[k] = b.prop === 'value' ? parseFloat(e.target[b.prop]) : e.target[b.prop];
+        const [k, b] = entry; state[k] = b.prop === 'value' ? parseFloat(e.target[b.prop]) : e.target[b.prop];
         if (b.cssVar) root.style.setProperty(b.cssVar, b.format ? b.format(state[k]) : state[k]);
         if (e.target.type === 'range') updateSliderFill(e.target);
-        if (k === 'is24Hour' || k === 'showSeconds') { lastTimeStr = ""; updateClock(); }
+        if (k === 'is24Hour' || k === 'showSeconds') { lastTimeStr = ""; updateClock(); syncUI(); }
         saveSettings(); wakeUp();
-      }
-      if (e.target.id === 'custom-color-input') {
-        document.querySelectorAll('.swatch-wrapper').forEach(s => s.classList.remove('active'));
-        const wrapper = document.getElementById('custom-swatch-wrapper'), colorEl = document.getElementById('custom-swatch-color');
-        wrapper.classList.add('active'); state.colorTarget = hexToRgb(e.target.value);
-        colorEl.style.background = e.target.value; colorEl.classList.add('has-color');
-        saveSettings(); wakeUp();
+      } else if (e.target.id === 'custom-color-input') {
+        state.colorTarget = hexToRgb(e.target.value); syncUI(); saveSettings(); wakeUp();
       }
       updateClockEvasion();
     });
 
-    const restoreClockTransition = () => { clockLayerObj.style.transition = ''; };
+    const restoreClockTransition = () => clockLayerObj.style.transition = '';
     window.addEventListener('pointerup', restoreClockTransition, { passive: true });
     window.addEventListener('keyup', restoreClockTransition, { passive: true });
 
     document.addEventListener('click', e => {
       const segBtn = e.target.closest('.segment-btn'), swatch = e.target.closest('.swatch-wrapper[data-rgb]');
-      const btnSettings = e.target.closest('#btn-settings'), btnFullscreen = e.target.closest('#btn-fullscreen');
-      const inPanel = e.target.closest('.settings-panel'), customColorInput = e.target.closest('#custom-color-input');
-
       if (segBtn && !segBtn.classList.contains('active')) {
-        const container = segBtn.closest('.segmented-control');
-        const prop = container.dataset.prop, val = parseInt(segBtn.dataset.value);
-        state[prop] = val;
-
-        container.querySelectorAll('.segment-btn').forEach(b => b.classList.toggle('active', b === segBtn));
-        const idx = Array.from(container.querySelectorAll('.segment-btn')).indexOf(segBtn);
-        container.querySelector('.segmented-highlight').style.transform = `translateX(${idx * 100}%)`;
-
-        if (prop === 'mode') {
-          targetMode = val; isTransitioning = true; transitionStart = performance.now();
-        } else if (prop === 'clockAnimMode') {
-          lastTimeStr = ""; updateClock(); 
-        }
+        const prop = segBtn.closest('.segmented-control').dataset.prop, val = parseInt(segBtn.dataset.value);
+        state[prop] = val; syncUI();
+        if (prop === 'mode') { targetMode = val; isTransitioning = true; transitionStart = performance.now(); } 
+        else if (prop === 'clockAnimMode') { lastTimeStr = ""; updateClock(); }
         saveSettings();
       } else if (swatch) {
-        document.querySelectorAll('.swatch-wrapper').forEach(s => s.classList.remove('active'));
-        swatch.classList.add('active'); state.colorTarget = swatch.dataset.rgb.split(',').map(Number);
-        const customColorEl = document.getElementById('custom-swatch-color');
-        customColorEl.style.background = ''; customColorEl.classList.remove('has-color');
-        saveSettings();
-      } else if (btnSettings) {
-        panel.classList.toggle('active'); document.body.classList.toggle('panel-open', panel.classList.contains('active'));
-        updateClockEvasion();
-      } else if (btnFullscreen) {
+        state.colorTarget = swatch.dataset.rgb.split(',').map(Number); syncUI(); saveSettings();
+      } else if (e.target.closest('#btn-settings')) {
+        panel.classList.toggle('active'); updateClockEvasion();
+      } else if (e.target.closest('#btn-fullscreen')) {
         if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); else if (document.exitFullscreen) document.exitFullscreen();
-      } else if (!inPanel && !customColorInput && panel.classList.contains('active')) {
-        panel.classList.remove('active'); document.body.classList.remove('panel-open'); updateClockEvasion();
+      } else if (!e.target.closest('.settings-panel') && !e.target.closest('#custom-color-input') && panel.classList.contains('active')) {
+        panel.classList.remove('active'); updateClockEvasion();
       }
       wakeUp();
     });
 
     window.addEventListener('resize', () => {
-      const isFS = (window.innerHeight >= window.screen.height - 1) || !!document.fullscreenElement;
-      document.body.classList.toggle('is-fullscreen', isFS);
+      document.body.classList.toggle('is-fullscreen', (window.innerHeight >= window.screen.height - 1) || !!document.fullscreenElement);
       if (glReady) {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         canvas.width = window.innerWidth * dpr; canvas.height = window.innerHeight * dpr;
@@ -673,40 +508,26 @@
     document.addEventListener('fullscreenchange', () => window.dispatchEvent(new Event('resize')));
 
     let idleTimer, lastWake = 0;
-    function setIdle() { 
-      if(!document.body.classList.contains('is-idle')) { 
-        document.body.classList.add('is-idle'); panel.classList.remove('active'); document.body.classList.remove('panel-open'); 
-        if (document.activeElement) document.activeElement.blur(); 
-        updateClockEvasion();
-      } 
-    }
-    function wakeUp() { 
-      const now = Date.now(); if (now - lastWake < 150) return; lastWake = now;
-      if(document.body.classList.contains('is-idle')) document.body.classList.remove('is-idle'); 
-      clearTimeout(idleTimer); idleTimer = setTimeout(setIdle, 3000); 
-    }
+    function setIdle() { if(!document.body.classList.contains('is-idle')) { document.body.classList.add('is-idle'); panel.classList.remove('active'); if (document.activeElement) document.activeElement.blur(); updateClockEvasion(); } }
+    function wakeUp() { const now = Date.now(); if (now - lastWake < 150) return; lastWake = now; document.body.classList.remove('is-idle'); clearTimeout(idleTimer); idleTimer = setTimeout(setIdle, 3000); }
     ['mousemove', 'pointermove', 'touchstart', 'keydown'].forEach(evt => window.addEventListener(evt, wakeUp, { passive: true }));
 
     // --- Hold-to-Confirm ---
     let holdTimeout, isHolding = false, touchStartX = 0, touchStartY = 0;
     const toggleExit = (isStarting) => {
-        if (isHolding === isStarting) return;
-        isHolding = isStarting;
-        bgLayer.classList.toggle('exiting', isStarting); clockLayerObj.classList.toggle('exiting', isStarting);
+        if (isHolding === isStarting) return; isHolding = isStarting;
+        document.getElementById('bg-layer').classList.toggle('exiting', isStarting); clockLayerObj.classList.toggle('exiting', isStarting);
         if (isStarting) { holdTimeout = setTimeout(() => { isHolding = false; document.body.classList.add('disconnected'); setTimeout(() => { try { window.close(); } catch (err) {} }, 800); }, 2000); } 
         else clearTimeout(holdTimeout);
     };
-
     document.addEventListener('keydown', e => { if (e.target.tagName !== 'INPUT' && e.code === 'Space') { e.preventDefault(); if (!e.repeat) toggleExit(true); } });
-    document.addEventListener('keyup', e => { if (e.code === 'Space') toggleExit(false); });
-    window.addEventListener('blur', () => toggleExit(false));
+    document.addEventListener('keyup', e => { if (e.code === 'Space') toggleExit(false); }); window.addEventListener('blur', () => toggleExit(false));
     document.addEventListener('touchstart', e => { if (!e.target.closest('button, .settings-panel, .swatch-wrapper, input')) { touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; toggleExit(true); } }, { passive: true });
     document.addEventListener('touchmove', e => { if (isHolding && (Math.abs(e.touches[0].clientX - touchStartX) > 15 || Math.abs(e.touches[0].clientY - touchStartY) > 15)) toggleExit(false); }, { passive: true });
     ['touchend', 'touchcancel'].forEach(evt => document.addEventListener(evt, () => toggleExit(false)));
 
     // --- Boot Sequence ---
-    requestWakeLock(); loadSettings(); updateClock(); wakeUp(); window.dispatchEvent(new Event('resize'));
-    document.querySelectorAll('input[type="range"]').forEach(updateSliderFill);
+    UI_INIT(); requestWakeLock(); loadSettings(); updateClock(); wakeUp(); window.dispatchEvent(new Event('resize'));
     requestAnimationFrame(() => requestAnimationFrame(() => { document.body.classList.remove('no-transitions'); updateClockEvasion(); }));
   </script>
 </body>
