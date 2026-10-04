@@ -10,7 +10,7 @@
 >
 > **English**: An Apple-inspired ambient web screensaver and digital timepiece engineered with **Emil Kowalski's interaction & motion principles**. Powered by raw WebGL GLSL fragment shaders, sub-pixel dithering, character-level number tickers, geometry-aware dynamic evasion, and zero external dependencies.
 
-[體驗線上展示 (Live Demo)](#) https://cool-chi.github.io/ambient-aurora/
+[體驗線上展示 (Live Demo)](https://cool-chi.github.io/ambient-aurora/)
 
 ---
 
