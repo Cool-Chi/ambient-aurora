@@ -7,7 +7,7 @@
   <title>Ambient Fluid Aurora - WebGL Pro</title>
   <style>
     :root {
-      /* Emil Kowalski Easing Tokens */
+      /* Emil Kowalski Easing Tokens[cite: 1] */
       --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
       --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
       
@@ -36,16 +36,13 @@
        ========================================= */
     .background-layer {
       position: absolute; inset: 0; overflow: hidden; pointer-events: none;
-      transition: filter 1500ms var(--ease-in-out), transform 1500ms var(--ease-in-out);
+      transition: transform 1500ms var(--ease-in-out);
     }
-    body.is-idle .background-layer { filter: brightness(0.65); }
-    body .background-layer.exiting { transition: filter 2s linear, transform 2s linear; transform: scale(1.15); filter: brightness(1.5) contrast(1.2); }
-
-    .gl-canvas { width: 100%; height: 100%; display: block; transition: filter 1500ms var(--ease-in-out); }
-    .gl-canvas.crossfading { filter: blur(12px); }
+    body .background-layer.exiting { transition: transform 2s linear; transform: scale(1.15); }
+    .gl-canvas { width: 100%; height: 100%; display: block; }
 
     /* =========================================
-       2. 時鐘與日期層 (Drop-shadow 渲染剝離)
+       2. 時鐘與日期層
        ========================================= */
     .clock-layer {
       position: absolute; inset: 0; display: flex; flex-direction: column;
@@ -63,20 +60,16 @@
     #clock {
       margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; overflow-wrap: normal;
       font-size: var(--clock-size); font-weight: var(--clock-weight); color: rgba(255, 255, 255, 0.9);
-      letter-spacing: -0.03em; 
-      display: flex; justify-content: center; align-items: center;
-      
-      /* 徹底根除殘影：廢棄 text-shadow，將陰影提升至父層做 drop-shadow 統一渲染 */
-      text-shadow: none;
-      filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 4px rgba(255, 255, 255, 0.2));
+      letter-spacing: -0.03em; display: flex; justify-content: center; align-items: center;
+      text-shadow: none; filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 4px rgba(255, 255, 255, 0.2));
     }
     
     #clock span {
-      position: relative; display: inline-flex; flex-direction: column;
-      align-items: center; justify-content: center; vertical-align: bottom;
-      /* 確保子元素不自帶陰影 */
-      text-shadow: none;
+      position: relative; display: inline-grid; place-items: center; vertical-align: bottom;
+      clip-path: inset(0 -40px 0 -40px); height: 1em; line-height: 1; text-shadow: none;
     }
+    .digit-old, .digit-new { grid-area: 1 / 1; position: relative !important; width: 100%; display: flex; align-items: center; justify-content: center; }
+    .digit-new { opacity: 0; }
 
     .date-display {
       margin-top: 0.25em; font-size: calc(var(--clock-size) * 0.22); font-weight: var(--clock-weight);
@@ -127,18 +120,16 @@
       scrollbar-width: none; -ms-overflow-style: none;
     }
     .settings-panel::-webkit-scrollbar { display: none; }
-    
     .settings-panel.active { opacity: 1; transform: scale(1); visibility: visible; }
     body.is-fullscreen .settings-panel.active { opacity: 1; transform: scale(1); }
 
     @media (max-width: 600px) {
       .settings-panel {
         left: 16px; right: 16px; width: auto; bottom: calc(env(safe-area-inset-bottom, 24px) + 84px);
-        max-height: 55vh; overflow-y: auto; transform-origin: bottom center;
+        max-height: 60vh; overflow-y: auto; transform-origin: bottom center;
       }
     }
 
-    /* iOS 卡片群組 (Block) */
     .settings-block { background: rgba(255, 255, 255, 0.06); border-radius: 12px; overflow: hidden; flex-shrink: 0; }
     
     .settings-row {
@@ -146,21 +137,46 @@
       min-height: 44px; padding: 0 16px; border-bottom: 0.5px solid rgba(255, 255, 255, 0.12);
     }
     .settings-row:last-child { border-bottom: none; }
-    
-    .row-label { font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.85); flex-shrink: 0; }
-    .slider-row .row-label { width: 60px; } /* 拉桿行的固定寬度 */
+    .row-label { font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.85); flex-shrink: 0; width: auto; flex: 1; }
+
+    /* Apple iOS Slider Style 重構 */
+    .slider-row {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 44px; padding: 0 16px; border-bottom: 0.5px solid rgba(255, 255, 255, 0.12);
+    }
+    .slider-row:last-child { border-bottom: none; }
+    .slider-icon {
+      width: 16px; height: 16px; fill: none; stroke: rgba(255, 255, 255, 0.5); 
+      stroke-width: 2; flex-shrink: 0;
+    }
+    .slider-icon.max-icon { width: 22px; height: 22px; }
+    .range-container {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      margin: 0 16px; height: 44px;
+    }
+
+    input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; margin: 0; cursor: grab; height: 36px; --val: 50%; }
+    input[type=range]:focus { outline: none; }
+    input[type=range]::-webkit-slider-runnable-track { 
+      width: 100%; height: 4px; border-radius: 2px; background: linear-gradient(to right, #fff var(--val), rgba(255, 255, 255, 0.15) var(--val));
+    }
+    input[type=range]::-webkit-slider-thumb { 
+      -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: #ffffff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); 
+      margin-top: -8px; transition: transform 160ms var(--ease-out); 
+    }
+    input[type=range]::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(0.9); }
 
     /* 微縮內聯 Segmented Control */
+    .top-nav-group { display: flex; flex-direction: column; gap: 8px; }
     .segmented-control {
       position: relative; display: flex; background: rgba(0, 0, 0, 0.25);
-      border-radius: 8px; box-sizing: border-box;
-      box-shadow: inset 0 1px 2px rgba(0,0,0,0.2); 
+      border-radius: 6px; box-sizing: border-box; box-shadow: inset 0 1px 2px rgba(0,0,0,0.2); 
     }
     .inline-seg { flex: 0 0 150px; height: 28px; padding: 2px; }
     
     .segmented-highlight {
       position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc(33.333% - 1.33px);
-      background: rgba(255, 255, 255, 0.15); border-radius: 6px; transition: transform 250ms var(--ease-out); pointer-events: none;
+      background: rgba(255, 255, 255, 0.15); border-radius: 4px; transition: transform 250ms var(--ease-out); pointer-events: none;
       box-shadow: 0 3px 8px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
     }
     .segment-btn {
@@ -172,41 +188,25 @@
     .segment-btn.active { color: #fff; }
     .segment-btn:active { transform: scale(0.95); }
 
-    /* Apple Color Ring 與呼吸外環 */
-    .swatches-container { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
+    /* Apple Color Ring 與微縮色盤 */
+    .swatches-container { display: flex; gap: 4px; align-items: center; justify-content: flex-end; height: 44px; flex: 1; }
     .swatch-wrapper { 
-      position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; 
+      position: relative; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; 
       background: transparent; border: 2px solid transparent; padding: 2px; border-radius: 50%; 
       cursor: pointer; outline: none; flex-shrink: 0; transition: transform 160ms var(--ease-out), border-color 200ms var(--ease-out);
     }
-    .swatch-wrapper::before { content: ''; position: absolute; top: -6px; left: -6px; right: -6px; bottom: -6px; }
+    /* 確保 44px 觸控防禦熱區 */
+    .swatch-wrapper::before { content: ''; position: absolute; top: -8px; left: -8px; right: -8px; bottom: -8px; }
     .swatch-color { width: 100%; height: 100%; border-radius: 50%; transition: transform 150ms var(--ease-out); }
     .swatch-wrapper:active { transform: scale(0.85); }
     .swatch-wrapper.active { border-color: rgba(255, 255, 255, 0.8); }
 
-    .custom-swatch-color {
-      background: rgba(255, 255, 255, 0.1); position: relative; transition: background 200ms var(--ease-out);
-    }
-    .custom-swatch-color::before, .custom-swatch-color::after {
-      content: ''; position: absolute; background: #fff; top: 50%; left: 50%; transform: translate(-50%, -50%); transition: opacity 200ms;
-    }
+    .custom-swatch-color { background: rgba(255, 255, 255, 0.1); position: relative; transition: background 200ms var(--ease-out); }
+    .custom-swatch-color::before, .custom-swatch-color::after { content: ''; position: absolute; background: #fff; top: 50%; left: 50%; transform: translate(-50%, -50%); transition: opacity 200ms; }
     .custom-swatch-color::before { width: 12px; height: 2px; border-radius: 1px; }
     .custom-swatch-color::after { width: 2px; height: 12px; border-radius: 1px; }
     .custom-swatch-color.has-color::before, .custom-swatch-color.has-color::after { opacity: 0; }
-    #custom-color-input { opacity: 0; position: absolute; inset: -6px; width: 44px; height: 44px; cursor: pointer; z-index: 10; padding: 0; border: none; }
-
-    /* 原生拉桿與 Active Track */
-    .range-container { flex: 1; display: flex; align-items: center; justify-content: flex-end; height: 44px; margin-left: 12px; }
-    input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; margin: 0; cursor: grab; height: 36px; --val: 50%; }
-    input[type=range]:focus { outline: none; }
-    input[type=range]::-webkit-slider-runnable-track { 
-      width: 100%; height: 4px; border-radius: 2px; background: linear-gradient(to right, #fff var(--val), rgba(255, 255, 255, 0.15) var(--val));
-    }
-    input[type=range]::-webkit-slider-thumb { 
-      -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: #ffffff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); 
-      margin-top: -8px; transition: transform 160ms var(--ease-out); 
-    }
-    input[type=range]::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(0.9); }
+    #custom-color-input { opacity: 0; position: absolute; inset: -8px; width: 44px; height: 44px; cursor: pointer; z-index: 10; padding: 0; border: none; }
 
     /* Apple 比例 Toggle Switch */
     .toggle-switch {
@@ -248,15 +248,15 @@
       <!-- Block 1: Time & Display -->
       <div class="settings-block">
         <div class="settings-row">
-          <span class="row-label">24-Hour Time</span>
+          <span class="row-label auto-w">24-Hour Time</span>
           <input type="checkbox" id="ctrl-24hr" class="toggle-switch" checked>
         </div>
         <div class="settings-row">
-          <span class="row-label">Show Seconds</span>
+          <span class="row-label auto-w">Show Seconds</span>
           <input type="checkbox" id="ctrl-seconds" class="toggle-switch">
         </div>
         <div class="settings-row">
-          <span class="row-label">Tick Anim</span>
+          <span class="row-label auto-w">Tick Anim</span>
           <div class="segmented-control inline-seg" data-prop="clockAnimMode" role="radiogroup">
             <div class="segmented-highlight"></div>
             <button class="segment-btn active" data-value="0">Inst</button>
@@ -269,7 +269,7 @@
       <!-- Block 2: Style -->
       <div class="settings-block">
         <div class="settings-row">
-          <span class="row-label">Mode</span>
+          <span class="row-label auto-w">Mode</span>
           <div class="segmented-control inline-seg" data-prop="mode" role="radiogroup">
             <div class="segmented-highlight"></div>
             <button class="segment-btn active" data-value="1">Silk</button>
@@ -278,7 +278,7 @@
           </div>
         </div>
         <div class="settings-row">
-          <span class="row-label">Theme</span>
+          <span class="row-label auto-w">Theme</span>
           <div class="swatches-container">
             <button class="swatch-wrapper active" data-rgb="0.21,0.11,0.47" aria-label="Midnight Purple">
               <div class="swatch-color" style="background: linear-gradient(135deg, #371e78, #0a0a0a);"></div>
@@ -292,6 +292,12 @@
             <button class="swatch-wrapper" data-rgb="0.47,0.14,0.11" aria-label="Sunset Orange">
               <div class="swatch-color" style="background: linear-gradient(135deg, #78261e, #0a0a0a);"></div>
             </button>
+            <button class="swatch-wrapper" data-rgb="0.45,0.05,0.15" aria-label="Crimson Velvet">
+              <div class="swatch-color" style="background: linear-gradient(135deg, #a31636, #0a0a0a);"></div>
+            </button>
+            <button class="swatch-wrapper" data-rgb="0.02,0.35,0.45" aria-label="Cyber Cyan">
+              <div class="swatch-color" style="background: linear-gradient(135deg, #0a82a8, #0a0a0a);"></div>
+            </button>
             <div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color">
               <div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div>
               <input type="color" id="custom-color-input" value="#ffffff" aria-label="Pick custom color">
@@ -300,19 +306,28 @@
         </div>
       </div>
 
-      <!-- Block 3: Adjustments -->
+      <!-- Block 3: Adjustments (Apple iOS Slider Style) -->
       <div class="settings-block">
-        <div class="settings-row slider-row">
-          <span class="row-label">Size</span>
-          <div class="range-container"><input type="range" id="ctrl-size" min="5" max="35" step="0.5" value="15"></div>
+        <div class="slider-row" aria-label="Size">
+          <svg class="slider-icon min-icon" viewBox="0 0 24 24"><path d="M12 6L8 18M12 6L16 18M9.5 14H14.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="range-container">
+            <input type="range" id="ctrl-size" min="5" max="35" step="1" value="15" aria-label="Size">
+          </div>
+          <svg class="slider-icon max-icon" viewBox="0 0 24 24"><path d="M12 3L5 21M12 3L19 21M8 15H16" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
-        <div class="settings-row slider-row">
-          <span class="row-label">Weight</span>
-          <div class="range-container"><input type="range" id="ctrl-weight" min="100" max="900" step="100" value="200"></div>
+        <div class="slider-row" aria-label="Weight">
+          <svg class="slider-icon min-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke-width="1"/></svg>
+          <div class="range-container">
+            <input type="range" id="ctrl-weight" min="100" max="900" step="100" value="200" aria-label="Weight">
+          </div>
+          <svg class="slider-icon max-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke-width="4"/></svg>
         </div>
-        <div class="settings-row slider-row">
-          <span class="row-label">Speed</span>
-          <div class="range-container"><input type="range" id="ctrl-speed" min="0.2" max="3" step="0.1" value="1"></div>
+        <div class="slider-row" aria-label="Speed">
+          <svg class="slider-icon min-icon" viewBox="0 0 24 24"><path d="M4 12h10M4 8h6M4 16h8" stroke-linecap="round"/></svg>
+          <div class="range-container">
+            <input type="range" id="ctrl-speed" min="0.1" max="4" step="0.01" value="1" aria-label="Speed">
+          </div>
+          <svg class="slider-icon max-icon" viewBox="0 0 24 24"><path d="M2 12h16M2 8h12M2 16h14M18 12a2 2 0 1 0-2-2M14 8a2 2 0 1 0-2-2M16 16a2 2 0 1 1-2 2" stroke-linecap="round"/></svg>
         </div>
       </div>
 
@@ -398,14 +413,21 @@
       }
     }
 
-    // --- Energy Saving & Zero-Artifact Character-level Clock Engine ---
+    // --- Energy Saving & Zero-Artifact Clock Engine ---
     let wakeLock = null, isRendering = true;
-    async function requestWakeLock() { try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch(e){} }
+    async function requestWakeLock() { 
+      if (wakeLock) { await wakeLock.release().catch(()=>{}); wakeLock = null; }
+      try { if ('wakeLock' in navigator && !document.hidden) wakeLock = await navigator.wakeLock.request('screen'); } catch(e){} 
+    }
+    
     document.addEventListener('visibilitychange', () => {
       isRendering = !document.hidden;
-      if (isRendering) { if (wakeLock) requestWakeLock(); lastTime = performance.now(); requestAnimationFrame(renderLoop); updateClock(); }
+      if (isRendering) { 
+        requestWakeLock(); lastTime = performance.now(); requestAnimationFrame(renderLoop); updateClock(); 
+      } else {
+        if (wakeLock) { wakeLock.release().catch(()=>{}); wakeLock = null; }
+      }
     });
-    requestWakeLock();
 
     const locale = navigator.language || 'zh-TW', dateOpts = { month: 'long', day: 'numeric', weekday: 'long' };
     let lastTimeStr = "";
@@ -419,41 +441,28 @@
       
       if (lastTimeStr !== timeStr) {
         if (clockElement.children.length !== timeStr.length) {
-          clockElement.innerHTML = timeStr.split('').map(c => `<span>${c}</span>`).join('');
+          clockElement.innerHTML = timeStr.split('').map(c => `<span><div class="digit-old">${c}</div><div class="digit-new"></div></span>`).join('');
         } else {
           for (let i = 0; i < timeStr.length; i++) {
             const newC = timeStr[i];
             const oldC = lastTimeStr[i];
             if (newC !== oldC) {
               const span = clockElement.children[i];
-              if (state.clockAnimMode === 0) { // Instant
-                span.textContent = newC;
-              } else if (state.clockAnimMode === 1) { // Smooth
-                span.textContent = newC;
-                span.animate([
+              const oldEl = span.querySelector('.digit-old');
+              const newEl = span.querySelector('.digit-new');
+
+              if (state.clockAnimMode === 0) { 
+                oldEl.textContent = newC;
+              } else if (state.clockAnimMode === 1) { 
+                oldEl.textContent = newC;
+                oldEl.animate([
                   { opacity: 0, transform: 'scale(0.95) translateY(-4px)' },
                   { opacity: 1, transform: 'scale(1) translateY(0)' }
                 ], { duration: 300, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
-              } else if (state.clockAnimMode === 2) { // Roll (純淨裁切防禦)
-                span.style.overflow = 'hidden';
-                span.style.height = '1em';
-                span.style.lineHeight = '1';
-                
-                const oldEl = document.createElement('span');
-                oldEl.textContent = oldC; 
-                oldEl.style.position = 'absolute';
-                oldEl.style.left = '0';
-                oldEl.style.width = '100%';
-                oldEl.style.textAlign = 'center';
-                
-                const newEl = document.createElement('span');
+              } else if (state.clockAnimMode === 2) { 
+                oldEl.textContent = oldC;
                 newEl.textContent = newC;
-                newEl.style.display = 'inline-block';
-                newEl.style.opacity = '0';
-                
-                span.innerHTML = ''; 
-                span.appendChild(oldEl); 
-                span.appendChild(newEl);
+                newEl.style.opacity = '1';
                 
                 const opts = { duration: 300, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' };
                 oldEl.animate([
@@ -466,9 +475,10 @@
                 ], opts);
                 
                 anim.onfinish = () => { 
-                  span.textContent = newC; 
-                  span.style.overflow = 'visible'; 
-                  span.style.height = 'auto'; 
+                  oldEl.textContent = newC;
+                  oldEl.style.transform = 'translateY(0)';
+                  oldEl.style.opacity = '1';
+                  newEl.style.opacity = '0';
                 };
               }
             }
@@ -482,7 +492,7 @@
       setTimeout(updateClock, 1000 - (Date.now() % 1000));
     }
 
-    // --- WebGL Engine ---
+    // --- High Performance WebGL Engine ---
     const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
     function compileShader(gl, source, type) {
       const shader = gl.createShader(type); gl.shaderSource(shader, source); gl.compileShader(shader);
@@ -492,7 +502,10 @@
     
     const vsSource = `attribute vec2 position; void main() { gl_Position = vec4(position, 0.0, 1.0); }`;
     const fsSource = `
-      precision highp float; uniform vec2 u_resolution; uniform float u_time; uniform vec3 u_color; uniform int u_mode1; uniform int u_mode2; uniform float u_mix;
+      precision highp float; 
+      uniform vec2 u_resolution; uniform float u_time; uniform vec3 u_color; 
+      uniform int u_mode1; uniform int u_mode2; uniform float u_mix; uniform float u_brightness;
+      
       float hash(float n) { return fract(sin(n) * 43758.5453); }
       float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
       float noise(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); vec2 u = f*f*(3.0-2.0*f); return mix(mix(hash(i + vec2(0.0,0.0)), hash(i + vec2(1.0,0.0)), u.x), mix(hash(i + vec2(0.0,1.0)), hash(i + vec2(1.0,1.0)), u.x), u.y); }
@@ -503,7 +516,15 @@
       vec3 renderStardust(vec2 uv) { vec2 p = (uv - 0.5) * 2.0; p.x *= u_resolution.x / u_resolution.y; float nebula = pow((fbm(p * 1.5 - u_time * 0.05) * 0.6 + fbm(p * 3.0 + u_time * 0.08) * 0.4), 2.5) * 1.5; vec2 grid = p * 20.0; vec2 id = floor(grid); vec2 fv = fract(grid) - 0.5; float dist = length(fv - (vec2(hash(id + vec2(1.3, 7.1)), hash(id + vec2(7.1, 1.3))) - 0.5)); float star = smoothstep(0.12, 0.0, dist) * (sin(u_time * 2.0 + hash(dot(id, vec2(1.0, 25.0))) * 25.0) * 0.5 + 0.5) * step(0.7, hash(dot(id, vec2(3.7, 1.7)))); return (u_color * nebula + vec3(star * 0.8)) * (1.0 - length(p) * 0.4); }
       vec3 getModeColor(int mode, vec2 uv) { if (mode == 1) return renderSilk(uv); if (mode == 2) return renderIntelligence(uv); if (mode == 3) return renderStardust(uv); return vec3(0.0); }
       
-      void main() { vec2 uv = gl_FragCoord.xy / u_resolution.xy; vec3 finalColor = mix(getModeColor(u_mode1, uv), getModeColor(u_mode2, uv), u_mix); finalColor += vec3((fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453) - 0.5) * 0.008); gl_FragColor = vec4(finalColor, 1.0); }
+      void main() { 
+          vec2 uv = gl_FragCoord.xy / u_resolution.xy; 
+          vec3 finalColor;
+          if (u_mix <= 0.0) { finalColor = getModeColor(u_mode1, uv); } 
+          else if (u_mix >= 1.0) { finalColor = getModeColor(u_mode2, uv); } 
+          else { finalColor = mix(getModeColor(u_mode1, uv), getModeColor(u_mode2, uv), u_mix); }
+          finalColor += vec3((fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453) - 0.5) * 0.008); 
+          gl_FragColor = vec4(finalColor * u_brightness, 1.0); 
+      }
     `;
     
     if (gl) {
@@ -514,26 +535,38 @@
           gl.useProgram(program);
           const positionBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
           const posAttr = gl.getAttribLocation(program, 'position'); gl.enableVertexAttribArray(posAttr); gl.vertexAttribPointer(posAttr, 2, gl.FLOAT, false, 0, 0);
-          ['u_resolution', 'u_time', 'u_color', 'u_mode1', 'u_mode2', 'u_mix'].forEach(n => uniforms[n] = gl.getUniformLocation(program, n));
+          ['u_resolution', 'u_time', 'u_color', 'u_mode1', 'u_mode2', 'u_mix', 'u_brightness'].forEach(n => uniforms[n] = gl.getUniformLocation(program, n));
           glReady = true;
         }
       }
     }
 
-    let globalTime = 0, lastTime = performance.now(), mixRatio = 0.0, isTransitioning = false, transitionStart = 0;
+    let globalTime = 0, lastTime = performance.now(), mixRatio = 0.0, isTransitioning = false, transitionStart = 0, currentBrightness = 1.0;
+
     function renderLoop(timestamp) {
       if (!isRendering) return; if (!timestamp) timestamp = performance.now();
-      const dt = timestamp - lastTime; lastTime = timestamp;
+      const dt = timestamp - lastTime;
+      if (document.body.classList.contains('is-idle') && dt < 33.3) { requestAnimationFrame(renderLoop); return; }
+      lastTime = timestamp;
+      
       if (glReady) {
         globalTime += 0.01 * state.speed * (dt / 16.666);
         colorLive.forEach((_, i) => colorLive[i] += (state.colorTarget[i] - colorLive[i]) * 0.05);
         if (isTransitioning) {
           let progress = Math.min((timestamp - transitionStart) / 1500, 1.0);
           mixRatio = progress < 0.5 ? 4 * progress ** 3 : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-          if (progress >= 1.0) { isTransitioning = false; currentMode = targetMode; mixRatio = 0.0; canvas.classList.remove('crossfading'); }
+          if (progress >= 1.0) { isTransitioning = false; currentMode = targetMode; mixRatio = 0.0; }
         }
-        gl.uniform1f(uniforms.u_time, globalTime); gl.uniform3f(uniforms.u_color, ...colorLive); 
-        gl.uniform1i(uniforms.u_mode1, currentMode); gl.uniform1i(uniforms.u_mode2, targetMode); gl.uniform1f(uniforms.u_mix, mixRatio);
+
+        const targetBrightness = isHolding ? 1.5 : (document.body.classList.contains('is-idle') ? 0.65 : 1.0);
+        currentBrightness += (targetBrightness - currentBrightness) * 0.05;
+
+        gl.uniform1f(uniforms.u_time, globalTime); 
+        gl.uniform3f(uniforms.u_color, ...colorLive); 
+        gl.uniform1i(uniforms.u_mode1, currentMode); 
+        gl.uniform1i(uniforms.u_mode2, targetMode); 
+        gl.uniform1f(uniforms.u_mix, mixRatio);
+        gl.uniform1f(uniforms.u_brightness, currentBrightness);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
       requestAnimationFrame(renderLoop);
@@ -550,8 +583,12 @@
       if (ww <= 600) {
         clockLayerObj.style.setProperty('--evade-x', '0px'); clockLayerObj.style.setProperty('--evade-y', `${(rect.top / 2) - (wh / 2)}px`); clockLayerObj.style.setProperty('--evade-scale', '0.85');
       } else {
-        if (rect.right + 40 > (ww / 2) - 150) {
-          clockLayerObj.style.setProperty('--evade-x', `${((ww + rect.right) / 2) - (ww / 2)}px`); clockLayerObj.style.setProperty('--evade-y', `${-wh * 0.08}px`); clockLayerObj.style.setProperty('--evade-scale', '0.85');
+        const safeGap = 48, availableLeft = rect.right + safeGap, availableRight = ww - safeGap;
+        if (availableLeft < availableRight) {
+          const availableCenter = (availableLeft + availableRight) / 2, evadeX = availableCenter - (ww / 2);
+          const availableWidth = availableRight - availableLeft, currentClockWidth = clockElement.offsetWidth || 1;
+          const evadeScale = Math.min(0.95, availableWidth / currentClockWidth);
+          clockLayerObj.style.setProperty('--evade-x', `${evadeX}px`); clockLayerObj.style.setProperty('--evade-y', '0px'); clockLayerObj.style.setProperty('--evade-scale', evadeScale.toFixed(3));
         } else {
           clockLayerObj.style.setProperty('--evade-x', '0px'); clockLayerObj.style.setProperty('--evade-y', '0px'); clockLayerObj.style.setProperty('--evade-scale', '0.9');
         }
@@ -560,6 +597,8 @@
 
     // --- Global Event Delegation ---
     document.addEventListener('input', e => {
+      if (e.target.type === 'range') clockLayerObj.style.transition = 'none';
+
       const entry = Object.entries(UI_BINDINGS).find(([, b]) => b.id === e.target.id);
       if (entry) {
         const [k, b] = entry;
@@ -571,15 +610,17 @@
       }
       if (e.target.id === 'custom-color-input') {
         document.querySelectorAll('.swatch-wrapper').forEach(s => s.classList.remove('active'));
-        const wrapper = document.getElementById('custom-swatch-wrapper');
-        const colorEl = document.getElementById('custom-swatch-color');
-        wrapper.classList.add('active');
-        state.colorTarget = hexToRgb(e.target.value);
-        colorEl.style.background = e.target.value;
-        colorEl.classList.add('has-color');
+        const wrapper = document.getElementById('custom-swatch-wrapper'), colorEl = document.getElementById('custom-swatch-color');
+        wrapper.classList.add('active'); state.colorTarget = hexToRgb(e.target.value);
+        colorEl.style.background = e.target.value; colorEl.classList.add('has-color');
         saveSettings(); wakeUp();
       }
+      updateClockEvasion();
     });
+
+    const restoreClockTransition = () => { clockLayerObj.style.transition = ''; };
+    window.addEventListener('pointerup', restoreClockTransition, { passive: true });
+    window.addEventListener('keyup', restoreClockTransition, { passive: true });
 
     document.addEventListener('click', e => {
       const segBtn = e.target.closest('.segment-btn'), swatch = e.target.closest('.swatch-wrapper[data-rgb]');
@@ -588,8 +629,7 @@
 
       if (segBtn && !segBtn.classList.contains('active')) {
         const container = segBtn.closest('.segmented-control');
-        const prop = container.dataset.prop;
-        const val = parseInt(segBtn.dataset.value);
+        const prop = container.dataset.prop, val = parseInt(segBtn.dataset.value);
         state[prop] = val;
 
         container.querySelectorAll('.segment-btn').forEach(b => b.classList.toggle('active', b === segBtn));
@@ -597,20 +637,16 @@
         container.querySelector('.segmented-highlight').style.transform = `translateX(${idx * 100}%)`;
 
         if (prop === 'mode') {
-          targetMode = val;
-          isTransitioning = true; transitionStart = performance.now();
-          if (glReady) canvas.classList.add('crossfading');
+          targetMode = val; isTransitioning = true; transitionStart = performance.now();
         } else if (prop === 'clockAnimMode') {
           lastTimeStr = ""; updateClock(); 
         }
         saveSettings();
       } else if (swatch) {
         document.querySelectorAll('.swatch-wrapper').forEach(s => s.classList.remove('active'));
-        swatch.classList.add('active');
-        state.colorTarget = swatch.dataset.rgb.split(',').map(Number);
+        swatch.classList.add('active'); state.colorTarget = swatch.dataset.rgb.split(',').map(Number);
         const customColorEl = document.getElementById('custom-swatch-color');
-        customColorEl.style.background = '';
-        customColorEl.classList.remove('has-color');
+        customColorEl.style.background = ''; customColorEl.classList.remove('has-color');
         saveSettings();
       } else if (btnSettings) {
         panel.classList.toggle('active'); document.body.classList.toggle('panel-open', panel.classList.contains('active'));
@@ -627,7 +663,8 @@
       const isFS = (window.innerHeight >= window.screen.height - 1) || !!document.fullscreenElement;
       document.body.classList.toggle('is-fullscreen', isFS);
       if (glReady) {
-        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = window.innerWidth * dpr; canvas.height = window.innerHeight * dpr;
         gl.viewport(0, 0, canvas.width, canvas.height); gl.uniform2f(uniforms.u_resolution, canvas.width, canvas.height);
       }
       if (panel.classList.contains('active')) updateClockEvasion();
@@ -635,7 +672,7 @@
     });
     document.addEventListener('fullscreenchange', () => window.dispatchEvent(new Event('resize')));
 
-    let idleTimer;
+    let idleTimer, lastWake = 0;
     function setIdle() { 
       if(!document.body.classList.contains('is-idle')) { 
         document.body.classList.add('is-idle'); panel.classList.remove('active'); document.body.classList.remove('panel-open'); 
@@ -644,6 +681,7 @@
       } 
     }
     function wakeUp() { 
+      const now = Date.now(); if (now - lastWake < 150) return; lastWake = now;
       if(document.body.classList.contains('is-idle')) document.body.classList.remove('is-idle'); 
       clearTimeout(idleTimer); idleTimer = setTimeout(setIdle, 3000); 
     }
@@ -667,12 +705,9 @@
     ['touchend', 'touchcancel'].forEach(evt => document.addEventListener(evt, () => toggleExit(false)));
 
     // --- Boot Sequence ---
-    loadSettings(); updateClock(); wakeUp();
-    window.dispatchEvent(new Event('resize'));
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      document.body.classList.remove('no-transitions');
-      updateClockEvasion();
-    }));
+    requestWakeLock(); loadSettings(); updateClock(); wakeUp(); window.dispatchEvent(new Event('resize'));
+    document.querySelectorAll('input[type="range"]').forEach(updateSliderFill);
+    requestAnimationFrame(() => requestAnimationFrame(() => { document.body.classList.remove('no-transitions'); updateClockEvasion(); }));
   </script>
 </body>
 </html>
