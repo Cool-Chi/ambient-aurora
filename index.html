@@ -7,11 +7,14 @@
   <title>Ambient Fluid Aurora - WebGL Pro</title>
   <style>
     :root {
+      /* Emil Kowalski Easing Tokens */
       --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
       --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+      
       --clock-size: clamp(4rem, 15vw, 25vw);
       --clock-weight: 200;
       --bg-color: #000000;
+      
       --clock-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "San Francisco", "Inter", system-ui, sans-serif;
       --clock-color: rgba(255, 255, 255, 0.9);
       --date-color: rgba(255, 255, 255, 0.6);
@@ -79,7 +82,7 @@
 
     .ampm-indicator {
       position: absolute; left: calc(100% + 1vw); bottom: 12%; font-size: 0.25em; font-weight: 500; letter-spacing: 0.05em; 
-      color: rgba(255, 255, 255, 0.6); text-shadow: none; pointer-events: none;
+      color: var(--date-color); text-shadow: none; pointer-events: none; transition: color 500ms;
     }
 
     #clock span {
@@ -125,11 +128,11 @@
     body.is-fullscreen .exit-hint { opacity: 1; }
 
     /* =========================================
-       4. Apple Design 設置面板
+       4. Apple Design 設置面板 (iOS Inline Grouped List)
        ========================================= */
     .settings-panel {
       pointer-events: auto; position: absolute; left: 24px; bottom: calc(env(safe-area-inset-bottom, 24px) + 84px);
-      width: 320px; background: rgba(30, 30, 30, 0.55);
+      width: 340px; background: rgba(30, 30, 30, 0.55);
       backdrop-filter: blur(40px) saturate(200%); -webkit-backdrop-filter: blur(40px) saturate(200%);
       border: none; border-radius: 24px; padding: 16px; box-sizing: border-box; 
       box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25), inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 32px 64px rgba(0, 0, 0, 0.4);
@@ -153,7 +156,7 @@
       display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 16px; border-bottom: 0.5px solid rgba(255, 255, 255, 0.12);
     }
     .settings-row:last-child { border-bottom: none; }
-    .row-label { font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.85); flex-shrink: 0; width: auto; flex: 1; }
+    .row-label { font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.85); flex-shrink: 0; width: auto; flex: 1; white-space: nowrap; }
 
     /* Sliders */
     .slider-row { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-bottom: 0.5px solid rgba(255, 255, 255, 0.12); }
@@ -167,17 +170,16 @@
     input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: #ffffff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); margin-top: -8px; transition: transform 160ms var(--ease-out); }
     input[type=range]::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(0.9); }
 
-    /* Segmented Control */
+    /* Segmented Control 動態寬度適配 */
     .segmented-control { position: relative; display: flex; background: rgba(0, 0, 0, 0.25); border-radius: 6px; box-sizing: border-box; box-shadow: inset 0 1px 2px rgba(0,0,0,0.2); }
-    .inline-seg { flex: 0 0 190px; height: 28px; padding: 2px; }
+    .inline-seg { flex: 0 0 auto; height: 28px; padding: 2px; max-width: 60%; }
     .segmented-highlight {
-      position: absolute; top: 2px; bottom: 2px; left: 2px; background: rgba(255, 255, 255, 0.15); border-radius: 4px; transition: transform 250ms var(--ease-out); pointer-events: none;
+      position: absolute; top: 2px; bottom: 2px; left: 0; /* Left 由 JS transform 控制 */
+      background: rgba(255, 255, 255, 0.15); border-radius: 4px; transition: transform 250ms var(--ease-out), width 250ms var(--ease-out); pointer-events: none;
       box-shadow: 0 3px 8px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
     }
-    .seg-3 .segmented-highlight { width: calc(33.333% - 1.33px); }
-    .seg-4 .segmented-highlight { width: calc(25% - 1px); }
     .segment-btn {
-      flex: 1; border: none; background: transparent; color: rgba(255, 255, 255, 0.5); font-weight: 500; z-index: 1; cursor: pointer; transition: color 150ms var(--ease-out), transform 160ms var(--ease-out); margin: 0; padding: 0;
+      border: none; background: transparent; color: rgba(255, 255, 255, 0.5); font-weight: 500; z-index: 1; cursor: pointer; transition: color 150ms var(--ease-out), transform 160ms var(--ease-out); margin: 0; padding: 0 10px; white-space: nowrap;
     }
     .inline-seg .segment-btn { font-size: 11.5px; }
     .segment-btn.active { color: #fff; }
@@ -234,39 +236,6 @@
     <div class="exit-hint"></div>
     <div class="settings-panel" id="settings-panel">
       <!-- UI 動態注入點 -->
-      <div class="settings-block">
-        <div class="settings-row"><span class="row-label auto-w">24-Hour Time</span><input type="checkbox" id="ctrl-24hr" class="toggle-switch" checked></div>
-        <div class="settings-row"><span class="row-label auto-w">Leading Zero</span><input type="checkbox" id="ctrl-leadingzero" class="toggle-switch" checked></div>
-        <div class="settings-row"><span class="row-label auto-w">Show Seconds</span><input type="checkbox" id="ctrl-seconds" class="toggle-switch"></div>
-        <div class="settings-row"><span class="row-label auto-w">Show Date</span><input type="checkbox" id="ctrl-date" class="toggle-switch" checked></div>
-        <div class="settings-row"><span class="row-label auto-w">Low Power Mode</span><input type="checkbox" id="ctrl-lowpower" class="toggle-switch"></div>
-        <div class="settings-row">
-          <span class="row-label auto-w">Tick Anim</span>
-          <div class="segmented-control inline-seg seg-4" data-prop="clockAnimMode" role="radiogroup">
-            <div class="segmented-highlight"></div><button class="segment-btn active" data-value="0">Inst</button><button class="segment-btn" data-value="1">Depth</button><button class="segment-btn" data-value="2">Spring</button><button class="segment-btn" data-value="3">Flip</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-block" id="protection-block"></div>
-
-      <div class="settings-block">
-        <div class="settings-row">
-          <span class="row-label auto-w">Mode</span>
-          <div class="segmented-control inline-seg seg-4" data-prop="mode" role="radiogroup">
-            <div class="segmented-highlight"></div><button class="segment-btn active" data-value="1">Silk</button><button class="segment-btn" data-value="2">Glow</button><button class="segment-btn" data-value="3">Dust</button><button class="segment-btn" data-value="4">Liquid</button>
-          </div>
-        </div>
-        <div class="settings-row">
-          <span class="row-label auto-w">Font</span>
-          <div class="segmented-control inline-seg seg-3" data-prop="fontStyle" role="radiogroup">
-            <div class="segmented-highlight"></div><button class="segment-btn active" data-value="0">SF Pro</button><button class="segment-btn" data-value="1">New York</button><button class="segment-btn" data-value="2">Mono</button>
-          </div>
-        </div>
-        <div class="settings-row"><span class="row-label auto-w">Theme</span><div class="swatches-container" id="swatches-container"></div></div>
-      </div>
-      
-      <div class="settings-block" id="sliders-block"></div>
     </div>
 
     <button class="icon-btn btn-settings" id="btn-settings" aria-label="Settings">
@@ -279,6 +248,28 @@
 </div>
 
   <script>
+    // --- Data-Driven Localization & Configuration ---
+    const DICT = {
+      en: {
+        lang: "Language", time: "24-Hour Time", sec: "Show Seconds", tick: "Tick Anim",
+        mode: "Mode", theme: "Theme", size: "Size", weight: "Weight", speed: "Speed",
+        lp: "Low Power Mode", idle: "Idle Timeout", burn: "Burn-in Protection", night: "Night Mode",
+        font: "Font", lz: "Leading Zero", date: "Show Date",
+        modes: ['Silk', 'Glow', 'Dust', 'Liquid', 'Horizon'],
+        ticks: ['Inst', 'Depth', 'Spring', 'Flip'],
+        idles: ['3s', '10s', 'Never']
+      },
+      zh: {
+        lang: "語言", time: "24小時制", sec: "顯示秒數", tick: "跳秒動效",
+        mode: "背景模式", theme: "色彩主題", size: "時鐘尺寸", weight: "字體粗細", speed: "背景流速",
+        lp: "低功耗模式", idle: "閒置隱藏", burn: "OLED 防烙印", night: "夜間護眼",
+        font: "字體風格", lz: "補零顯示", date: "顯示日期",
+        modes: ['絲綢', '光暈', '星塵', '液態', '天沿'],
+        ticks: ['瞬間', '景深', '彈性', '翻牌'],
+        idles: ['3秒', '10秒', '永不']
+      }
+    };
+
     const FONTS = [
       '-apple-system, BlinkMacSystemFont, "SF Pro Display", "San Francisco", "Inter", system-ui, sans-serif',
       '"ui-serif", "New York", "Times New Roman", Times, serif',
@@ -290,9 +281,9 @@
       {rgb: '0.45,0.05,0.15', grad: '#a31636, #0a0a0a', label: 'Crimson Velvet'}, {rgb: '0.02,0.35,0.45', grad: '#0a82a8, #0a0a0a', label: 'Cyber Cyan'}
     ];
     const SLIDERS = [
-      { id: 'ctrl-size', label: 'Size', min: 5, max: 35, step: 1, svgMin: '<path d="M12 6L8 18M12 6L16 18M9.5 14H14.5" stroke-linecap="round" stroke-linejoin="round"/>', svgMax: '<path d="M12 3L5 21M12 3L19 21M8 15H16" stroke-linecap="round" stroke-linejoin="round"/>' },
-      { id: 'ctrl-weight', label: 'Weight', min: 100, max: 900, step: 100, svgMin: '<circle cx="12" cy="12" r="8" stroke-width="1"/>', svgMax: '<circle cx="12" cy="12" r="8" stroke-width="4"/>' },
-      { id: 'ctrl-speed', label: 'Speed', min: 0.1, max: 4, step: 0.01, svgMin: '<path d="M4 12h10M4 8h6M4 16h8" stroke-linecap="round"/>', svgMax: '<path d="M2 12h16M2 8h12M2 16h14M18 12a2 2 0 1 0-2-2M14 8a2 2 0 1 0-2-2M16 16a2 2 0 1 1-2 2" stroke-linecap="round"/>' }
+      { id: 'ctrl-size', key: 'size', min: 5, max: 35, step: 1, svgMin: '<path d="M12 6L8 18M12 6L16 18M9.5 14H14.5" stroke-linecap="round" stroke-linejoin="round"/>', svgMax: '<path d="M12 3L5 21M12 3L19 21M8 15H16" stroke-linecap="round" stroke-linejoin="round"/>' },
+      { id: 'ctrl-weight', key: 'weight', min: 100, max: 900, step: 100, svgMin: '<circle cx="12" cy="12" r="8" stroke-width="1"/>', svgMax: '<circle cx="12" cy="12" r="8" stroke-width="4"/>' },
+      { id: 'ctrl-speed', key: 'speed', min: 0.1, max: 4, step: 0.01, svgMin: '<path d="M4 12h10M4 8h6M4 16h8" stroke-linecap="round"/>', svgMax: '<path d="M2 12h16M2 8h12M2 16h14M18 12a2 2 0 1 0-2-2M14 8a2 2 0 1 0-2-2M16 16a2 2 0 1 1-2 2" stroke-linecap="round"/>' }
     ];
 
     const UI_BINDINGS = {
@@ -307,19 +298,76 @@
     const hexToRgb = h => [parseInt(h.slice(1,3),16)/255, parseInt(h.slice(3,5),16)/255, parseInt(h.slice(5,7),16)/255];
     const rgbToHex = (r, g, b) => `#${[r,g,b].map(x => Math.max(0, Math.min(255, Math.round(x * 255))).toString(16).padStart(2, '0')).join('')}`;
     
-    const state = { mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false };
+    const state = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false };
     const root = document.documentElement;
     const panel = document.getElementById('settings-panel'), canvas = document.getElementById('gl-canvas'), clockLayerObj = document.getElementById('clock-layer'), appContainer = document.getElementById('app-container');
     let currentMode = 1, targetMode = 1, colorLive = [0.21, 0.11, 0.47], glReady = false, uniforms = {};
+    let clockTimer = null; // 統一管理時鐘計時器，防洩漏
 
+    // --- Dynamic UI Generator ---
     const UI_INIT = () => {
-      document.getElementById('protection-block').innerHTML = `
-        <div class="settings-row"><span class="row-label auto-w">Idle Timeout</span><div class="segmented-control inline-seg seg-3" data-prop="idleTimeout" role="radiogroup"><div class="segmented-highlight"></div><button class="segment-btn active" data-value="0">3s</button><button class="segment-btn" data-value="1">10s</button><button class="segment-btn" data-value="2">Never</button></div></div>
-        <div class="settings-row"><span class="row-label auto-w">Burn-in Protection</span><input type="checkbox" id="ctrl-pixelshift" class="toggle-switch" checked></div>
-        <div class="settings-row"><span class="row-label auto-w">Night Mode</span><input type="checkbox" id="ctrl-nightmode" class="toggle-switch"></div>
+      const d = DICT[state.lang];
+      panel.innerHTML = `
+        <div class="settings-block">
+          <div class="settings-row">
+            <span class="row-label auto-w">${d.lang}</span>
+            <div class="segmented-control inline-seg" data-prop="lang" role="radiogroup" style="flex: 0 0 100px;">
+              <div class="segmented-highlight"></div>
+              <button class="segment-btn ${state.lang==='en'?'active':''}" data-value="en">EN</button>
+              <button class="segment-btn ${state.lang==='zh'?'active':''}" data-value="zh">繁中</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="settings-block">
+          <div class="settings-row"><span class="row-label auto-w">${d.time}</span><input type="checkbox" id="ctrl-24hr" class="toggle-switch"></div>
+          <div class="settings-row"><span class="row-label auto-w">${d.lz}</span><input type="checkbox" id="ctrl-leadingzero" class="toggle-switch"></div>
+          <div class="settings-row"><span class="row-label auto-w">${d.sec}</span><input type="checkbox" id="ctrl-seconds" class="toggle-switch"></div>
+          <div class="settings-row"><span class="row-label auto-w">${d.date}</span><input type="checkbox" id="ctrl-date" class="toggle-switch"></div>
+          <div class="settings-row"><span class="row-label auto-w">${d.lp}</span><input type="checkbox" id="ctrl-lowpower" class="toggle-switch"></div>
+          <div class="settings-row">
+            <span class="row-label auto-w">${d.tick}</span>
+            <div class="segmented-control inline-seg" data-prop="clockAnimMode" role="radiogroup">
+              <div class="segmented-highlight"></div>
+              ${d.ticks.map((t, i) => `<button class="segment-btn" data-value="${i}">${t}</button>`).join('')}
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-block">
+          <div class="settings-row"><span class="row-label auto-w">${d.idle}</span><div class="segmented-control inline-seg" data-prop="idleTimeout" role="radiogroup"><div class="segmented-highlight"></div>${d.idles.map((t, i) => `<button class="segment-btn" data-value="${i}">${t}</button>`).join('')}</div></div>
+          <div class="settings-row"><span class="row-label auto-w">${d.burn}</span><input type="checkbox" id="ctrl-pixelshift" class="toggle-switch"></div>
+          <div class="settings-row"><span class="row-label auto-w">${d.night}</span><input type="checkbox" id="ctrl-nightmode" class="toggle-switch"></div>
+        </div>
+
+        <div class="settings-block">
+          <div class="settings-row">
+            <span class="row-label auto-w">${d.mode}</span>
+            <div class="segmented-control inline-seg" data-prop="mode" role="radiogroup" style="flex: 0 0 220px;">
+              <div class="segmented-highlight"></div>
+              ${d.modes.map((t, i) => `<button class="segment-btn" data-value="${i+1}">${t}</button>`).join('')}
+            </div>
+          </div>
+          <div class="settings-row">
+            <span class="row-label auto-w">${d.font}</span>
+            <div class="segmented-control inline-seg" data-prop="fontStyle" role="radiogroup">
+              <div class="segmented-highlight"></div>
+              <button class="segment-btn" data-value="0">SF Pro</button><button class="segment-btn" data-value="1">New York</button><button class="segment-btn" data-value="2">Mono</button>
+            </div>
+          </div>
+          <div class="settings-row">
+            <span class="row-label auto-w">${d.theme}</span>
+            <div class="swatches-container">
+              ${THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}
+              <div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="settings-block">
+          ${SLIDERS.map(s => `<div class="slider-row" aria-label="${d[s.key]}"><svg class="slider-icon min-icon" viewBox="0 0 24 24">${s.svgMin}</svg><div class="range-container"><input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}"></div><svg class="slider-icon max-icon" viewBox="0 0 24 24">${s.svgMax}</svg></div>`).join('')}
+        </div>
       `;
-      document.getElementById('swatches-container').innerHTML = THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('') + `<div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff" aria-label="Pick custom color"></div>`;
-      document.getElementById('sliders-block').innerHTML = SLIDERS.map(s => `<div class="slider-row" aria-label="${s.label}"><svg class="slider-icon min-icon" viewBox="0 0 24 24">${s.svgMin}</svg><div class="range-container"><input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}" aria-label="${s.label}"></div><svg class="slider-icon max-icon" viewBox="0 0 24 24">${s.svgMax}</svg></div>`).join('');
     };
 
     let pixelShiftTimer = null;
@@ -333,24 +381,42 @@
     const updateSliderFill = el => el.style.setProperty('--val', `${((el.value - (el.min || 0)) / ((el.max || 100) - (el.min || 0))) * 100}%`);
     const saveSettings = () => { try { localStorage.setItem('aurora_settings', JSON.stringify(state)); } catch(e){} };
 
+    // --- Dynamic Highlight Updater ---
+    function updateSegmentHighlight(container, val) {
+      const btn = Array.from(container.querySelectorAll('.segment-btn')).find(b => {
+        // 處理 string (lang) 或 number
+        return isNaN(b.dataset.value) ? b.dataset.value === val : Number(b.dataset.value) === Number(val);
+      });
+      if (btn) {
+        container.querySelectorAll('.segment-btn').forEach(b => b.classList.toggle('active', b === btn));
+        const highlight = container.querySelector('.segmented-highlight');
+        highlight.style.width = `${btn.offsetWidth - 4}px`;
+        highlight.style.transform = `translateX(${btn.offsetLeft - 2}px)`;
+      }
+    }
+
     function syncUI() {
       root.style.setProperty('--clock-font', FONTS[state.fontStyle]);
-      if (state.nightMode) { root.style.setProperty('--clock-color', '#D97736'); root.style.setProperty('--date-color', '#6E3F20'); root.style.setProperty('--clock-shadow-color', 'transparent'); } 
-      else { root.style.setProperty('--clock-color', 'rgba(255, 255, 255, 0.9)'); root.style.setProperty('--date-color', 'rgba(255, 255, 255, 0.6)'); root.style.setProperty('--clock-shadow-color', 'rgba(255, 255, 255, 0.2)'); }
+      if (state.nightMode) { 
+        root.style.setProperty('--clock-color', '#D97736'); root.style.setProperty('--date-color', '#6E3F20'); root.style.setProperty('--clock-shadow-color', 'transparent'); 
+      } else { 
+        root.style.setProperty('--clock-color', 'rgba(255, 255, 255, 0.9)'); root.style.setProperty('--date-color', 'rgba(255, 255, 255, 0.6)'); root.style.setProperty('--clock-shadow-color', 'rgba(255, 255, 255, 0.2)'); 
+      }
       runPixelShift();
 
       Object.entries(UI_BINDINGS).forEach(([k, b]) => {
         const el = document.getElementById(b.id);
         if (el) { el[b.prop] = state[k]; if (b.cssVar) root.style.setProperty(b.cssVar, b.format ? b.format(state[k]) : state[k]); if (el.type === 'range') updateSliderFill(el); }
       });
+      
       document.querySelectorAll('.segmented-control').forEach(c => {
         const val = state[c.dataset.prop];
         if (val !== undefined) {
-          c.querySelectorAll('.segment-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.value) === val));
-          const btn = c.querySelector(`.segment-btn[data-value="${val}"]`);
-          if (btn) c.querySelector('.segmented-highlight').style.transform = `translateX(${Array.from(c.querySelectorAll('.segment-btn')).indexOf(btn) * 100}%)`;
+          // 強制觸發 offset 計算 (防 DOM 未載入)
+          requestAnimationFrame(() => updateSegmentHighlight(c, val));
         }
       });
+      
       document.querySelectorAll('.swatch-wrapper').forEach(s => s.classList.remove('active'));
       const activeSwatch = document.querySelector(`.swatch-wrapper[data-rgb="${state.colorTarget.join(',')}"]`), customEl = document.getElementById('custom-swatch-color');
       if (activeSwatch) { activeSwatch.classList.add('active'); customEl.style.background = ''; customEl.classList.remove('has-color'); } 
@@ -359,16 +425,20 @@
 
     function loadSettings() {
       try { const saved = JSON.parse(localStorage.getItem('aurora_settings')); if (saved) Object.assign(state, saved); } catch(e){}
-      targetMode = currentMode = state.mode; colorLive = [...state.colorTarget]; syncUI();
+      targetMode = currentMode = state.mode; colorLive = [...state.colorTarget]; 
+      UI_INIT(); syncUI();
     }
 
     let wakeLock = null, isRendering = true, lastTimeMain = "", lastTimeSec = "";
     async function requestWakeLock() { if (wakeLock) { await wakeLock.release().catch(()=>{}); wakeLock = null; } try { if ('wakeLock' in navigator && !document.hidden) wakeLock = await navigator.wakeLock.request('screen'); } catch(e){} }
     document.addEventListener('visibilitychange', () => { isRendering = !document.hidden; if (isRendering) { requestWakeLock(); lastTime = performance.now(); requestAnimationFrame(renderLoop); updateClock(); } else if (wakeLock) { wakeLock.release().catch(()=>{}); wakeLock = null; } });
 
-    const locale = navigator.language || 'zh-TW', dateOpts = { month: 'long', day: 'numeric', weekday: 'long' };
+    const dateOpts = { month: 'long', day: 'numeric', weekday: 'long' };
+    
     function updateClock() {
+      clearTimeout(clockTimer);
       if (!isRendering) return;
+      
       const now = new Date(); let hh = now.getHours(); if (!state.is24Hour) hh = hh % 12 || 12;
       const hhStr = state.leadingZero ? String(hh).padStart(2, '0') : String(hh);
       const mainStr = `${hhStr}:${String(now.getMinutes()).padStart(2, '0')}`, secStr = `:${String(now.getSeconds()).padStart(2, '0')}`;
@@ -381,29 +451,33 @@
 
       const diffDOM = (container, newStr, oldStr) => {
         if (newStr !== oldStr) {
-          if (container.children.length !== newStr.length) container.innerHTML = newStr.split('').map(c => `<span><div class="digit-old">${c}</div><div class="digit-new"></div></span>`).join('');
-          else {
+          // 強制重建防禦 (防 undefined 崩潰)
+          if (!oldStr || container.children.length !== newStr.length) {
+            container.innerHTML = newStr.split('').map(c => `<span><div class="digit-old">${c}</div><div class="digit-new"></div></span>`).join('');
+          } else {
             for (let i = 0; i < newStr.length; i++) {
               if (newStr[i] !== oldStr[i]) {
                 const span = container.children[i], oldEl = span.querySelector('.digit-old'), newEl = span.querySelector('.digit-new');
-                if (state.clockAnimMode === 0) { oldEl.textContent = newStr[i]; } 
-                else if (state.clockAnimMode === 1) { 
+                const animMode = Number(state.clockAnimMode); // 型別安全
+                
+                if (animMode === 0) { oldEl.textContent = newStr[i]; } 
+                else if (animMode === 1) { 
                   oldEl.textContent = oldStr[i]; newEl.textContent = newStr[i]; newEl.style.opacity = '1';
                   oldEl.animate([{ opacity: 1, transform: 'scale(1)', filter: 'blur(0px)' }, { opacity: 0, transform: 'scale(0.85)', filter: 'blur(8px)' }], ANIM_OPT);
                   const anim = newEl.animate([{ opacity: 0, transform: 'scale(1.15)', filter: 'blur(12px)' }, { opacity: 1, transform: 'scale(1)', filter: 'blur(0px)' }], ANIM_OPT);
                   anim.onfinish = () => { oldEl.textContent = newStr[i]; oldEl.style.transform = 'none'; oldEl.style.filter = 'none'; oldEl.style.opacity = '1'; newEl.style.opacity = '0'; };
-                } else if (state.clockAnimMode === 2) { 
+                } else if (animMode === 2) { 
                   oldEl.textContent = oldStr[i]; newEl.textContent = newStr[i]; newEl.style.opacity = '1';
                   const springOpts = { duration: 450, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' };
                   oldEl.animate([{ transform: 'translateY(0)', opacity: 1 }, { transform: 'translateY(-100%)', opacity: 0 }], springOpts);
                   const anim = newEl.animate([{ transform: 'translateY(100%)', opacity: 0, offset: 0 }, { transform: 'translateY(-12%)', opacity: 1, offset: 0.7 }, { transform: 'translateY(0)', opacity: 1, offset: 1 }], springOpts);
                   anim.onfinish = () => { oldEl.textContent = newStr[i]; oldEl.style.transform = 'none'; oldEl.style.filter = 'none'; oldEl.style.opacity = '1'; newEl.style.opacity = '0'; };
-                } else if (state.clockAnimMode === 3) { 
+                } else if (animMode === 3) { 
                   oldEl.textContent = oldStr[i]; newEl.textContent = newStr[i]; newEl.style.opacity = '1';
                   span.style.perspective = '600px'; oldEl.style.transformOrigin = 'bottom center'; newEl.style.transformOrigin = 'top center';
                   oldEl.animate([{ transform: 'rotateX(0deg)', filter: 'brightness(1)', opacity: 1 }, { transform: 'rotateX(90deg)', filter: 'brightness(0.4)', opacity: 0 }], ANIM_OPT);
                   const anim = newEl.animate([{ transform: 'rotateX(-90deg)', filter: 'brightness(0.4)', opacity: 0 }, { transform: 'rotateX(0deg)', filter: 'brightness(1)', opacity: 1 }], ANIM_OPT);
-                  anim.onfinish = () => { oldEl.textContent = newStr[i]; oldEl.style.transform = 'none'; oldEl.style.filter = 'none'; newEl.style.opacity = '0'; span.style.perspective = 'none'; };
+                  anim.onfinish = () => { oldEl.textContent = newStr[i]; oldEl.style.transform = 'none'; oldEl.style.filter = 'none'; newEl.style.opacity = '1'; newEl.style.opacity = '0'; span.style.perspective = 'none'; };
                 }
               }
             }
@@ -413,8 +487,11 @@
       };
 
       lastTimeMain = diffDOM(mainCont, mainStr, lastTimeMain); lastTimeSec = diffDOM(secCont, secStr, lastTimeSec);
+      
+      const locale = state.lang === 'zh' ? 'zh-TW' : 'en-US';
       const dateStr = now.toLocaleDateString(locale, dateOpts); if (dateEl.textContent !== dateStr) dateEl.textContent = dateStr;
-      setTimeout(updateClock, 1000 - (Date.now() % 1000));
+      
+      clockTimer = setTimeout(updateClock, 1000 - (Date.now() % 1000));
     }
 
     const compileShader = (gl, source, type) => { const shader = gl.createShader(type); gl.shaderSource(shader, source); gl.compileShader(shader); if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) { console.error(gl.getShaderInfoLog(shader)); gl.deleteShader(shader); return null; } return shader; };
@@ -428,9 +505,11 @@
       vec3 renderIntelligence(vec2 uv) { vec2 dc = abs(uv - 0.5) * 2.0; float edge = max(pow(dc.x, 8.0), pow(dc.y, 8.0)); return u_color * smoothstep(0.4, 1.2, edge + fbm(uv * 2.0 - u_time * 0.2) * 0.4) * smoothstep(0.0, 0.4, length(dc)) * 3.0; }
       vec3 renderStardust(vec2 uv) { vec2 p = (uv - 0.5) * 2.0; p.x *= u_resolution.x / u_resolution.y; float nebula = pow((fbm(p * 1.5 - u_time * 0.05) * 0.6 + fbm(p * 3.0 + u_time * 0.08) * 0.4), 2.5) * 1.5; vec2 grid = p * 20.0; vec2 id = floor(grid); vec2 fv = fract(grid) - 0.5; float dist = length(fv - (vec2(hash(id + vec2(1.3, 7.1)), hash(id + vec2(7.1, 1.3))) - 0.5)); float star = smoothstep(0.12, 0.0, dist) * (sin(u_time * 2.0 + hash(dot(id, vec2(1.0, 25.0))) * 25.0) * 0.5 + 0.5) * step(0.7, hash(dot(id, vec2(3.7, 1.7)))); return (u_color * nebula + vec3(star * 0.8)) * (1.0 - length(p) * 0.4); }
       vec3 renderLiquid(vec2 uv) { vec2 p = uv * 2.0 - 1.0; p.x *= u_resolution.x / u_resolution.y; float t = u_time * 0.2; vec2 c1 = vec2(sin(t)*0.8, cos(t*0.6)*0.6); vec2 c2 = vec2(cos(t*1.2)*0.7, sin(t*0.9)*0.7); vec2 c3 = vec2(sin(t*0.7+2.0)*0.6, cos(t*1.1+1.0)*0.6); float w1 = smoothstep(2.0, 0.0, length(p - c1)); float w2 = smoothstep(2.0, 0.0, length(p - c2)); float w3 = smoothstep(2.0, 0.0, length(p - c3)); vec3 col1 = u_color * 1.2; vec3 col2 = mix(u_color, vec3(1.0), 0.3); vec3 col3 = u_color * 0.7; vec3 bg = u_color * 0.15; return bg + col1*w1 + col2*w2 + col3*w3; }
-      vec3 getModeColor(int mode, vec2 uv) { if (mode == 1) return renderSilk(uv); if (mode == 2) return renderIntelligence(uv); if (mode == 3) return renderStardust(uv); if (mode == 4) return renderLiquid(uv); return vec3(0.0); }
+      vec3 renderHorizon(vec2 uv) { vec2 p = uv * 2.0 - 1.0; p.x *= u_resolution.x / u_resolution.y; float curve = -0.7 + sin(p.x * 0.6 + u_time * 0.1) * 0.15 + cos(p.x * 0.3 - u_time * 0.05) * 0.1; float dist = p.y - curve; float primaryGlow = exp(-dist * 2.5); float coreGlow = exp(-dist * 8.0); float n = fbm(p * 2.0 + vec2(u_time * 0.05, 0.0)); float atmosphere = primaryGlow * (0.7 + n * 0.5); float mask = smoothstep(-0.05, 0.1, dist); vec2 grid = p * 12.0; vec2 id = floor(grid); vec2 fv = fract(grid) - 0.5; float starDist = length(fv - (vec2(hash(id + 2.0), hash(id + 5.1)) - 0.5)); float star = smoothstep(0.08, 0.0, starDist) * step(0.92, hash(id * 7.3)); float twinkle = sin(u_time * 1.5 + hash(id) * 20.0) * 0.5 + 0.5; float skyMask = smoothstep(0.0, 1.0, p.y); vec3 glowColor = u_color * atmosphere * mask + (u_color * 1.5 + 0.2) * coreGlow * mask; vec3 starColor = vec3(star * twinkle * 0.5 * skyMask); return glowColor + starColor; }
+      vec3 getModeColor(int mode, vec2 uv) { if (mode == 1) return renderSilk(uv); if (mode == 2) return renderIntelligence(uv); if (mode == 3) return renderStardust(uv); if (mode == 4) return renderLiquid(uv); if (mode == 5) return renderHorizon(uv); return vec3(0.0); }
       void main() { vec2 uv = gl_FragCoord.xy / u_resolution.xy; vec3 c = u_mix <= 0.0 ? getModeColor(u_mode1, uv) : (u_mix >= 1.0 ? getModeColor(u_mode2, uv) : mix(getModeColor(u_mode1, uv), getModeColor(u_mode2, uv), u_mix)); gl_FragColor = vec4((c + vec3((fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453) - 0.5) * 0.008)) * u_brightness, 1.0); }
     `;
+    
     const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
     if (gl) {
       const vs = compileShader(gl, vsSource, gl.VERTEX_SHADER), fs = compileShader(gl, fsSource, gl.FRAGMENT_SHADER);
@@ -516,9 +595,12 @@
     document.addEventListener('click', e => {
       const segBtn = e.target.closest('.segment-btn'), swatch = e.target.closest('.swatch-wrapper[data-rgb]');
       if (segBtn && !segBtn.classList.contains('active')) {
-        const prop = segBtn.closest('.segmented-control').dataset.prop, val = parseInt(segBtn.dataset.value); state[prop] = val; syncUI();
+        const container = segBtn.closest('.segmented-control'), prop = container.dataset.prop;
+        const val = isNaN(segBtn.dataset.value) ? segBtn.dataset.value : parseInt(segBtn.dataset.value);
+        state[prop] = val; updateSegmentHighlight(container, val);
         if (prop === 'mode') { targetMode = val; isTransitioning = true; transitionStart = performance.now(); if (glReady) canvas.classList.add('crossfading'); } 
         else if (prop === 'clockAnimMode' || prop === 'fontStyle') { lastTimeMain = ""; lastTimeSec = ""; updateClock(); }
+        else if (prop === 'lang') { UI_INIT(); syncUI(); }
         saveSettings();
       } else if (swatch) { state.colorTarget = swatch.dataset.rgb.split(',').map(Number); syncUI(); saveSettings(); } 
       else if (e.target.closest('#btn-settings')) { panel.classList.toggle('active'); updateClockEvasion(); } 
@@ -536,10 +618,7 @@
 
     let idleTimer, lastWake = 0;
     function setIdle() { if(!document.body.classList.contains('is-idle')) { document.body.classList.add('is-idle'); panel.classList.remove('active'); if (document.activeElement) document.activeElement.blur(); updateClockEvasion(); } }
-    function wakeUp() { 
-      const now = Date.now(); if (now - lastWake < 150) return; lastWake = now; document.body.classList.remove('is-idle'); clearTimeout(idleTimer); 
-      if (state.idleTimeout !== 2) idleTimer = setTimeout(setIdle, state.idleTimeout === 0 ? 3000 : 10000); 
-    }
+    function wakeUp() { const now = Date.now(); if (now - lastWake < 150) return; lastWake = now; document.body.classList.remove('is-idle'); clearTimeout(idleTimer); if (state.idleTimeout !== 2) idleTimer = setTimeout(setIdle, state.idleTimeout === 0 ? 3000 : 10000); }
     ['mousemove', 'pointermove', 'touchstart', 'keydown'].forEach(evt => window.addEventListener(evt, wakeUp, { passive: true }));
 
     let holdTimeout, isHolding = false, touchStartX = 0, touchStartY = 0;
@@ -555,7 +634,7 @@
     document.addEventListener('touchmove', e => { if (isHolding && (Math.abs(e.touches[0].clientX - touchStartX) > 15 || Math.abs(e.touches[0].clientY - touchStartY) > 15)) toggleExit(false); }, { passive: true });
     ['touchend', 'touchcancel'].forEach(evt => document.addEventListener(evt, () => toggleExit(false)));
 
-    UI_INIT(); loadSettings(); updateClock(); wakeUp(); window.dispatchEvent(new Event('resize'));
+    UI_INIT(); requestWakeLock(); loadSettings(); updateClock(); wakeUp(); window.dispatchEvent(new Event('resize'));
     requestAnimationFrame(() => requestAnimationFrame(() => { document.body.classList.remove('no-transitions'); updateClockEvasion(); }));
   </script>
 </body>
