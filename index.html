@@ -19,9 +19,11 @@
     }
 
     body.no-transitions * { transition: none !important; animation: none !important; }
+    
+    /* 拖曳防手震：強制切斷動畫，達成 1:1 絕對同步 */
     body.is-dragging .clock-layer, body.is-dragging .clock-layer * { transition: none !important; }
 
-    /* 修復全局字體污染，回歸獨立系統字體 */
+    /* 修復字體污染：UI 面板恢復系統原生字體 */
     html, body {
       margin: 0; padding: 0; width: 100%; height: 100dvh; background-color: var(--bg-color); overflow: hidden; overscroll-behavior: none;
       -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none;
@@ -34,6 +36,7 @@
 
     #app-container { position: absolute; inset: 0; width: 100%; height: 100%; transition: transform 60s linear; }
 
+    /* 共用 Flex 居中與模組 */
     .icon-btn, .segment-btn, .swatch-wrapper, .digit-old, .digit-new { display: flex; align-items: center; justify-content: center; }
 
     /* =========================================
@@ -60,9 +63,11 @@
       font-size: var(--clock-size); font-weight: var(--clock-weight); color: var(--clock-color);
       letter-spacing: -0.03em; display: flex; justify-content: center; align-items: center;
       filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 4px var(--clock-shadow-color));
-      position: relative; transition: color 500ms, filter 500ms; font-family: var(--clock-font);
+      position: relative; transition: color 500ms, filter 500ms;
+      font-family: var(--clock-font); /* 保持時鐘字體 */
     }
 
+    /* 共用動畫模組 (Architecture Pattern) */
     .clock-module {
       overflow: hidden; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center;
       transition: max-width 300ms var(--ease-out), opacity 300ms var(--ease-out), transform 300ms var(--ease-out), margin 300ms var(--ease-out), color 500ms;
@@ -82,8 +87,9 @@
 
     .date-display {
       font-size: calc(var(--clock-size) * 0.22); font-weight: var(--clock-weight); color: var(--date-color); letter-spacing: 0.02em; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
-      overflow: hidden; transition: max-height 300ms var(--ease-out), margin 300ms var(--ease-out), color 500ms; font-family: var(--clock-font);
+      overflow: hidden; transition: max-height 300ms var(--ease-out), margin 300ms var(--ease-out), color 500ms;
       max-height: 2em; margin-top: 0.25em;
+      font-family: var(--clock-font); /* 保持日期字體 */
     }
     .date-display.is-hidden { max-height: 0; margin-top: 0; }
 
@@ -111,7 +117,7 @@
     body.is-fullscreen .exit-hint { opacity: 1; }
 
     /* =========================================
-       4. Apple Design 設置面板
+       4. Apple Design 設置面板 (iOS Inline Grouped List)
        ========================================= */
     .settings-panel {
       pointer-events: auto; position: absolute; left: 24px; bottom: calc(env(safe-area-inset-bottom, 24px) + 84px); width: 340px; background: rgba(30, 30, 30, 0.55); backdrop-filter: blur(40px) saturate(200%); -webkit-backdrop-filter: blur(40px) saturate(200%); border: none; border-radius: 24px; padding: 16px; box-sizing: border-box; box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25), inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 32px 64px rgba(0, 0, 0, 0.4); opacity: 0; transform: scale(0.95); transform-origin: bottom left; visibility: hidden; transition: opacity 250ms var(--ease-out), transform 250ms var(--ease-out), visibility 250ms; display: flex; flex-direction: column; gap: 16px; max-height: calc(100svh - 120px); overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none;
@@ -195,7 +201,10 @@
 
   <div class="ui-layer">
     <div class="exit-hint"></div>
-    <div class="settings-panel" id="settings-panel"></div>
+    <div class="settings-panel" id="settings-panel">
+      <!-- UI 動態注入點 -->
+    </div>
+
     <button class="icon-btn btn-settings" id="btn-settings" aria-label="Settings">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
     </button>
@@ -206,6 +215,7 @@
 </div>
 
   <script>
+    // --- Data-Driven Localization & Configuration ---
     const DICT = {
       en: {
         lang: "Language", time: "24-Hour Time", sec: "Show Seconds", tick: "Tick Anim",
@@ -250,7 +260,8 @@
       showSeconds: { id: 'ctrl-seconds', prop: 'checked' }, showDate: { id: 'ctrl-date', prop: 'checked' },
       lowPower: { id: 'ctrl-lowpower', prop: 'checked' }, pixelShift: { id: 'ctrl-pixelshift', prop: 'checked' }, nightMode: { id: 'ctrl-nightmode', prop: 'checked' }
     };
-
+    
+    // --- Architecture Pattern: Animation Registry ---
     const ANIM_OPT = { duration: 300, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' };
     const ANIM_REGISTRY = {
       1: {
@@ -280,7 +291,8 @@
     
     const state = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false };
     const root = document.documentElement, panel = document.getElementById('settings-panel'), canvas = document.getElementById('gl-canvas'), clockLayerObj = document.getElementById('clock-layer'), appContainer = document.getElementById('app-container');
-    let mode0 = 1, mode1 = 1, mode2 = 1, mix01 = 1.0, mix12 = 1.0, colorLive = [0.21, 0.11, 0.47], glReady = false, uniforms = {}, clockTimer = null;
+    let colorLive = [0.21, 0.11, 0.47], glReady = false, uniforms = {}, clockTimer = null;
+    let currentWeights = [1, 0, 0, 0, 0], targetWeights = [1, 0, 0, 0, 0], currentBrightness = 1.0;
 
     const UI_INIT = () => {
       const d = DICT[state.lang];
@@ -378,9 +390,7 @@
       } else if (prop === 'showDate') {
         updateClock();
       } else if (prop === 'mode') {
-        if (isTransitioning) { mode0 = mode1; mode1 = mode2; mix01 = mix12; }
-        else { mode0 = mode2; mode1 = mode2; mix01 = 1.0; }
-        mode2 = val; isTransitioning = true; transitionStart = performance.now(); if (glReady) canvas.classList.add('crossfading');
+        targetWeights.fill(0); targetWeights[val - 1] = 1.0;
       } else if (prop === 'lowPower') {
         window.dispatchEvent(new Event('resize'));
       }
@@ -389,7 +399,10 @@
 
     const loadSettings = () => { 
       try { const saved = JSON.parse(localStorage.getItem('aurora_settings')); if (saved) Object.assign(state, saved); } catch(e){} 
-      mode0 = mode1 = mode2 = state.mode; mix01 = mix12 = 1.0; colorLive = [...state.colorTarget]; 
+      colorLive = [...state.colorTarget]; 
+      targetWeights.fill(0); currentWeights.fill(0);
+      targetWeights[state.mode - 1] = 1.0; currentWeights[state.mode - 1] = 1.0;
+      UI_INIT(); syncUI(true); 
     };
 
     let wakeLock = null, isRendering = true, lastTimeTens = "", lastTimeMain = "", lastTimeSec = "", lastTimeAMPM = "";
@@ -463,9 +476,11 @@
     const vsSource = `attribute vec2 position; void main() { gl_Position = vec4(position, 0.0, 1.0); }`;
     const fsSource = `
       precision highp float; 
-      uniform vec2 u_resolution; uniform float u_time; uniform vec3 u_color; 
-      uniform int u_mode0; uniform int u_mode1; uniform int u_mode2; 
-      uniform float u_mix01; uniform float u_mix12; uniform float u_brightness;
+      uniform vec2 u_resolution; 
+      uniform float u_time; 
+      uniform vec3 u_color; 
+      uniform float u_weights[5]; 
+      uniform float u_brightness;
       
       float hash(float n) { return fract(sin(n) * 43758.5453); } 
       float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -480,13 +495,15 @@
       }
       
       vec3 renderSilk(vec2 uv) { 
-          vec2 p = uv * 2.0 - 1.0; p.x *= u_resolution.x / u_resolution.y; float t = u_time * 0.25; 
-          vec2 q = p; q.x += sin(p.y * 1.5 + t * 0.8) * 0.6; q.y += cos(p.x * 1.5 + t * 0.6) * 0.6; 
+          vec2 p = uv * 2.0 - 1.0; p.x *= u_resolution.x / u_resolution.y; 
+          float t = u_time * 0.25; vec2 q = p; 
+          q.x += sin(p.y * 1.5 + t * 0.8) * 0.6; q.y += cos(p.x * 1.5 + t * 0.6) * 0.6; 
           vec2 r = p; r.x += cos(q.y * 2.0 + sin(q.x * 1.8 + t)) * 0.5; r.y += sin(q.x * 2.0 + cos(q.y * 1.8 + t * 0.9)) * 0.5; 
           float folds = (sin(r.x * 2.5 + r.y * 2.0 + t) + cos(r.x * 1.8 - r.y * 2.2 - t * 0.7)) * 0.5; 
           float sheen = pow(clamp(folds * 0.5 + 0.5, 0.0, 1.0), 3.0); 
           vec3 col = mix(u_color * 0.15, u_color * 1.1, smoothstep(-1.0, 0.5, folds)); 
-          col += mix(u_color * 1.8, vec3(1.0), 0.35) * sheen * 0.65; return col * (1.0 - length(p * 0.3) * 0.4); 
+          col += mix(u_color * 1.8, vec3(1.0), 0.35) * sheen * 0.65; 
+          return col * (1.0 - length(p * 0.3) * 0.4); 
       }
       vec3 renderIntelligence(vec2 uv) { 
           vec2 dc = abs(uv - 0.5) * 2.0; float edge = max(pow(dc.x, 8.0), pow(dc.y, 8.0)); 
@@ -509,34 +526,28 @@
       }
       vec3 renderHorizon(vec2 uv) { 
           vec2 p = uv * 2.0 - 1.0; p.x *= u_resolution.x / u_resolution.y; 
-          float curve = -0.7 + sin(p.x * 0.6 + u_time * 0.1) * 0.15 + cos(p.x * 0.3 - u_time * 0.05) * 0.1; float dist = p.y - curve; 
-          float primaryGlow = exp(-dist * 2.5); float coreGlow = exp(-dist * 8.0); float n = fbm(p * 2.0 + vec2(u_time * 0.05, 0.0)); 
-          float atmosphere = primaryGlow * (0.7 + n * 0.5); float mask = smoothstep(-0.05, 0.1, dist); 
-          vec2 grid = p * 12.0; vec2 id = floor(grid); vec2 fv = fract(grid) - 0.5; 
+          float curve = -0.7 + sin(p.x * 0.6 + u_time * 0.1) * 0.15 + cos(p.x * 0.3 - u_time * 0.05) * 0.1; 
+          float dist = p.y - curve; float primaryGlow = exp(-dist * 2.5); float coreGlow = exp(-dist * 8.0); 
+          float n = fbm(p * 2.0 + vec2(u_time * 0.05, 0.0)); float atmosphere = primaryGlow * (0.7 + n * 0.5); 
+          float mask = smoothstep(-0.05, 0.1, dist); vec2 grid = p * 12.0; vec2 id = floor(grid); vec2 fv = fract(grid) - 0.5; 
           float starDist = length(fv - (vec2(hash(id + 2.0), hash(id + 5.1)) - 0.5)); 
-          float star = smoothstep(0.08, 0.0, starDist) * step(0.92, hash(id * 7.3)); float twinkle = sin(u_time * 1.5 + hash(id) * 20.0) * 0.5 + 0.5; 
-          float skyMask = smoothstep(0.0, 1.0, p.y); vec3 glowColor = u_color * atmosphere * mask + (u_color * 1.5 + 0.2) * coreGlow * mask; 
-          vec3 starColor = vec3(star * twinkle * 0.5 * skyMask); return glowColor + starColor; 
+          float star = smoothstep(0.08, 0.0, starDist) * step(0.92, hash(id * 7.3)); 
+          float twinkle = sin(u_time * 1.5 + hash(id) * 20.0) * 0.5 + 0.5; float skyMask = smoothstep(0.0, 1.0, p.y); 
+          vec3 glowColor = u_color * atmosphere * mask + (u_color * 1.5 + 0.2) * coreGlow * mask; 
+          vec3 starColor = vec3(star * twinkle * 0.5 * skyMask); 
+          return glowColor + starColor; 
       }
-      vec3 getModeColor(int mode, vec2 uv) { 
-          if (mode == 1) return renderSilk(uv); if (mode == 2) return renderIntelligence(uv); 
-          if (mode == 3) return renderStardust(uv); if (mode == 4) return renderLiquid(uv); 
-          if (mode == 5) return renderHorizon(uv); return vec3(0.0); 
-      }
+      
       void main() { 
           vec2 uv = gl_FragCoord.xy / u_resolution.xy; 
           vec3 c = vec3(0.0);
-          if (u_mix12 >= 1.0) {
-              c = getModeColor(u_mode2, uv);
-          } else {
-              vec3 base = vec3(0.0);
-              if (u_mix01 <= 0.0) base = getModeColor(u_mode0, uv);
-              else if (u_mix01 >= 1.0) base = getModeColor(u_mode1, uv);
-              else base = mix(getModeColor(u_mode0, uv), getModeColor(u_mode1, uv), u_mix01);
-
-              if (u_mix12 <= 0.0) c = base;
-              else c = mix(base, getModeColor(u_mode2, uv), u_mix12);
-          }
+          
+          if (u_weights[0] > 0.001) c += renderSilk(uv) * u_weights[0];
+          if (u_weights[1] > 0.001) c += renderIntelligence(uv) * u_weights[1];
+          if (u_weights[2] > 0.001) c += renderStardust(uv) * u_weights[2];
+          if (u_weights[3] > 0.001) c += renderLiquid(uv) * u_weights[3];
+          if (u_weights[4] > 0.001) c += renderHorizon(uv) * u_weights[4];
+          
           gl_FragColor = vec4((c + vec3((fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453) - 0.5) * 0.008)) * u_brightness, 1.0); 
       }
     `;
@@ -550,13 +561,13 @@
           gl.useProgram(program);
           const pb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, pb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
           const pos = gl.getAttribLocation(program, 'position'); gl.enableVertexAttribArray(pos); gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
-          ['u_resolution', 'u_time', 'u_color', 'u_mode0', 'u_mode1', 'u_mode2', 'u_mix01', 'u_mix12', 'u_brightness'].forEach(n => uniforms[n] = gl.getUniformLocation(program, n));
+          ['u_resolution', 'u_time', 'u_color', 'u_weights', 'u_brightness'].forEach(n => uniforms[n] = gl.getUniformLocation(program, n));
           glReady = true;
         }
       }
     }
 
-    let globalTime = 0, lastTime = performance.now(), isTransitioning = false, transitionStart = 0, currentBrightness = 1.0;
+    let globalTime = 0, lastTime = performance.now();
     function renderLoop(timestamp) {
       if (!isRendering) return; if (!timestamp) timestamp = performance.now();
       const dt = timestamp - lastTime, isIdle = document.body.classList.contains('is-idle');
@@ -567,16 +578,17 @@
         globalTime += 0.01 * state.speed * (dt / 16.666);
         const actualColorTarget = state.nightMode ? [0.16, 0.08, 0.0] : state.colorTarget;
         colorLive.forEach((_, i) => colorLive[i] += (actualColorTarget[i] - colorLive[i]) * 0.05);
-        if (isTransitioning) { 
-          let p = Math.min((timestamp - transitionStart) / 1500, 1.0); 
-          mix12 = p < 0.5 ? 4 * p ** 3 : 1 - Math.pow(-2 * p + 2, 3) / 2; 
-          if (p >= 1.0) { isTransitioning = false; mode0 = mode2; mode1 = mode2; mix01 = 1.0; mix12 = 1.0; canvas.classList.remove('crossfading'); } 
+        
+        for (let i = 0; i < 5; i++) {
+          currentWeights[i] += (targetWeights[i] - currentWeights[i]) * 0.05;
         }
+        
         currentBrightness += ((isHolding ? 1.5 : (isIdle ? 0.65 : 1.0)) - currentBrightness) * 0.05;
         
-        gl.uniform1f(uniforms.u_time, globalTime); gl.uniform3f(uniforms.u_color, ...colorLive); 
-        gl.uniform1i(uniforms.u_mode0, mode0); gl.uniform1i(uniforms.u_mode1, mode1); gl.uniform1i(uniforms.u_mode2, mode2); 
-        gl.uniform1f(uniforms.u_mix01, mix01); gl.uniform1f(uniforms.u_mix12, mix12); gl.uniform1f(uniforms.u_brightness, currentBrightness); 
+        gl.uniform1f(uniforms.u_time, globalTime); 
+        gl.uniform3f(uniforms.u_color, ...colorLive); 
+        gl.uniform1fv(uniforms.u_weights, currentWeights);
+        gl.uniform1f(uniforms.u_brightness, currentBrightness); 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
       requestAnimationFrame(renderLoop);
@@ -599,7 +611,7 @@
       }
     }
 
-    // --- Event Delegation ---
+    // --- Events ---
     document.addEventListener('input', e => {
       if (e.target.type === 'range') document.body.classList.add('is-dragging');
       const entry = Object.entries(UI_BINDINGS).find(([, b]) => b.id === e.target.id);
@@ -618,8 +630,7 @@
       const t = e.target.closest('.toggle-switch'); if (t) { tgStart = e.clientX; tgTarget = t; tgDragged = false; } 
     });
     document.addEventListener('pointermove', e => { if (tgTarget && tgStart !== null) { const dx = e.clientX - tgStart; if (Math.abs(dx) > 8) { tgDragged = true; const checkedState = dx > 0; if (tgTarget.checked !== checkedState) { tgTarget.checked = checkedState; tgTarget.dispatchEvent(new Event('change', { bubbles: true })); } } } });
-    document.addEventListener('pointerup', () => { document.body.classList.remove('is-dragging'); tgStart = null; setTimeout(() => tgTarget = null, 0); const c = clockLayerObj; if(c) c.style.transition = ''; }, { passive: true });
-    document.addEventListener('keyup', () => { const c = clockLayerObj; if(c) c.style.transition = ''; }, { passive: true });
+    document.addEventListener('pointerup', () => { document.body.classList.remove('is-dragging'); tgStart = null; setTimeout(() => tgTarget = null, 0); }, { passive: true });
     document.addEventListener('click', e => { if (e.target.closest('.toggle-switch') && tgDragged) { e.preventDefault(); e.stopPropagation(); } }, { capture: true });
 
     document.addEventListener('click', e => {
@@ -658,7 +669,7 @@
     document.addEventListener('touchmove', e => { if (isHolding && (Math.abs(e.touches[0].clientX - touchStartX) > 15 || Math.abs(e.touches[0].clientY - touchStartY) > 15)) toggleExit(false); }, { passive: true });
     ['touchend', 'touchcancel'].forEach(evt => document.addEventListener(evt, () => toggleExit(false)));
 
-    UI_INIT(); loadSettings(); requestWakeLock(); updateClock(); wakeUp(); window.dispatchEvent(new Event('resize'));
+    UI_INIT(); requestWakeLock(); loadSettings(); updateClock(); wakeUp(); window.dispatchEvent(new Event('resize'));
     requestAnimationFrame(() => requestAnimationFrame(() => { document.body.classList.remove('no-transitions'); updateClockEvasion(); }));
   </script>
 </body>
