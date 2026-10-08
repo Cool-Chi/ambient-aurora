@@ -47,7 +47,7 @@
     .gl-canvas { width: 100%; height: 100%; display: block; }
 
     /* =========================================
-       2. 時鐘與日期層 (CSS 狀態模組化)
+       2. 時鐘與日期層 (CSS 狀態模組化與硬體層鎖定)
        ========================================= */
     .clock-layer {
       position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; opacity: 1; 
@@ -64,10 +64,11 @@
       letter-spacing: -0.03em; display: flex; justify-content: center; align-items: center;
       filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 4px var(--clock-shadow-color));
       position: relative; transition: color 500ms, filter 500ms;
-      font-family: var(--clock-font); /* 保持時鐘字體 */
+      font-family: var(--clock-font);
+      /* GPU Layering：消滅次像素抖動 */
+      will-change: transform, filter; transform: translateZ(0);
     }
 
-    /* 共用動畫模組 (Architecture Pattern) */
     .clock-module {
       overflow: hidden; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center;
       transition: max-width 300ms var(--ease-out), opacity 300ms var(--ease-out), transform 300ms var(--ease-out), margin 300ms var(--ease-out), color 500ms;
@@ -88,13 +89,14 @@
     .date-display {
       font-size: calc(var(--clock-size) * 0.22); font-weight: var(--clock-weight); color: var(--date-color); letter-spacing: 0.02em; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
       overflow: hidden; transition: max-height 300ms var(--ease-out), margin 300ms var(--ease-out), color 500ms;
-      max-height: 2em; margin-top: 0.25em;
-      font-family: var(--clock-font); /* 保持日期字體 */
+      max-height: 2em; margin-top: 0.25em; font-family: var(--clock-font);
+      /* GPU Layering：獨立合成層 */
+      will-change: transform; transform: translateZ(0);
     }
     .date-display.is-hidden { max-height: 0; margin-top: 0; }
 
     /* =========================================
-       3. 懸浮按鈕與 UI 防禦層
+       3. 懸浮按鈕與 UI 防禦層 (包含 HUD)
        ========================================= */
     .ui-layer { position: absolute; inset: 0; pointer-events: none; }
     body.is-idle .ui-layer > * { opacity: 0 !important; pointer-events: none !important; transition: opacity 1500ms var(--ease-in-out), transform 1500ms var(--ease-in-out) !important; }
@@ -108,6 +110,22 @@
     body.is-fullscreen .icon-btn { opacity: 0; pointer-events: none; transform: scale(0.9); }
     .btn-settings { left: 24px; }
     .btn-fullscreen { right: 24px; }
+
+    /* iOS Style HUD & Low Power Button */
+    .btn-lowpower { top: calc(env(safe-area-inset-top, 24px) + 20px); right: 24px; bottom: auto; }
+    .btn-lowpower.is-active { color: #f1c40f; }
+    .btn-lowpower .battery-level { opacity: 0; transition: opacity 200ms var(--ease-out); }
+    .btn-lowpower.is-active .battery-level { opacity: 1; }
+
+    .hud-toast {
+      position: absolute; top: calc(env(safe-area-inset-top, 24px) + 20px); left: 50%;
+      transform: translateX(-50%) translateY(-20px) scale(0.9); opacity: 0; pointer-events: none;
+      background: rgba(20, 20, 20, 0.75); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
+      color: #fff; font-size: 14px; font-weight: 500; padding: 10px 20px; border-radius: 999px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1);
+      transition: transform 300ms var(--ease-out), opacity 300ms var(--ease-out);
+    }
+    .hud-toast.is-visible { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
 
     .exit-hint {
       position: absolute; bottom: calc(env(safe-area-inset-bottom, 24px) + 20px); left: 50%; transform: translateX(-50%); color: rgba(255, 255, 255, 0.4); font-size: 14px; font-weight: 300; letter-spacing: 0.05em; opacity: 0; pointer-events: none; transition: opacity 200ms var(--ease-out);
@@ -201,12 +219,20 @@
 
   <div class="ui-layer">
     <div class="exit-hint"></div>
+    <div id="hud-toast" class="hud-toast"></div>
     <div class="settings-panel" id="settings-panel">
       <!-- UI 動態注入點 -->
     </div>
 
+    <button class="icon-btn btn-lowpower" id="btn-lowpower" aria-label="Low Power Mode">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="7" width="16" height="10" rx="3" ry="3"></rect>
+        <line x1="22" y1="11" x2="22" y2="13"></line>
+        <rect class="battery-level" x="4" y="9" width="12" height="6" rx="1" fill="currentColor" stroke="none"></rect>
+      </svg>
+    </button>
     <button class="icon-btn btn-settings" id="btn-settings" aria-label="Settings">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
     </button>
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen">
       <svg class="fs-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path class="fs-top-left" d="M8 3H5a2 2 0 0 0-2 2v3"></path><path class="fs-top-right" d="M16 3h3a2 2 0 0 1 2 2v3"></path><path class="fs-bottom-left" d="M8 21H5a2 2 0 0 1-2-2v-3"></path><path class="fs-bottom-right" d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg>
@@ -215,13 +241,12 @@
 </div>
 
   <script>
-    // --- Data-Driven Localization & Configuration ---
     const DICT = {
       en: {
         lang: "Language", time: "24-Hour Time", sec: "Show Seconds", tick: "Tick Anim",
         mode: "Mode", theme: "Theme", size: "Size", weight: "Weight", speed: "Speed",
         lp: "Low Power Mode", idle: "Idle Timeout", burn: "Burn-in Protection", night: "Night Mode",
-        font: "Font", lz: "Leading Zero", date: "Show Date",
+        font: "Font", lz: "Leading Zero", date: "Show Date", lpOn: "Low Power Mode: On", lpOff: "Low Power Mode: Off",
         modes: ['Silk', 'Glow', 'Dust', 'Liquid', 'Horizon'],
         ticks: ['Inst', 'Depth', 'Spring', 'Flip'],
         idles: ['3s', '10s', 'Never']
@@ -230,7 +255,7 @@
         lang: "語言", time: "24小時制", sec: "顯示秒數", tick: "跳秒動效",
         mode: "背景模式", theme: "色彩主題", size: "時鐘尺寸", weight: "字體粗細", speed: "背景流速",
         lp: "低功耗模式", idle: "閒置隱藏", burn: "OLED 防烙印", night: "夜間護眼",
-        font: "字體風格", lz: "補零顯示", date: "顯示日期",
+        font: "字體風格", lz: "補零顯示", date: "顯示日期", lpOn: "低功耗模式：已開啟", lpOff: "低功耗模式：已關閉",
         modes: ['絲綢', '光暈', '星塵', '液態', '天沿'],
         ticks: ['瞬間', '景深', '彈性', '翻牌'],
         idles: ['3秒', '10秒', '永不']
@@ -258,7 +283,7 @@
       weight: { id: 'ctrl-weight', prop: 'value', cssVar: '--clock-weight' }, speed: { id: 'ctrl-speed', prop: 'value' },
       is24Hour: { id: 'ctrl-24hr', prop: 'checked' }, leadingZero: { id: 'ctrl-leadingzero', prop: 'checked' },
       showSeconds: { id: 'ctrl-seconds', prop: 'checked' }, showDate: { id: 'ctrl-date', prop: 'checked' },
-      lowPower: { id: 'ctrl-lowpower', prop: 'checked' }, pixelShift: { id: 'ctrl-pixelshift', prop: 'checked' }, nightMode: { id: 'ctrl-nightmode', prop: 'checked' }
+      pixelShift: { id: 'ctrl-pixelshift', prop: 'checked' }, nightMode: { id: 'ctrl-nightmode', prop: 'checked' }
     };
     
     // --- Architecture Pattern: Animation Registry ---
@@ -290,7 +315,7 @@
     const rgbToHex = (r, g, b) => `#${[r,g,b].map(x => Math.max(0, Math.min(255, Math.round(x * 255))).toString(16).padStart(2, '0')).join('')}`;
     
     const state = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false };
-    const root = document.documentElement, panel = document.getElementById('settings-panel'), canvas = document.getElementById('gl-canvas'), clockLayerObj = document.getElementById('clock-layer'), appContainer = document.getElementById('app-container');
+    const root = document.documentElement, panel = document.getElementById('settings-panel'), canvas = document.getElementById('gl-canvas'), clockLayerObj = document.getElementById('clock-layer'), clockElement = document.getElementById('clock'), appContainer = document.getElementById('app-container');
     let colorLive = [0.21, 0.11, 0.47], glReady = false, uniforms = {}, clockTimer = null;
     let currentWeights = [1, 0, 0, 0, 0], targetWeights = [1, 0, 0, 0, 0], currentBrightness = 1.0;
 
@@ -309,13 +334,15 @@
         `;
       };
       panel.innerHTML = `
-        <div class="settings-block"><div class="settings-row"><span class="row-label auto-w">${d.lang}</span><div class="segmented-control inline-seg" data-prop="lang" role="radiogroup" style="max-width:120px"><div class="segmented-highlight"></div><button class="segment-btn ${state.lang==='en'?'active':''}" data-value="en">EN</button><button class="segment-btn ${state.lang==='zh'?'active':''}" data-value="zh">中</button></div></div></div>
+        <div class="settings-block">
+          <div class="settings-row"><span class="row-label auto-w">${d.lang}</span><div class="segmented-control inline-seg" data-prop="lang" role="radiogroup" style="max-width:120px"><div class="segmented-highlight"></div><button class="segment-btn ${state.lang==='en'?'active':''}" data-value="en">EN</button><button class="segment-btn ${state.lang==='zh'?'active':''}" data-value="zh">中</button></div></div>
+          ${renderSegRow(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono'])}
+        </div>
         <div class="settings-block">
           <div class="settings-row"><span class="row-label auto-w">${d.time}</span><input type="checkbox" id="ctrl-24hr" class="toggle-switch"></div>
           <div class="settings-row"><span class="row-label auto-w">${d.lz}</span><input type="checkbox" id="ctrl-leadingzero" class="toggle-switch"></div>
           <div class="settings-row"><span class="row-label auto-w">${d.sec}</span><input type="checkbox" id="ctrl-seconds" class="toggle-switch"></div>
           <div class="settings-row"><span class="row-label auto-w">${d.date}</span><input type="checkbox" id="ctrl-date" class="toggle-switch"></div>
-          <div class="settings-row"><span class="row-label auto-w">${d.lp}</span><input type="checkbox" id="ctrl-lowpower" class="toggle-switch"></div>
           ${renderSegRow(d.tick, 'clockAnimMode', d.ticks)}
         </div>
         <div class="settings-block">
@@ -325,7 +352,6 @@
         </div>
         <div class="settings-block">
           ${renderSegRow(d.mode, 'mode', d.modes, 1)}
-          ${renderSegRow(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono'])}
           <div class="settings-row"><span class="row-label auto-w">${d.theme}</span><div class="swatches-container">
             ${THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}
             <div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div>
@@ -347,6 +373,15 @@
     const updateSliderFill = el => el.style.setProperty('--val', `${((el.value - (el.min || 0)) / ((el.max || 100) - (el.min || 0))) * 100}%`);
     const saveSettings = () => { try { localStorage.setItem('aurora_settings', JSON.stringify(state)); } catch(e){} };
 
+    let hudTimer;
+    function showHUD(text) {
+      const hud = document.getElementById('hud-toast');
+      hud.textContent = text;
+      hud.classList.add('is-visible');
+      clearTimeout(hudTimer);
+      hudTimer = setTimeout(() => hud.classList.remove('is-visible'), 2000);
+    }
+
     const updateSegmentHighlight = (container, val, skipAnim = false) => {
       const btn = Array.from(container.querySelectorAll('.segment-btn')).find(b => isNaN(b.dataset.value) ? b.dataset.value === val : Number(b.dataset.value) === Number(val));
       if (btn) {
@@ -366,6 +401,10 @@
         root.style.setProperty('--clock-color', 'rgba(255, 255, 255, 0.9)'); root.style.setProperty('--date-color', 'rgba(255, 255, 255, 0.6)'); root.style.setProperty('--clock-shadow-color', 'rgba(255, 255, 255, 0.2)'); 
       }
       runPixelShift();
+      
+      const btnLowpower = document.getElementById('btn-lowpower');
+      if (btnLowpower) btnLowpower.classList.toggle('is-active', state.lowPower);
+
       Object.entries(UI_BINDINGS).forEach(([k, b]) => {
         const el = document.getElementById(b.id);
         if (el) { el[b.prop] = state[k]; if (b.cssVar) root.style.setProperty(b.cssVar, b.format ? b.format(state[k]) : state[k]); if (el.type === 'range') updateSliderFill(el); }
@@ -420,8 +459,8 @@
       const mainStr = `${hUnits}:${String(now.getMinutes()).padStart(2, '0')}`, secStr = `:${String(now.getSeconds()).padStart(2, '0')}`;
       const ampmStr = !state.is24Hour ? (isPM ? 'PM' : 'AM') : '';
       
-      const clockEl = document.getElementById('clock'), dateEl = document.getElementById('date');
-      const tensCont = clockEl.querySelector('.tens-group'), mainCont = clockEl.querySelector('.main-time'), secCont = clockEl.querySelector('.seconds-group'), ampmCont = clockEl.querySelector('.ampm-group');
+      const dateEl = document.getElementById('date');
+      const tensCont = clockElement.querySelector('.tens-group'), mainCont = clockElement.querySelector('.main-time'), secCont = clockElement.querySelector('.seconds-group'), ampmCont = clockElement.querySelector('.ampm-group');
       
       ampmCont.textContent = ampmStr;
       tensCont.classList.toggle('is-hidden', hideLeading);
@@ -572,18 +611,21 @@
       if (!isRendering) return; if (!timestamp) timestamp = performance.now();
       const dt = timestamp - lastTime, isIdle = document.body.classList.contains('is-idle');
       if ((isIdle ? 50 : (state.lowPower ? 41.6 : 0)) > 0 && dt < (isIdle ? 50 : (state.lowPower ? 41.6 : 0))) { requestAnimationFrame(renderLoop); return; }
+      
+      const dtNorm = dt / 16.666;
+      const lerp = Math.min(dtNorm * 0.033, 1.0);
       lastTime = timestamp;
       
       if (glReady) {
         globalTime += 0.01 * state.speed * (dt / 16.666);
         const actualColorTarget = state.nightMode ? [0.16, 0.08, 0.0] : state.colorTarget;
-        colorLive.forEach((_, i) => colorLive[i] += (actualColorTarget[i] - colorLive[i]) * 0.05);
+        colorLive.forEach((_, i) => colorLive[i] += (actualColorTarget[i] - colorLive[i]) * lerp);
         
         for (let i = 0; i < 5; i++) {
-          currentWeights[i] += (targetWeights[i] - currentWeights[i]) * 0.05;
+          currentWeights[i] += (targetWeights[i] - currentWeights[i]) * lerp;
         }
         
-        currentBrightness += ((isHolding ? 1.5 : (isIdle ? 0.65 : 1.0)) - currentBrightness) * 0.05;
+        currentBrightness += ((isHolding ? 1.5 : (isIdle ? 0.65 : 1.0)) - currentBrightness) * lerp;
         
         gl.uniform1f(uniforms.u_time, globalTime); 
         gl.uniform3f(uniforms.u_color, ...colorLive); 
@@ -602,7 +644,7 @@
       else {
         const availL = rect.right + 48, availR = ww - 48;
         if (availL < availR) { 
-          let currentClockWidth = document.getElementById('clock').offsetWidth || 1;
+          let currentClockWidth = clockElement.offsetWidth || 1;
           if (!state.is24Hour) { const ampm = document.querySelector('.ampm-group'); if (ampm && ampm.textContent !== "") currentClockWidth += ampm.offsetWidth + (ww * 0.01); }
           clockLayerObj.style.setProperty('--evade-x', `${((availL + availR) / 2) - (ww / 2)}px`); clockLayerObj.style.setProperty('--evade-y', '0px'); 
           clockLayerObj.style.setProperty('--evade-scale', Math.min(0.95, (availR - availL) / currentClockWidth).toFixed(3)); 
@@ -611,13 +653,15 @@
       }
     }
 
+    const layoutObserver = new ResizeObserver(() => { if (panel.classList.contains('active')) updateClockEvasion(); });
+    layoutObserver.observe(clockElement); layoutObserver.observe(panel);
+
     // --- Events ---
     document.addEventListener('input', e => {
       if (e.target.type === 'range') document.body.classList.add('is-dragging');
       const entry = Object.entries(UI_BINDINGS).find(([, b]) => b.id === e.target.id);
       if (entry && e.target.type !== 'checkbox') { updateState(entry[0], parseFloat(e.target.value)); } 
       else if (e.target.id === 'custom-color-input') { updateState('colorTarget', hexToRgb(e.target.value)); }
-      updateClockEvasion();
     });
 
     document.addEventListener('change', e => {
@@ -638,7 +682,9 @@
       if (segBtn && !segBtn.classList.contains('active')) {
         updateState(segBtn.closest('.segmented-control').dataset.prop, isNaN(segBtn.dataset.value) ? segBtn.dataset.value : parseInt(segBtn.dataset.value));
       } else if (swatch) { updateState('colorTarget', swatch.dataset.rgb.split(',').map(Number)); } 
-      else if (e.target.closest('#btn-settings')) { panel.classList.toggle('active'); updateClockEvasion(); } 
+      else if (e.target.closest('#btn-lowpower')) {
+        const newState = !state.lowPower; updateState('lowPower', newState); showHUD(newState ? DICT[state.lang].lpOn : DICT[state.lang].lpOff);
+      } else if (e.target.closest('#btn-settings')) { panel.classList.toggle('active'); updateClockEvasion(); } 
       else if (e.target.closest('#btn-fullscreen')) { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); else if (document.exitFullscreen) document.exitFullscreen(); } 
       else if (!e.target.closest('.settings-panel') && !e.target.closest('#custom-color-input') && panel.classList.contains('active')) { panel.classList.remove('active'); updateClockEvasion(); }
       wakeUp();
@@ -647,12 +693,12 @@
     window.addEventListener('resize', () => {
       document.body.classList.toggle('is-fullscreen', (window.innerHeight >= window.screen.height - 1) || !!document.fullscreenElement);
       if (glReady) { const dpr = state.lowPower ? 0.75 : Math.min(window.devicePixelRatio || 1, 2); canvas.width = window.innerWidth * dpr; canvas.height = window.innerHeight * dpr; gl.viewport(0, 0, canvas.width, canvas.height); gl.uniform2f(uniforms.u_resolution, canvas.width, canvas.height); }
-      if (panel.classList.contains('active')) updateClockEvasion(); wakeUp();
+      wakeUp();
     });
     document.addEventListener('fullscreenchange', () => window.dispatchEvent(new Event('resize')));
 
     let idleTimer, lastWake = 0;
-    function setIdle() { if(!document.body.classList.contains('is-idle')) { document.body.classList.add('is-idle'); panel.classList.remove('active'); if (document.activeElement) document.activeElement.blur(); updateClockEvasion(); } }
+    function setIdle() { if(!document.body.classList.contains('is-idle')) { document.body.classList.add('is-idle'); panel.classList.remove('active'); if (document.activeElement) document.activeElement.blur(); } }
     function wakeUp() { const now = Date.now(); if (now - lastWake < 150) return; lastWake = now; document.body.classList.remove('is-idle'); clearTimeout(idleTimer); if (state.idleTimeout !== 2) idleTimer = setTimeout(setIdle, state.idleTimeout === 0 ? 3000 : 10000); }
     ['mousemove', 'pointermove', 'touchstart', 'keydown'].forEach(evt => window.addEventListener(evt, wakeUp, { passive: true }));
 
@@ -669,7 +715,7 @@
     document.addEventListener('touchmove', e => { if (isHolding && (Math.abs(e.touches[0].clientX - touchStartX) > 15 || Math.abs(e.touches[0].clientY - touchStartY) > 15)) toggleExit(false); }, { passive: true });
     ['touchend', 'touchcancel'].forEach(evt => document.addEventListener(evt, () => toggleExit(false)));
 
-    UI_INIT(); requestWakeLock(); loadSettings(); updateClock(); wakeUp(); window.dispatchEvent(new Event('resize'));
+    loadSettings(); requestWakeLock(); updateClock(); wakeUp(); window.dispatchEvent(new Event('resize'));
     requestAnimationFrame(() => requestAnimationFrame(() => { document.body.classList.remove('no-transitions'); updateClockEvasion(); }));
   </script>
 </body>
