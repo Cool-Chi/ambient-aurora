@@ -441,7 +441,7 @@
       }
 
       render(timestamp) {
-        if (!isRendering) return; 
+        if (document.hidden) return; 
         if (!timestamp) timestamp = performance.now();
         const state = this.store.getState();
         const dt = timestamp - this.lastTime;
@@ -465,6 +465,7 @@
             this.currentWeights[i] += (this.targetWeights[i] - this.currentWeights[i]) * lerp;
           }
           
+          const isHolding = document.getElementById('bg-layer').classList.contains('exiting');
           this.currentBrightness += ((isHolding ? 1.5 : (isIdle ? 0.65 : 1.0)) - this.currentBrightness) * lerp;
           
           this.gl.uniform1f(this.uniforms.u_time, this.globalTime); 
@@ -567,7 +568,7 @@
 
       tick() {
         clearTimeout(this.timer);
-        if (!isRendering) return;
+        if (document.hidden) return;
         
         const state = this.store.getState();
         const now = new Date(); let hh = now.getHours(); const isPM = hh >= 12; if (!state.is24Hour) hh = hh % 12 || 12;
@@ -641,260 +642,327 @@
       }
     }
 
-    const DICT = {
-      en: {
-        lang: "Language", time: "24-Hour Time", sec: "Show Seconds", tick: "Tick Anim",
-        mode: "Mode", theme: "Theme", size: "Size", weight: "Weight", speed: "Speed",
-        lp: "Low Power Mode", idle: "Idle Timeout", burn: "Burn-in Protection", night: "Night Mode",
-        font: "Font", lz: "Leading Zero", date: "Show Date", lpOn: "Low Power Mode: On", lpOff: "Low Power Mode: Off",
-        modes: ['Silk', 'Glow', 'Dust', 'Liquid', 'Horizon'],
-        ticks: ['Inst', 'Depth', 'Spring', 'Flip'],
-        idles: ['3s', '10s', 'Never']
-      },
-      zh: {
-        lang: "語言", time: "24小時制", sec: "顯示秒數", tick: "跳秒動效",
-        mode: "背景模式", theme: "色彩主題", size: "時鐘尺寸", weight: "字體粗細", speed: "背景流速",
-        lp: "低功耗模式", idle: "閒置隱藏", burn: "OLED 防烙印", night: "夜間護眼",
-        font: "字體風格", lz: "補零顯示", date: "顯示日期", lpOn: "低功耗模式：已開啟", lpOff: "低功耗模式：已關閉",
-        modes: ['絲綢', '光暈', '星塵', '液態', '天沿'],
-        ticks: ['瞬間', '景深', '彈性', '翻牌'],
-        idles: ['3秒', '10秒', '永不']
+    class UIManager {
+      static get DICT() {
+        return {
+          en: {
+            lang: "Language", time: "24-Hour Time", sec: "Show Seconds", tick: "Tick Anim",
+            mode: "Mode", theme: "Theme", size: "Size", weight: "Weight", speed: "Speed",
+            lp: "Low Power Mode", idle: "Idle Timeout", burn: "Burn-in Protection", night: "Night Mode",
+            font: "Font", lz: "Leading Zero", date: "Show Date", lpOn: "Low Power Mode: On", lpOff: "Low Power Mode: Off",
+            modes: ['Silk', 'Glow', 'Dust', 'Liquid', 'Horizon'],
+            ticks: ['Inst', 'Depth', 'Spring', 'Flip'],
+            idles: ['3s', '10s', 'Never']
+          },
+          zh: {
+            lang: "語言", time: "24小時制", sec: "顯示秒數", tick: "跳秒動效",
+            mode: "背景模式", theme: "色彩主題", size: "時鐘尺寸", weight: "字體粗細", speed: "背景流速",
+            lp: "低功耗模式", idle: "閒置隱藏", burn: "OLED 防烙印", night: "夜間護眼",
+            font: "字體風格", lz: "補零顯示", date: "顯示日期", lpOn: "低功耗模式：已開啟", lpOff: "低功耗模式：已關閉",
+            modes: ['絲綢', '光暈', '星塵', '液態', '天沿'],
+            ticks: ['瞬間', '景深', '彈性', '翻牌'],
+            idles: ['3秒', '10秒', '永不']
+          }
+        };
       }
-    };
 
-    const FONTS = [
-      '-apple-system, BlinkMacSystemFont, "SF Pro Display", "San Francisco", "Inter", system-ui, sans-serif',
-      '"ui-serif", "New York", "Times New Roman", Times, serif',
-      '"ui-monospace", "SF Mono", Menlo, Monaco, Consolas, monospace'
-    ];
-    const THEMES = [
-      {rgb: '0.21,0.11,0.47', grad: '#371e78, #0a0a0a', label: 'Midnight Purple'}, {rgb: '0.06,0.36,0.27', grad: '#105c45, #0a0a0a', label: 'Aurora Green'},
-      {rgb: '0.05,0.23,0.42', grad: '#0e3b6d, #0a0a0a', label: 'Deep Ocean'}, {rgb: '0.47,0.14,0.11', grad: '#78261e, #0a0a0a', label: 'Sunset Orange'},
-      {rgb: '0.45,0.05,0.15', grad: '#a31636, #0a0a0a', label: 'Crimson Velvet'}, {rgb: '0.02,0.35,0.45', grad: '#0a82a8, #0a0a0a', label: 'Cyber Cyan'}
-    ];
-    const SLIDERS = [
-      { id: 'ctrl-size', key: 'size', min: 5, max: 20, step: 1, svgMin: '<path d="M12 6L8 18M12 6L16 18M9.5 14H14.5" stroke-linecap="round" stroke-linejoin="round"/>', svgMax: '<path d="M12 3L5 21M12 3L19 21M8 15H16" stroke-linecap="round" stroke-linejoin="round"/>' },
-      { id: 'ctrl-weight', key: 'weight', min: 100, max: 900, step: 100, svgMin: '<circle cx="12" cy="12" r="8" stroke-width="1"/>', svgMax: '<circle cx="12" cy="12" r="8" stroke-width="4"/>' },
-      { id: 'ctrl-speed', key: 'speed', min: 0.1, max: 4, step: 0.01, svgMin: '<path d="M4 12h10M4 8h6M4 16h8" stroke-linecap="round"/>', svgMax: '<path d="M2 12h16M2 8h12M2 16h14M18 12a2 2 0 1 0-2-2M14 8a2 2 0 1 0-2-2M16 16a2 2 0 1 1-2 2" stroke-linecap="round"/>' }
-    ];
+      static get FONTS() {
+        return [
+          '-apple-system, BlinkMacSystemFont, "SF Pro Display", "San Francisco", "Inter", system-ui, sans-serif',
+          '"ui-serif", "New York", "Times New Roman", Times, serif',
+          '"ui-monospace", "SF Mono", Menlo, Monaco, Consolas, monospace'
+        ];
+      }
 
-    const UI_BINDINGS = {
-      size: { id: 'ctrl-size', prop: 'value', cssVar: '--clock-size', format: v => `clamp(4rem, ${v}vw, 20vw)` },
-      weight: { id: 'ctrl-weight', prop: 'value', cssVar: '--clock-weight' }, speed: { id: 'ctrl-speed', prop: 'value' },
-      is24Hour: { id: 'ctrl-24hr', prop: 'checked' }, leadingZero: { id: 'ctrl-leadingzero', prop: 'checked' },
-      showSeconds: { id: 'ctrl-seconds', prop: 'checked' }, showDate: { id: 'ctrl-date', prop: 'checked' },
-      pixelShift: { id: 'ctrl-pixelshift', prop: 'checked' }, nightMode: { id: 'ctrl-nightmode', prop: 'checked' }
-    };
-    
-    const hexToRgb = h => [parseInt(h.slice(1,3),16)/255, parseInt(h.slice(3,5),16)/255, parseInt(h.slice(5,7),16)/255];
-    const rgbToHex = (r, g, b) => `#${[r,g,b].map(x => Math.max(0, Math.min(255, Math.round(x * 255))).toString(16).padStart(2, '0')).join('')}`;
-    
-    const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false };
-    const store = new Store(defaultState);
-    
-    const root = document.documentElement, panel = document.getElementById('settings-panel'), clockLayerObj = document.getElementById('clock-layer'), appContainer = document.getElementById('app-container');
+      static get THEMES() {
+        return [
+          {rgb: '0.21,0.11,0.47', grad: '#371e78, #0a0a0a', label: 'Midnight Purple'}, {rgb: '0.06,0.36,0.27', grad: '#105c45, #0a0a0a', label: 'Aurora Green'},
+          {rgb: '0.05,0.23,0.42', grad: '#0e3b6d, #0a0a0a', label: 'Deep Ocean'}, {rgb: '0.47,0.14,0.11', grad: '#78261e, #0a0a0a', label: 'Sunset Orange'},
+          {rgb: '0.45,0.05,0.15', grad: '#a31636, #0a0a0a', label: 'Crimson Velvet'}, {rgb: '0.02,0.35,0.45', grad: '#0a82a8, #0a0a0a', label: 'Cyber Cyan'}
+        ];
+      }
 
-    const UI_INIT = () => {
-      const state = store.getState();
-      const d = DICT[state.lang];
-      const renderSegRow = (label, prop, options, offset = 0) => {
-        const isCol = options.length > 3;
-        return `
-          <div class="settings-row ${isCol ? 'col-layout' : ''}">
-            <span class="row-label auto-w">${label}</span>
-            <div class="segmented-control ${isCol ? '' : 'inline-seg'}" data-prop="${prop}" role="radiogroup">
-              <div class="segmented-highlight"></div>
-              ${options.map((t, i) => `<button class="segment-btn" data-value="${i + offset}">${t}</button>`).join('')}
+      static get SLIDERS() {
+        return [
+          { id: 'ctrl-size', key: 'size', min: 5, max: 20, step: 1, svgMin: '<path d="M12 6L8 18M12 6L16 18M9.5 14H14.5" stroke-linecap="round" stroke-linejoin="round"/>', svgMax: '<path d="M12 3L5 21M12 3L19 21M8 15H16" stroke-linecap="round" stroke-linejoin="round"/>' },
+          { id: 'ctrl-weight', key: 'weight', min: 100, max: 900, step: 100, svgMin: '<circle cx="12" cy="12" r="8" stroke-width="1"/>', svgMax: '<circle cx="12" cy="12" r="8" stroke-width="4"/>' },
+          { id: 'ctrl-speed', key: 'speed', min: 0.1, max: 4, step: 0.01, svgMin: '<path d="M4 12h10M4 8h6M4 16h8" stroke-linecap="round"/>', svgMax: '<path d="M2 12h16M2 8h12M2 16h14M18 12a2 2 0 1 0-2-2M14 8a2 2 0 1 0-2-2M16 16a2 2 0 1 1-2 2" stroke-linecap="round"/>' }
+        ];
+      }
+
+      static get UI_BINDINGS() {
+        return {
+          size: { id: 'ctrl-size', prop: 'value', cssVar: '--clock-size', format: v => `clamp(4rem, ${v}vw, 20vw)` },
+          weight: { id: 'ctrl-weight', prop: 'value', cssVar: '--clock-weight' }, speed: { id: 'ctrl-speed', prop: 'value' },
+          is24Hour: { id: 'ctrl-24hr', prop: 'checked' }, leadingZero: { id: 'ctrl-leadingzero', prop: 'checked' },
+          showSeconds: { id: 'ctrl-seconds', prop: 'checked' }, showDate: { id: 'ctrl-date', prop: 'checked' },
+          pixelShift: { id: 'ctrl-pixelshift', prop: 'checked' }, nightMode: { id: 'ctrl-nightmode', prop: 'checked' }
+        };
+      }
+
+      static hexToRgb(h) {
+        return [parseInt(h.slice(1,3),16)/255, parseInt(h.slice(3,5),16)/255, parseInt(h.slice(5,7),16)/255];
+      }
+      
+      static rgbToHex(r, g, b) {
+        return `#${[r,g,b].map(x => Math.max(0, Math.min(255, Math.round(x * 255))).toString(16).padStart(2, '0')).join('')}`;
+      }
+
+      constructor(store, clockController, glEngine) {
+        this.store = store;
+        this.clockController = clockController;
+        this.glEngine = glEngine;
+
+        this.panel = document.getElementById('settings-panel');
+        this.appContainer = document.getElementById('app-container');
+        this.hudToast = document.getElementById('hud-toast');
+        this.bgLayer = document.getElementById('bg-layer');
+        this.clockLayerObj = document.getElementById('clock-layer');
+
+        this.pixelShiftTimer = null;
+        this.hudTimer = null;
+        this.idleTimer = null;
+        this.lastWake = 0;
+        this.wakeLock = null;
+        this.isHolding = false;
+        this.holdTimeout = null;
+        this.touchStartX = 0;
+        this.touchStartY = 0;
+
+        this.tgStart = null;
+        this.tgTarget = null;
+        this.tgDragged = false;
+
+        this.store.subscribe((prop, val) => {
+          let skipAnim = false;
+          if (prop === 'lang') { 
+            this.renderPanel(); 
+            skipAnim = true; 
+          }
+          this.syncUI(skipAnim);
+        });
+      }
+
+      init() {
+        this.renderPanel();
+        this.syncUI(true);
+        this.bindEvents();
+        this.runPixelShift();
+        this.wakeUp();
+        this.requestWakeLock();
+        window.dispatchEvent(new Event('resize'));
+      }
+
+      renderPanel() {
+        const state = this.store.getState();
+        const d = UIManager.DICT[state.lang];
+        const renderSegRow = (label, prop, options, offset = 0) => {
+          const isCol = options.length > 3;
+          return `
+            <div class="settings-row ${isCol ? 'col-layout' : ''}">
+              <span class="row-label auto-w">${label}</span>
+              <div class="segmented-control ${isCol ? '' : 'inline-seg'}" data-prop="${prop}" role="radiogroup">
+                <div class="segmented-highlight"></div>
+                ${options.map((t, i) => `<button class="segment-btn" data-value="${i + offset}">${t}</button>`).join('')}
+              </div>
             </div>
+          `;
+        };
+        this.panel.innerHTML = `
+          <div class="settings-block">
+            <div class="settings-row"><span class="row-label auto-w">${d.lang}</span><div class="segmented-control inline-seg" data-prop="lang" role="radiogroup" style="max-width:120px"><div class="segmented-highlight"></div><button class="segment-btn ${state.lang==='en'?'active':''}" data-value="en">EN</button><button class="segment-btn ${state.lang==='zh'?'active':''}" data-value="zh">中</button></div></div>
+            ${renderSegRow(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono'])}
+          </div>
+          <div class="settings-block">
+            <div class="settings-row"><span class="row-label auto-w">${d.time}</span><input type="checkbox" id="ctrl-24hr" class="toggle-switch"></div>
+            <div class="settings-row"><span class="row-label auto-w">${d.lz}</span><input type="checkbox" id="ctrl-leadingzero" class="toggle-switch"></div>
+            <div class="settings-row"><span class="row-label auto-w">${d.sec}</span><input type="checkbox" id="ctrl-seconds" class="toggle-switch"></div>
+            <div class="settings-row"><span class="row-label auto-w">${d.date}</span><input type="checkbox" id="ctrl-date" class="toggle-switch"></div>
+            ${renderSegRow(d.tick, 'clockAnimMode', d.ticks)}
+          </div>
+          <div class="settings-block">
+            ${renderSegRow(d.idle, 'idleTimeout', d.idles)}
+            <div class="settings-row"><span class="row-label auto-w">${d.burn}</span><input type="checkbox" id="ctrl-pixelshift" class="toggle-switch"></div>
+            <div class="settings-row"><span class="row-label auto-w">${d.night}</span><input type="checkbox" id="ctrl-nightmode" class="toggle-switch"></div>
+          </div>
+          <div class="settings-block">
+            ${renderSegRow(d.mode, 'mode', d.modes, 1)}
+            <div class="settings-row"><span class="row-label auto-w">${d.theme}</span><div class="swatches-container">
+              ${UIManager.THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}
+              <div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div>
+            </div></div>
+          </div>
+          <div class="settings-block">
+            ${UIManager.SLIDERS.map(s => `<div class="slider-row" aria-label="${d[s.key]}"><svg class="slider-icon min-icon" viewBox="0 0 24 24">${s.svgMin}</svg><div class="range-container"><input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}"></div><svg class="slider-icon max-icon" viewBox="0 0 24 24">${s.svgMax}</svg></div>`).join('')}
           </div>
         `;
-      };
-      panel.innerHTML = `
-        <div class="settings-block">
-          <div class="settings-row"><span class="row-label auto-w">${d.lang}</span><div class="segmented-control inline-seg" data-prop="lang" role="radiogroup" style="max-width:120px"><div class="segmented-highlight"></div><button class="segment-btn ${state.lang==='en'?'active':''}" data-value="en">EN</button><button class="segment-btn ${state.lang==='zh'?'active':''}" data-value="zh">中</button></div></div>
-          ${renderSegRow(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono'])}
-        </div>
-        <div class="settings-block">
-          <div class="settings-row"><span class="row-label auto-w">${d.time}</span><input type="checkbox" id="ctrl-24hr" class="toggle-switch"></div>
-          <div class="settings-row"><span class="row-label auto-w">${d.lz}</span><input type="checkbox" id="ctrl-leadingzero" class="toggle-switch"></div>
-          <div class="settings-row"><span class="row-label auto-w">${d.sec}</span><input type="checkbox" id="ctrl-seconds" class="toggle-switch"></div>
-          <div class="settings-row"><span class="row-label auto-w">${d.date}</span><input type="checkbox" id="ctrl-date" class="toggle-switch"></div>
-          ${renderSegRow(d.tick, 'clockAnimMode', d.ticks)}
-        </div>
-        <div class="settings-block">
-          ${renderSegRow(d.idle, 'idleTimeout', d.idles)}
-          <div class="settings-row"><span class="row-label auto-w">${d.burn}</span><input type="checkbox" id="ctrl-pixelshift" class="toggle-switch"></div>
-          <div class="settings-row"><span class="row-label auto-w">${d.night}</span><input type="checkbox" id="ctrl-nightmode" class="toggle-switch"></div>
-        </div>
-        <div class="settings-block">
-          ${renderSegRow(d.mode, 'mode', d.modes, 1)}
-          <div class="settings-row"><span class="row-label auto-w">${d.theme}</span><div class="swatches-container">
-            ${THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}
-            <div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div>
-          </div></div>
-        </div>
-        <div class="settings-block">
-          ${SLIDERS.map(s => `<div class="slider-row" aria-label="${d[s.key]}"><svg class="slider-icon min-icon" viewBox="0 0 24 24">${s.svgMin}</svg><div class="range-container"><input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}"></div><svg class="slider-icon max-icon" viewBox="0 0 24 24">${s.svgMax}</svg></div>`).join('')}
-        </div>
-      `;
-    };
+      }
 
-    let pixelShiftTimer = null;
-    const runPixelShift = () => {
-      const state = store.getState();
-      clearInterval(pixelShiftTimer);
-      if (state.pixelShift) pixelShiftTimer = setInterval(() => appContainer.style.transform = `translate(${(Math.random()-0.5)*12}px, ${(Math.random()-0.5)*12}px)`, 60000);
-      else appContainer.style.transform = 'translate(0px, 0px)';
-    };
+      runPixelShift() {
+        const state = this.store.getState();
+        clearInterval(this.pixelShiftTimer);
+        if (state.pixelShift) this.pixelShiftTimer = setInterval(() => this.appContainer.style.transform = `translate(${(Math.random()-0.5)*12}px, ${(Math.random()-0.5)*12}px)`, 60000);
+        else this.appContainer.style.transform = 'translate(0px, 0px)';
+      }
 
-    const updateSliderFill = el => el.style.setProperty('--val', `${((el.value - (el.min || 0)) / ((el.max || 100) - (el.min || 0))) * 100}%`);
+      updateSliderFill(el) {
+        el.style.setProperty('--val', `${((el.value - (el.min || 0)) / ((el.max || 100) - (el.min || 0))) * 100}%`);
+      }
 
-    let hudTimer;
-    function showHUD(text) {
-      const hud = document.getElementById('hud-toast');
-      hud.textContent = text;
-      hud.classList.add('is-visible');
-      clearTimeout(hudTimer);
-      hudTimer = setTimeout(() => hud.classList.remove('is-visible'), 2000);
+      showHUD(text) {
+        this.hudToast.textContent = text;
+        this.hudToast.classList.add('is-visible');
+        clearTimeout(this.hudTimer);
+        this.hudTimer = setTimeout(() => this.hudToast.classList.remove('is-visible'), 2000);
+      }
+
+      updateSegmentHighlight(container, val, skipAnim = false) {
+        const btn = Array.from(container.querySelectorAll('.segment-btn')).find(b => isNaN(b.dataset.value) ? b.dataset.value === val : Number(b.dataset.value) === Number(val));
+        if (btn) {
+          container.querySelectorAll('.segment-btn').forEach(b => b.classList.toggle('active', b === btn));
+          const highlight = container.querySelector('.segmented-highlight');
+          if (skipAnim) highlight.style.transition = 'none';
+          highlight.style.width = `${btn.offsetWidth}px`; highlight.style.transform = `translateX(${btn.offsetLeft}px)`;
+          if (skipAnim) requestAnimationFrame(() => requestAnimationFrame(() => highlight.style.transition = ''));
+        }
+      }
+
+      syncUI(skipAnim = false) {
+        const state = this.store.getState();
+        document.documentElement.style.setProperty('--clock-font', UIManager.FONTS[state.fontStyle]);
+        if (state.nightMode) { 
+          document.documentElement.style.setProperty('--clock-color', '#D97736'); document.documentElement.style.setProperty('--date-color', '#6E3F20'); document.documentElement.style.setProperty('--clock-shadow-color', 'transparent'); 
+        } else { 
+          document.documentElement.style.setProperty('--clock-color', 'rgba(255, 255, 255, 0.9)'); document.documentElement.style.setProperty('--date-color', 'rgba(255, 255, 255, 0.6)'); document.documentElement.style.setProperty('--clock-shadow-color', 'rgba(255, 255, 255, 0.2)'); 
+        }
+        this.runPixelShift();
+        
+        const btnLowpower = document.getElementById('btn-lowpower');
+        if (btnLowpower) btnLowpower.classList.toggle('is-active', state.lowPower);
+
+        Object.entries(UIManager.UI_BINDINGS).forEach(([k, b]) => {
+          const el = document.getElementById(b.id);
+          if (el) { el[b.prop] = state[k]; if (b.cssVar) document.documentElement.style.setProperty(b.cssVar, b.format ? b.format(state[k]) : state[k]); if (el.type === 'range') this.updateSliderFill(el); }
+        });
+        document.querySelectorAll('.segmented-control').forEach(c => { const val = state[c.dataset.prop]; if (val !== undefined) requestAnimationFrame(() => this.updateSegmentHighlight(c, val, skipAnim)); });
+        document.querySelectorAll('.swatch-wrapper').forEach(s => s.classList.remove('active'));
+        const activeSwatch = document.querySelector(`.swatch-wrapper[data-rgb="${state.colorTarget.join(',')}"]`), customEl = document.getElementById('custom-swatch-color');
+        if (activeSwatch) { activeSwatch.classList.add('active'); customEl.style.background = ''; customEl.classList.remove('has-color'); } 
+        else { document.getElementById('custom-swatch-wrapper').classList.add('active'); document.getElementById('custom-color-input').value = UIManager.rgbToHex(...state.colorTarget); customEl.style.background = UIManager.rgbToHex(...state.colorTarget); customEl.classList.add('has-color'); }
+      }
+
+      wakeUp() {
+        const state = this.store.getState(); 
+        const now = Date.now(); 
+        if (now - this.lastWake < 150) return; 
+        this.lastWake = now; 
+        document.body.classList.remove('is-idle'); 
+        clearTimeout(this.idleTimer); 
+        if (state.idleTimeout !== 2) this.idleTimer = setTimeout(() => this.setIdle(), state.idleTimeout === 0 ? 3000 : 10000); 
+      }
+
+      setIdle() {
+        if(!document.body.classList.contains('is-idle')) { 
+          document.body.classList.add('is-idle'); 
+          this.panel.classList.remove('active'); 
+          if (document.activeElement) document.activeElement.blur(); 
+        }
+      }
+
+      toggleExit(isStarting) {
+        if (this.isHolding === isStarting) return; 
+        this.isHolding = isStarting;
+        this.bgLayer.classList.toggle('exiting', isStarting); 
+        this.clockLayerObj.classList.toggle('exiting', isStarting);
+        if (isStarting) { 
+          this.holdTimeout = setTimeout(() => { 
+            this.isHolding = false; 
+            document.body.classList.add('disconnected'); 
+            setTimeout(() => { try { window.close(); } catch (err) {} }, 800); 
+          }, 2000); 
+        } else clearTimeout(this.holdTimeout);
+      }
+
+      async requestWakeLock() { 
+        if (this.wakeLock) { await this.wakeLock.release().catch(()=>{}); this.wakeLock = null; } 
+        try { if ('wakeLock' in navigator && !document.hidden) this.wakeLock = await navigator.wakeLock.request('screen'); } catch(e){} 
+      }
+
+      bindEvents() {
+        document.addEventListener('input', e => {
+          if (e.target.type === 'range') document.body.classList.add('is-dragging');
+          const entry = Object.entries(UIManager.UI_BINDINGS).find(([, b]) => b.id === e.target.id);
+          if (entry && e.target.type !== 'checkbox') { this.store.setState(entry[0], parseFloat(e.target.value)); } 
+          else if (e.target.id === 'custom-color-input') { this.store.setState('colorTarget', UIManager.hexToRgb(e.target.value)); }
+        });
+
+        document.addEventListener('change', e => {
+          if (e.target.type === 'checkbox') { const entry = Object.entries(UIManager.UI_BINDINGS).find(([, b]) => b.id === e.target.id); if (entry) this.store.setState(entry[0], e.target.checked); }
+        });
+
+        document.addEventListener('pointerdown', e => { 
+          if (e.target.type === 'range') document.body.classList.add('is-dragging');
+          const t = e.target.closest('.toggle-switch'); if (t) { this.tgStart = e.clientX; this.tgTarget = t; this.tgDragged = false; } 
+        });
+        document.addEventListener('pointermove', e => { if (this.tgTarget && this.tgStart !== null) { const dx = e.clientX - this.tgStart; if (Math.abs(dx) > 8) { this.tgDragged = true; const checkedState = dx > 0; if (this.tgTarget.checked !== checkedState) { this.tgTarget.checked = checkedState; this.tgTarget.dispatchEvent(new Event('change', { bubbles: true })); } } } });
+        document.addEventListener('pointerup', () => { document.body.classList.remove('is-dragging'); this.tgStart = null; setTimeout(() => this.tgTarget = null, 0); }, { passive: true });
+        document.addEventListener('click', e => { if (e.target.closest('.toggle-switch') && this.tgDragged) { e.preventDefault(); e.stopPropagation(); } }, { capture: true });
+
+        document.addEventListener('click', e => {
+          const state = this.store.getState();
+          const segBtn = e.target.closest('.segment-btn'), swatch = e.target.closest('.swatch-wrapper[data-rgb]');
+          if (segBtn && !segBtn.classList.contains('active')) {
+            this.store.setState(segBtn.closest('.segmented-control').dataset.prop, isNaN(segBtn.dataset.value) ? segBtn.dataset.value : parseInt(segBtn.dataset.value));
+          } else if (swatch) { this.store.setState('colorTarget', swatch.dataset.rgb.split(',').map(Number)); } 
+          else if (e.target.closest('#btn-lowpower')) {
+            const newState = !state.lowPower; this.store.setState('lowPower', newState); this.showHUD(newState ? UIManager.DICT[state.lang].lpOn : UIManager.DICT[state.lang].lpOff);
+          } else if (e.target.closest('#btn-settings')) { this.panel.classList.toggle('active'); this.clockController.updateEvasion(); } 
+          else if (e.target.closest('#btn-fullscreen')) { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); else if (document.exitFullscreen) document.exitFullscreen(); } 
+          else if (!e.target.closest('.settings-panel') && !e.target.closest('#custom-color-input') && this.panel.classList.contains('active')) { this.panel.classList.remove('active'); this.clockController.updateEvasion(); }
+          this.wakeUp();
+        });
+
+        window.addEventListener('resize', () => {
+          document.body.classList.toggle('is-fullscreen', (window.innerHeight >= window.screen.height - 1) || !!document.fullscreenElement);
+          this.wakeUp();
+        });
+        document.addEventListener('fullscreenchange', () => window.dispatchEvent(new Event('resize')));
+
+        ['mousemove', 'pointermove', 'touchstart', 'keydown'].forEach(evt => window.addEventListener(evt, () => this.wakeUp(), { passive: true }));
+
+        document.addEventListener('keydown', e => { if (e.target.tagName !== 'INPUT' && e.code === 'Space') { e.preventDefault(); if (!e.repeat) this.toggleExit(true); } });
+        document.addEventListener('keyup', e => { if (e.code === 'Space') this.toggleExit(false); }); window.addEventListener('blur', () => this.toggleExit(false));
+        document.addEventListener('touchstart', e => { if (!e.target.closest('button, .settings-panel, .swatch-wrapper, input')) { this.touchStartX = e.touches[0].clientX; this.touchStartY = e.touches[0].clientY; this.toggleExit(true); } }, { passive: true });
+        document.addEventListener('touchmove', e => { if (this.isHolding && (Math.abs(e.touches[0].clientX - this.touchStartX) > 15 || Math.abs(e.touches[0].clientY - this.touchStartY) > 15)) this.toggleExit(false); }, { passive: true });
+        ['touchend', 'touchcancel'].forEach(evt => document.addEventListener(evt, () => this.toggleExit(false)));
+
+        document.addEventListener('visibilitychange', () => { 
+          if (!document.hidden) { 
+            this.requestWakeLock(); 
+            this.glEngine.resume();
+            this.clockController.resume();
+          } else if (this.wakeLock) { 
+            this.wakeLock.release().catch(()=>{}); this.wakeLock = null; 
+          } 
+        });
+      }
     }
 
-    const updateSegmentHighlight = (container, val, skipAnim = false) => {
-      const btn = Array.from(container.querySelectorAll('.segment-btn')).find(b => isNaN(b.dataset.value) ? b.dataset.value === val : Number(b.dataset.value) === Number(val));
-      if (btn) {
-        container.querySelectorAll('.segment-btn').forEach(b => b.classList.toggle('active', b === btn));
-        const highlight = container.querySelector('.segmented-highlight');
-        if (skipAnim) highlight.style.transition = 'none';
-        highlight.style.width = `${btn.offsetWidth}px`; highlight.style.transform = `translateX(${btn.offsetLeft}px)`;
-        if (skipAnim) requestAnimationFrame(() => requestAnimationFrame(() => highlight.style.transition = ''));
-      }
-    };
-
-    const syncUI = (skipAnim = false) => {
-      const state = store.getState();
-      root.style.setProperty('--clock-font', FONTS[state.fontStyle]);
-      if (state.nightMode) { 
-        root.style.setProperty('--clock-color', '#D97736'); root.style.setProperty('--date-color', '#6E3F20'); root.style.setProperty('--clock-shadow-color', 'transparent'); 
-      } else { 
-        root.style.setProperty('--clock-color', 'rgba(255, 255, 255, 0.9)'); root.style.setProperty('--date-color', 'rgba(255, 255, 255, 0.6)'); root.style.setProperty('--clock-shadow-color', 'rgba(255, 255, 255, 0.2)'); 
-      }
-      runPixelShift();
-      
-      const btnLowpower = document.getElementById('btn-lowpower');
-      if (btnLowpower) btnLowpower.classList.toggle('is-active', state.lowPower);
-
-      Object.entries(UI_BINDINGS).forEach(([k, b]) => {
-        const el = document.getElementById(b.id);
-        if (el) { el[b.prop] = state[k]; if (b.cssVar) root.style.setProperty(b.cssVar, b.format ? b.format(state[k]) : state[k]); if (el.type === 'range') updateSliderFill(el); }
-      });
-      document.querySelectorAll('.segmented-control').forEach(c => { const val = state[c.dataset.prop]; if (val !== undefined) requestAnimationFrame(() => updateSegmentHighlight(c, val, skipAnim)); });
-      document.querySelectorAll('.swatch-wrapper').forEach(s => s.classList.remove('active'));
-      const activeSwatch = document.querySelector(`.swatch-wrapper[data-rgb="${state.colorTarget.join(',')}"]`), customEl = document.getElementById('custom-swatch-color');
-      if (activeSwatch) { activeSwatch.classList.add('active'); customEl.style.background = ''; customEl.classList.remove('has-color'); } 
-      else { document.getElementById('custom-swatch-wrapper').classList.add('active'); document.getElementById('custom-color-input').value = rgbToHex(...state.colorTarget); customEl.style.background = rgbToHex(...state.colorTarget); customEl.classList.add('has-color'); }
-    };
-
-    // --- State Centralization (Event Router) ---
-    store.subscribe((prop, val) => {
-      let skipAnim = false;
-      if (prop === 'lang') { UI_INIT(); skipAnim = true; }
-      syncUI(skipAnim);
-    });
-
-    const initApp = () => { 
-      UI_INIT(); syncUI(true); 
-    };
-
-    let wakeLock = null, isRendering = true;
-    async function requestWakeLock() { if (wakeLock) { await wakeLock.release().catch(()=>{}); wakeLock = null; } try { if ('wakeLock' in navigator && !document.hidden) wakeLock = await navigator.wakeLock.request('screen'); } catch(e){} }
-    document.addEventListener('visibilitychange', () => { 
-      isRendering = !document.hidden; 
-      if (isRendering) { 
-        requestWakeLock(); 
-        if (typeof glEngine !== 'undefined') glEngine.resume();
-        if (typeof clockController !== 'undefined') clockController.resume();
-      } else if (wakeLock) { 
-        wakeLock.release().catch(()=>{}); wakeLock = null; 
-      } 
-    });
-
-    // --- Events ---
-    document.addEventListener('input', e => {
-      if (e.target.type === 'range') document.body.classList.add('is-dragging');
-      const entry = Object.entries(UI_BINDINGS).find(([, b]) => b.id === e.target.id);
-      if (entry && e.target.type !== 'checkbox') { store.setState(entry[0], parseFloat(e.target.value)); } 
-      else if (e.target.id === 'custom-color-input') { store.setState('colorTarget', hexToRgb(e.target.value)); }
-    });
-
-    document.addEventListener('change', e => {
-      if (e.target.type === 'checkbox') { const entry = Object.entries(UI_BINDINGS).find(([, b]) => b.id === e.target.id); if (entry) store.setState(entry[0], e.target.checked); }
-    });
-
-    let tgStart = null, tgTarget = null, tgDragged = false;
-    document.addEventListener('pointerdown', e => { 
-      if (e.target.type === 'range') document.body.classList.add('is-dragging');
-      const t = e.target.closest('.toggle-switch'); if (t) { tgStart = e.clientX; tgTarget = t; tgDragged = false; } 
-    });
-    document.addEventListener('pointermove', e => { if (tgTarget && tgStart !== null) { const dx = e.clientX - tgStart; if (Math.abs(dx) > 8) { tgDragged = true; const checkedState = dx > 0; if (tgTarget.checked !== checkedState) { tgTarget.checked = checkedState; tgTarget.dispatchEvent(new Event('change', { bubbles: true })); } } } });
-    document.addEventListener('pointerup', () => { document.body.classList.remove('is-dragging'); tgStart = null; setTimeout(() => tgTarget = null, 0); }, { passive: true });
-    document.addEventListener('click', e => { if (e.target.closest('.toggle-switch') && tgDragged) { e.preventDefault(); e.stopPropagation(); } }, { capture: true });
-
-    document.addEventListener('click', e => {
-      const state = store.getState();
-      const segBtn = e.target.closest('.segment-btn'), swatch = e.target.closest('.swatch-wrapper[data-rgb]');
-      if (segBtn && !segBtn.classList.contains('active')) {
-        store.setState(segBtn.closest('.segmented-control').dataset.prop, isNaN(segBtn.dataset.value) ? segBtn.dataset.value : parseInt(segBtn.dataset.value));
-      } else if (swatch) { store.setState('colorTarget', swatch.dataset.rgb.split(',').map(Number)); } 
-      else if (e.target.closest('#btn-lowpower')) {
-        const newState = !state.lowPower; store.setState('lowPower', newState); showHUD(newState ? DICT[state.lang].lpOn : DICT[state.lang].lpOff);
-      } else if (e.target.closest('#btn-settings')) { 
-        panel.classList.toggle('active'); 
-        if (typeof clockController !== 'undefined') clockController.updateEvasion(); 
-      } 
-      else if (e.target.closest('#btn-fullscreen')) { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); else if (document.exitFullscreen) document.exitFullscreen(); } 
-      else if (!e.target.closest('.settings-panel') && !e.target.closest('#custom-color-input') && panel.classList.contains('active')) { 
-        panel.classList.remove('active'); 
-        if (typeof clockController !== 'undefined') clockController.updateEvasion(); 
-      }
-      wakeUp();
-    });
-
-    window.addEventListener('resize', () => {
-      document.body.classList.toggle('is-fullscreen', (window.innerHeight >= window.screen.height - 1) || !!document.fullscreenElement);
-      wakeUp();
-    });
-    document.addEventListener('fullscreenchange', () => window.dispatchEvent(new Event('resize')));
-
-    let idleTimer, lastWake = 0;
-    function setIdle() { if(!document.body.classList.contains('is-idle')) { document.body.classList.add('is-idle'); panel.classList.remove('active'); if (document.activeElement) document.activeElement.blur(); } }
-    function wakeUp() { const state = store.getState(); const now = Date.now(); if (now - lastWake < 150) return; lastWake = now; document.body.classList.remove('is-idle'); clearTimeout(idleTimer); if (state.idleTimeout !== 2) idleTimer = setTimeout(setIdle, state.idleTimeout === 0 ? 3000 : 10000); }
-    ['mousemove', 'pointermove', 'touchstart', 'keydown'].forEach(evt => window.addEventListener(evt, wakeUp, { passive: true }));
-
-    let holdTimeout, isHolding = false, touchStartX = 0, touchStartY = 0;
-    const toggleExit = (isStarting) => {
-        if (isHolding === isStarting) return; isHolding = isStarting;
-        document.getElementById('bg-layer').classList.toggle('exiting', isStarting); clockLayerObj.classList.toggle('exiting', isStarting);
-        if (isStarting) { holdTimeout = setTimeout(() => { isHolding = false; document.body.classList.add('disconnected'); setTimeout(() => { try { window.close(); } catch (err) {} }, 800); }, 2000); } 
-        else clearTimeout(holdTimeout);
-    };
-    document.addEventListener('keydown', e => { if (e.target.tagName !== 'INPUT' && e.code === 'Space') { e.preventDefault(); if (!e.repeat) toggleExit(true); } });
-    document.addEventListener('keyup', e => { if (e.code === 'Space') toggleExit(false); }); window.addEventListener('blur', () => toggleExit(false));
-    document.addEventListener('touchstart', e => { if (!e.target.closest('button, .settings-panel, .swatch-wrapper, input')) { touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; toggleExit(true); } }, { passive: true });
-    document.addEventListener('touchmove', e => { if (isHolding && (Math.abs(e.touches[0].clientX - touchStartX) > 15 || Math.abs(e.touches[0].clientY - touchStartY) > 15)) toggleExit(false); }, { passive: true });
-    ['touchend', 'touchcancel'].forEach(evt => document.addEventListener(evt, () => toggleExit(false)));
-
-    initApp(); requestWakeLock(); wakeUp(); window.dispatchEvent(new Event('resize'));
+    // --- Boot Sequence ---
+    const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false };
     
-    // 實例化並啟動 WebGL 引擎
+    const store = new Store(defaultState);
     const glEngine = new WebGLEngine(document.getElementById('gl-canvas'), store);
-    glEngine.start();
-    
-    // 實例化並啟動時鐘控制器
     const clockController = new ClockController(document.getElementById('clock-layer'), store);
+    const uiManager = new UIManager(store, clockController, glEngine);
+
+    uiManager.init();
+    glEngine.start();
     clockController.start();
 
     requestAnimationFrame(() => requestAnimationFrame(() => { 
       document.body.classList.remove('no-transitions'); 
-      if (typeof clockController !== 'undefined') clockController.updateEvasion(); 
+      clockController.updateEvasion(); 
     }));
   </script>
 </body>
