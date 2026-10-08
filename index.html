@@ -277,6 +277,211 @@
       }
     }
 
+    class WebGLEngine {
+      constructor(canvas, store) {
+        this.canvas = canvas;
+        this.store = store;
+        this.gl = this.canvas.getContext('webgl') || this.canvas.getContext('experimental-webgl');
+        this.glReady = false;
+        this.uniforms = {};
+        
+        const state = this.store.getState();
+        this.colorLive = [...state.colorTarget];
+        this.currentWeights = [0, 0, 0, 0, 0];
+        this.targetWeights = [0, 0, 0, 0, 0];
+        this.currentWeights[state.mode - 1] = 1.0;
+        this.targetWeights[state.mode - 1] = 1.0;
+        this.currentBrightness = 1.0;
+        
+        this.globalTime = 0;
+        this.lastTime = performance.now();
+
+        this.vsSource = `attribute vec2 position; void main() { gl_Position = vec4(position, 0.0, 1.0); }`;
+        this.fsSource = `
+      precision highp float; 
+      uniform vec2 u_resolution; 
+      uniform float u_time; 
+      uniform vec3 u_color; 
+      uniform float u_weights[5]; 
+      uniform float u_brightness;
+      
+      float hash(float n) { return fract(sin(n) * 43758.5453); } 
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+      float noise(vec2 p) { 
+          vec2 i = floor(p); vec2 f = fract(p); vec2 u = f*f*(3.0-2.0*f); 
+          return mix(mix(hash(i + vec2(0.0,0.0)), hash(i + vec2(1.0,0.0)), u.x), mix(hash(i + vec2(0.0,1.0)), hash(i + vec2(1.0,1.0)), u.x), u.y); 
+      }
+      float fbm(vec2 p) { 
+          float f = 0.0; float amp = 0.5; 
+          for(int i = 0; i < 4; i++) { f += amp * noise(p); p *= 2.0; amp *= 0.5; } 
+          return f; 
+      }
+      
+      vec3 renderSilk(vec2 uv) { 
+          vec2 p = uv * 2.0 - 1.0; p.x *= u_resolution.x / u_resolution.y; 
+          float t = u_time * 0.25; vec2 q = p; 
+          q.x += sin(p.y * 1.5 + t * 0.8) * 0.6; q.y += cos(p.x * 1.5 + t * 0.6) * 0.6; 
+          vec2 r = p; r.x += cos(q.y * 2.0 + sin(q.x * 1.8 + t)) * 0.5; r.y += sin(q.x * 2.0 + cos(q.y * 1.8 + t * 0.9)) * 0.5; 
+          float folds = (sin(r.x * 2.5 + r.y * 2.0 + t) + cos(r.x * 1.8 - r.y * 2.2 - t * 0.7)) * 0.5; 
+          float sheen = pow(clamp(folds * 0.5 + 0.5, 0.0, 1.0), 3.0); 
+          vec3 col = mix(u_color * 0.15, u_color * 1.1, smoothstep(-1.0, 0.5, folds)); 
+          col += mix(u_color * 1.8, vec3(1.0), 0.35) * sheen * 0.65; 
+          return col * (1.0 - length(p * 0.3) * 0.4); 
+      }
+      vec3 renderIntelligence(vec2 uv) { 
+          vec2 dc = abs(uv - 0.5) * 2.0; float edge = max(pow(dc.x, 8.0), pow(dc.y, 8.0)); 
+          return u_color * smoothstep(0.4, 1.2, edge + fbm(uv * 2.0 - u_time * 0.2) * 0.4) * smoothstep(0.0, 0.4, length(dc)) * 3.0; 
+      }
+      vec3 renderStardust(vec2 uv) { 
+          vec2 p = (uv - 0.5) * 2.0; p.x *= u_resolution.x / u_resolution.y; 
+          float nebula = pow((fbm(p * 1.5 - u_time * 0.05) * 0.6 + fbm(p * 3.0 + u_time * 0.08) * 0.4), 2.5) * 1.5; 
+          vec2 grid = p * 20.0; vec2 id = floor(grid); vec2 fv = fract(grid) - 0.5; 
+          float dist = length(fv - (vec2(hash(id + vec2(1.3, 7.1)), hash(id + vec2(7.1, 1.3))) - 0.5)); 
+          float star = smoothstep(0.12, 0.0, dist) * (sin(u_time * 2.0 + hash(dot(id, vec2(1.0, 25.0))) * 25.0) * 0.5 + 0.5) * step(0.7, hash(dot(id, vec2(3.7, 1.7)))); 
+          return (u_color * nebula + vec3(star * 0.8)) * (1.0 - length(p) * 0.4); 
+      }
+      vec3 renderLiquid(vec2 uv) { 
+          vec2 p = uv * 2.0 - 1.0; p.x *= u_resolution.x / u_resolution.y; float t = u_time * 0.2; 
+          vec2 c1 = vec2(sin(t)*0.8, cos(t*0.6)*0.6); vec2 c2 = vec2(cos(t*1.2)*0.7, sin(t*0.9)*0.7); vec2 c3 = vec2(sin(t*0.7+2.0)*0.6, cos(t*1.1+1.0)*0.6); 
+          float w1 = smoothstep(2.0, 0.0, length(p - c1)); float w2 = smoothstep(2.0, 0.0, length(p - c2)); float w3 = smoothstep(2.0, 0.0, length(p - c3)); 
+          vec3 col1 = u_color * 1.2; vec3 col2 = mix(u_color, vec3(1.0), 0.3); vec3 col3 = u_color * 0.7; vec3 bg = u_color * 0.15; 
+          return bg + col1*w1 + col2*w2 + col3*w3; 
+      }
+      vec3 renderHorizon(vec2 uv) { 
+          vec2 p = uv * 2.0 - 1.0; p.x *= u_resolution.x / u_resolution.y; 
+          float curve = -0.7 + sin(p.x * 0.6 + u_time * 0.1) * 0.15 + cos(p.x * 0.3 - u_time * 0.05) * 0.1; 
+          float dist = p.y - curve; float primaryGlow = exp(-dist * 2.5); float coreGlow = exp(-dist * 8.0); 
+          float n = fbm(p * 2.0 + vec2(u_time * 0.05, 0.0)); float atmosphere = primaryGlow * (0.7 + n * 0.5); 
+          float mask = smoothstep(-0.05, 0.1, dist); vec2 grid = p * 12.0; vec2 id = floor(grid); vec2 fv = fract(grid) - 0.5; 
+          float starDist = length(fv - (vec2(hash(id + 2.0), hash(id + 5.1)) - 0.5)); 
+          float star = smoothstep(0.08, 0.0, starDist) * step(0.92, hash(id * 7.3)); 
+          float twinkle = sin(u_time * 1.5 + hash(id) * 20.0) * 0.5 + 0.5; float skyMask = smoothstep(0.0, 1.0, p.y); 
+          vec3 glowColor = u_color * atmosphere * mask + (u_color * 1.5 + 0.2) * coreGlow * mask; 
+          vec3 starColor = vec3(star * twinkle * 0.5 * skyMask); 
+          return glowColor + starColor; 
+      }
+      
+      void main() { 
+          vec2 uv = gl_FragCoord.xy / u_resolution.xy; 
+          vec3 c = vec3(0.0);
+          
+          if (u_weights[0] > 0.001) c += renderSilk(uv) * u_weights[0];
+          if (u_weights[1] > 0.001) c += renderIntelligence(uv) * u_weights[1];
+          if (u_weights[2] > 0.001) c += renderStardust(uv) * u_weights[2];
+          if (u_weights[3] > 0.001) c += renderLiquid(uv) * u_weights[3];
+          if (u_weights[4] > 0.001) c += renderHorizon(uv) * u_weights[4];
+          
+          gl_FragColor = vec4((c + vec3((fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453) - 0.5) * 0.008)) * u_brightness, 1.0); 
+      }
+        `;
+
+        this.initGL();
+        
+        this.store.subscribe((key, val) => this.handleStateChange(key, val));
+        window.addEventListener('resize', () => this.resize());
+      }
+
+      compileShader(gl, source, type) { 
+        const shader = gl.createShader(type); 
+        gl.shaderSource(shader, source); 
+        gl.compileShader(shader); 
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) { 
+          console.error(gl.getShaderInfoLog(shader)); 
+          gl.deleteShader(shader); 
+          return null; 
+        } 
+        return shader; 
+      }
+
+      initGL() {
+        if (!this.gl) return;
+        const vs = this.compileShader(this.gl, this.vsSource, this.gl.VERTEX_SHADER);
+        const fs = this.compileShader(this.gl, this.fsSource, this.gl.FRAGMENT_SHADER);
+        if (vs && fs) {
+          const program = this.gl.createProgram(); 
+          this.gl.attachShader(program, vs); 
+          this.gl.attachShader(program, fs); 
+          this.gl.linkProgram(program);
+          if (this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
+            this.gl.useProgram(program);
+            const pb = this.gl.createBuffer(); 
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, pb); 
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), this.gl.STATIC_DRAW);
+            const pos = this.gl.getAttribLocation(program, 'position'); 
+            this.gl.enableVertexAttribArray(pos); 
+            this.gl.vertexAttribPointer(pos, 2, this.gl.FLOAT, false, 0, 0);
+            ['u_resolution', 'u_time', 'u_color', 'u_weights', 'u_brightness'].forEach(n => this.uniforms[n] = this.gl.getUniformLocation(program, n));
+            this.glReady = true;
+          }
+        }
+      }
+
+      handleStateChange(key, val) {
+        if (key === 'mode') {
+          this.targetWeights.fill(0); 
+          this.targetWeights[val - 1] = 1.0;
+        } else if (key === 'lowPower') {
+          this.resize();
+        }
+      }
+
+      resize() {
+        if (!this.glReady) return;
+        const state = this.store.getState();
+        const dpr = state.lowPower ? 0.75 : Math.min(window.devicePixelRatio || 1, 2); 
+        this.canvas.width = window.innerWidth * dpr; 
+        this.canvas.height = window.innerHeight * dpr; 
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height); 
+        this.gl.uniform2f(this.uniforms.u_resolution, this.canvas.width, this.canvas.height);
+      }
+
+      resume() {
+        this.lastTime = performance.now();
+        requestAnimationFrame(this.render.bind(this));
+      }
+
+      render(timestamp) {
+        if (!isRendering) return; 
+        if (!timestamp) timestamp = performance.now();
+        const state = this.store.getState();
+        const dt = timestamp - this.lastTime;
+        const isIdle = document.body.classList.contains('is-idle');
+        
+        if ((isIdle ? 50 : (state.lowPower ? 41.6 : 0)) > 0 && dt < (isIdle ? 50 : (state.lowPower ? 41.6 : 0))) { 
+            requestAnimationFrame(this.render.bind(this)); 
+            return; 
+        }
+        
+        const dtNorm = dt / 16.666;
+        const lerp = Math.min(dtNorm * 0.033, 1.0);
+        this.lastTime = timestamp;
+        
+        if (this.glReady) {
+          this.globalTime += 0.01 * state.speed * (dt / 16.666);
+          const actualColorTarget = state.nightMode ? [0.16, 0.08, 0.0] : state.colorTarget;
+          this.colorLive.forEach((_, i) => this.colorLive[i] += (actualColorTarget[i] - this.colorLive[i]) * lerp);
+          
+          for (let i = 0; i < 5; i++) {
+            this.currentWeights[i] += (this.targetWeights[i] - this.currentWeights[i]) * lerp;
+          }
+          
+          this.currentBrightness += ((isHolding ? 1.5 : (isIdle ? 0.65 : 1.0)) - this.currentBrightness) * lerp;
+          
+          this.gl.uniform1f(this.uniforms.u_time, this.globalTime); 
+          this.gl.uniform3f(this.uniforms.u_color, ...this.colorLive); 
+          this.gl.uniform1fv(this.uniforms.u_weights, this.currentWeights);
+          this.gl.uniform1f(this.uniforms.u_brightness, this.currentBrightness); 
+          this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
+        }
+        requestAnimationFrame(this.render.bind(this));
+      }
+
+      start() {
+        this.resize();
+        requestAnimationFrame(this.render.bind(this));
+      }
+    }
+
     const DICT = {
       en: {
         lang: "Language", time: "24-Hour Time", sec: "Show Seconds", tick: "Tick Anim",
@@ -353,9 +558,8 @@
     const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false };
     const store = new Store(defaultState);
     
-    const root = document.documentElement, panel = document.getElementById('settings-panel'), canvas = document.getElementById('gl-canvas'), clockLayerObj = document.getElementById('clock-layer'), clockElement = document.getElementById('clock'), appContainer = document.getElementById('app-container');
-    let colorLive = [0.21, 0.11, 0.47], glReady = false, uniforms = {}, clockTimer = null;
-    let currentWeights = [1, 0, 0, 0, 0], targetWeights = [1, 0, 0, 0, 0], currentBrightness = 1.0;
+    const root = document.documentElement, panel = document.getElementById('settings-panel'), clockLayerObj = document.getElementById('clock-layer'), clockElement = document.getElementById('clock'), appContainer = document.getElementById('app-container');
+    let clockTimer = null;
 
     const UI_INIT = () => {
       const state = store.getState();
@@ -465,25 +669,26 @@
         lastTimeTens = lastTimeMain = lastTimeSec = lastTimeAMPM = ""; updateClock(); 
       } else if (prop === 'showDate') {
         updateClock();
-      } else if (prop === 'mode') {
-        targetWeights.fill(0); targetWeights[val - 1] = 1.0;
-      } else if (prop === 'lowPower') {
-        window.dispatchEvent(new Event('resize'));
       }
       syncUI(skipAnim);
     });
 
     const initApp = () => { 
-      const state = store.getState();
-      colorLive = [...state.colorTarget]; 
-      targetWeights.fill(0); currentWeights.fill(0);
-      targetWeights[state.mode - 1] = 1.0; currentWeights[state.mode - 1] = 1.0;
       UI_INIT(); syncUI(true); 
     };
 
     let wakeLock = null, isRendering = true, lastTimeTens = "", lastTimeMain = "", lastTimeSec = "", lastTimeAMPM = "";
     async function requestWakeLock() { if (wakeLock) { await wakeLock.release().catch(()=>{}); wakeLock = null; } try { if ('wakeLock' in navigator && !document.hidden) wakeLock = await navigator.wakeLock.request('screen'); } catch(e){} }
-    document.addEventListener('visibilitychange', () => { isRendering = !document.hidden; if (isRendering) { requestWakeLock(); lastTime = performance.now(); requestAnimationFrame(renderLoop); updateClock(); } else if (wakeLock) { wakeLock.release().catch(()=>{}); wakeLock = null; } });
+    document.addEventListener('visibilitychange', () => { 
+      isRendering = !document.hidden; 
+      if (isRendering) { 
+        requestWakeLock(); 
+        if (typeof glEngine !== 'undefined') glEngine.resume();
+        updateClock(); 
+      } else if (wakeLock) { 
+        wakeLock.release().catch(()=>{}); wakeLock = null; 
+      } 
+    });
 
     const dateOpts = { month: 'long', day: 'numeric', weekday: 'long' };
     
@@ -549,133 +754,6 @@
       clockTimer = setTimeout(updateClock, 1000 - (Date.now() % 1000));
     }
 
-    const compileShader = (gl, source, type) => { const shader = gl.createShader(type); gl.shaderSource(shader, source); gl.compileShader(shader); if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) { console.error(gl.getShaderInfoLog(shader)); gl.deleteShader(shader); return null; } return shader; };
-    const vsSource = `attribute vec2 position; void main() { gl_Position = vec4(position, 0.0, 1.0); }`;
-    const fsSource = `
-      precision highp float; 
-      uniform vec2 u_resolution; 
-      uniform float u_time; 
-      uniform vec3 u_color; 
-      uniform float u_weights[5]; 
-      uniform float u_brightness;
-      
-      float hash(float n) { return fract(sin(n) * 43758.5453); } 
-      float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-      float noise(vec2 p) { 
-          vec2 i = floor(p); vec2 f = fract(p); vec2 u = f*f*(3.0-2.0*f); 
-          return mix(mix(hash(i + vec2(0.0,0.0)), hash(i + vec2(1.0,0.0)), u.x), mix(hash(i + vec2(0.0,1.0)), hash(i + vec2(1.0,1.0)), u.x), u.y); 
-      }
-      float fbm(vec2 p) { 
-          float f = 0.0; float amp = 0.5; 
-          for(int i = 0; i < 4; i++) { f += amp * noise(p); p *= 2.0; amp *= 0.5; } 
-          return f; 
-      }
-      
-      vec3 renderSilk(vec2 uv) { 
-          vec2 p = uv * 2.0 - 1.0; p.x *= u_resolution.x / u_resolution.y; 
-          float t = u_time * 0.25; vec2 q = p; 
-          q.x += sin(p.y * 1.5 + t * 0.8) * 0.6; q.y += cos(p.x * 1.5 + t * 0.6) * 0.6; 
-          vec2 r = p; r.x += cos(q.y * 2.0 + sin(q.x * 1.8 + t)) * 0.5; r.y += sin(q.x * 2.0 + cos(q.y * 1.8 + t * 0.9)) * 0.5; 
-          float folds = (sin(r.x * 2.5 + r.y * 2.0 + t) + cos(r.x * 1.8 - r.y * 2.2 - t * 0.7)) * 0.5; 
-          float sheen = pow(clamp(folds * 0.5 + 0.5, 0.0, 1.0), 3.0); 
-          vec3 col = mix(u_color * 0.15, u_color * 1.1, smoothstep(-1.0, 0.5, folds)); 
-          col += mix(u_color * 1.8, vec3(1.0), 0.35) * sheen * 0.65; 
-          return col * (1.0 - length(p * 0.3) * 0.4); 
-      }
-      vec3 renderIntelligence(vec2 uv) { 
-          vec2 dc = abs(uv - 0.5) * 2.0; float edge = max(pow(dc.x, 8.0), pow(dc.y, 8.0)); 
-          return u_color * smoothstep(0.4, 1.2, edge + fbm(uv * 2.0 - u_time * 0.2) * 0.4) * smoothstep(0.0, 0.4, length(dc)) * 3.0; 
-      }
-      vec3 renderStardust(vec2 uv) { 
-          vec2 p = (uv - 0.5) * 2.0; p.x *= u_resolution.x / u_resolution.y; 
-          float nebula = pow((fbm(p * 1.5 - u_time * 0.05) * 0.6 + fbm(p * 3.0 + u_time * 0.08) * 0.4), 2.5) * 1.5; 
-          vec2 grid = p * 20.0; vec2 id = floor(grid); vec2 fv = fract(grid) - 0.5; 
-          float dist = length(fv - (vec2(hash(id + vec2(1.3, 7.1)), hash(id + vec2(7.1, 1.3))) - 0.5)); 
-          float star = smoothstep(0.12, 0.0, dist) * (sin(u_time * 2.0 + hash(dot(id, vec2(1.0, 25.0))) * 25.0) * 0.5 + 0.5) * step(0.7, hash(dot(id, vec2(3.7, 1.7)))); 
-          return (u_color * nebula + vec3(star * 0.8)) * (1.0 - length(p) * 0.4); 
-      }
-      vec3 renderLiquid(vec2 uv) { 
-          vec2 p = uv * 2.0 - 1.0; p.x *= u_resolution.x / u_resolution.y; float t = u_time * 0.2; 
-          vec2 c1 = vec2(sin(t)*0.8, cos(t*0.6)*0.6); vec2 c2 = vec2(cos(t*1.2)*0.7, sin(t*0.9)*0.7); vec2 c3 = vec2(sin(t*0.7+2.0)*0.6, cos(t*1.1+1.0)*0.6); 
-          float w1 = smoothstep(2.0, 0.0, length(p - c1)); float w2 = smoothstep(2.0, 0.0, length(p - c2)); float w3 = smoothstep(2.0, 0.0, length(p - c3)); 
-          vec3 col1 = u_color * 1.2; vec3 col2 = mix(u_color, vec3(1.0), 0.3); vec3 col3 = u_color * 0.7; vec3 bg = u_color * 0.15; 
-          return bg + col1*w1 + col2*w2 + col3*w3; 
-      }
-      vec3 renderHorizon(vec2 uv) { 
-          vec2 p = uv * 2.0 - 1.0; p.x *= u_resolution.x / u_resolution.y; 
-          float curve = -0.7 + sin(p.x * 0.6 + u_time * 0.1) * 0.15 + cos(p.x * 0.3 - u_time * 0.05) * 0.1; 
-          float dist = p.y - curve; float primaryGlow = exp(-dist * 2.5); float coreGlow = exp(-dist * 8.0); 
-          float n = fbm(p * 2.0 + vec2(u_time * 0.05, 0.0)); float atmosphere = primaryGlow * (0.7 + n * 0.5); 
-          float mask = smoothstep(-0.05, 0.1, dist); vec2 grid = p * 12.0; vec2 id = floor(grid); vec2 fv = fract(grid) - 0.5; 
-          float starDist = length(fv - (vec2(hash(id + 2.0), hash(id + 5.1)) - 0.5)); 
-          float star = smoothstep(0.08, 0.0, starDist) * step(0.92, hash(id * 7.3)); 
-          float twinkle = sin(u_time * 1.5 + hash(id) * 20.0) * 0.5 + 0.5; float skyMask = smoothstep(0.0, 1.0, p.y); 
-          vec3 glowColor = u_color * atmosphere * mask + (u_color * 1.5 + 0.2) * coreGlow * mask; 
-          vec3 starColor = vec3(star * twinkle * 0.5 * skyMask); 
-          return glowColor + starColor; 
-      }
-      
-      void main() { 
-          vec2 uv = gl_FragCoord.xy / u_resolution.xy; 
-          vec3 c = vec3(0.0);
-          
-          if (u_weights[0] > 0.001) c += renderSilk(uv) * u_weights[0];
-          if (u_weights[1] > 0.001) c += renderIntelligence(uv) * u_weights[1];
-          if (u_weights[2] > 0.001) c += renderStardust(uv) * u_weights[2];
-          if (u_weights[3] > 0.001) c += renderLiquid(uv) * u_weights[3];
-          if (u_weights[4] > 0.001) c += renderHorizon(uv) * u_weights[4];
-          
-          gl_FragColor = vec4((c + vec3((fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453) - 0.5) * 0.008)) * u_brightness, 1.0); 
-      }
-    `;
-    
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-    if (gl) {
-      const vs = compileShader(gl, vsSource, gl.VERTEX_SHADER), fs = compileShader(gl, fsSource, gl.FRAGMENT_SHADER);
-      if (vs && fs) {
-        const program = gl.createProgram(); gl.attachShader(program, vs); gl.attachShader(program, fs); gl.linkProgram(program);
-        if (gl.getProgramParameter(program, gl.LINK_STATUS)) {
-          gl.useProgram(program);
-          const pb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, pb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
-          const pos = gl.getAttribLocation(program, 'position'); gl.enableVertexAttribArray(pos); gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
-          ['u_resolution', 'u_time', 'u_color', 'u_weights', 'u_brightness'].forEach(n => uniforms[n] = gl.getUniformLocation(program, n));
-          glReady = true;
-        }
-      }
-    }
-
-    let globalTime = 0, lastTime = performance.now();
-    function renderLoop(timestamp) {
-      const state = store.getState();
-      if (!isRendering) return; if (!timestamp) timestamp = performance.now();
-      const dt = timestamp - lastTime, isIdle = document.body.classList.contains('is-idle');
-      if ((isIdle ? 50 : (state.lowPower ? 41.6 : 0)) > 0 && dt < (isIdle ? 50 : (state.lowPower ? 41.6 : 0))) { requestAnimationFrame(renderLoop); return; }
-      
-      const dtNorm = dt / 16.666;
-      const lerp = Math.min(dtNorm * 0.033, 1.0);
-      lastTime = timestamp;
-      
-      if (glReady) {
-        globalTime += 0.01 * state.speed * (dt / 16.666);
-        const actualColorTarget = state.nightMode ? [0.16, 0.08, 0.0] : state.colorTarget;
-        colorLive.forEach((_, i) => colorLive[i] += (actualColorTarget[i] - colorLive[i]) * lerp);
-        
-        for (let i = 0; i < 5; i++) {
-          currentWeights[i] += (targetWeights[i] - currentWeights[i]) * lerp;
-        }
-        
-        currentBrightness += ((isHolding ? 1.5 : (isIdle ? 0.65 : 1.0)) - currentBrightness) * lerp;
-        
-        gl.uniform1f(uniforms.u_time, globalTime); 
-        gl.uniform3f(uniforms.u_color, ...colorLive); 
-        gl.uniform1fv(uniforms.u_weights, currentWeights);
-        gl.uniform1f(uniforms.u_brightness, currentBrightness); 
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      }
-      requestAnimationFrame(renderLoop);
-    }
-    requestAnimationFrame(renderLoop);
-
     function updateClockEvasion() {
       const state = store.getState();
       if (!panel.classList.contains('active')) { clockLayerObj.style.setProperty('--evade-x', '0px'); clockLayerObj.style.setProperty('--evade-y', '0px'); clockLayerObj.style.setProperty('--evade-scale', '1'); return; }
@@ -732,9 +810,7 @@
     });
 
     window.addEventListener('resize', () => {
-      const state = store.getState();
       document.body.classList.toggle('is-fullscreen', (window.innerHeight >= window.screen.height - 1) || !!document.fullscreenElement);
-      if (glReady) { const dpr = state.lowPower ? 0.75 : Math.min(window.devicePixelRatio || 1, 2); canvas.width = window.innerWidth * dpr; canvas.height = window.innerHeight * dpr; gl.viewport(0, 0, canvas.width, canvas.height); gl.uniform2f(uniforms.u_resolution, canvas.width, canvas.height); }
       wakeUp();
     });
     document.addEventListener('fullscreenchange', () => window.dispatchEvent(new Event('resize')));
@@ -758,6 +834,11 @@
     ['touchend', 'touchcancel'].forEach(evt => document.addEventListener(evt, () => toggleExit(false)));
 
     initApp(); requestWakeLock(); updateClock(); wakeUp(); window.dispatchEvent(new Event('resize'));
+    
+    // 實例化並啟動 WebGL 引擎
+    const glEngine = new WebGLEngine(document.getElementById('gl-canvas'), store);
+    glEngine.start();
+
     requestAnimationFrame(() => requestAnimationFrame(() => { document.body.classList.remove('no-transitions'); updateClockEvasion(); }));
   </script>
 </body>
