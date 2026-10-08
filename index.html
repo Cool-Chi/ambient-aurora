@@ -445,7 +445,7 @@
         if (!timestamp) timestamp = performance.now();
         const state = this.store.getState();
         const dt = timestamp - this.lastTime;
-        const isIdle = document.body.classList.contains('is-idle');
+        const isIdle = state.isIdle;
         
         if ((isIdle ? 50 : (state.lowPower ? 41.6 : 0)) > 0 && dt < (isIdle ? 50 : (state.lowPower ? 41.6 : 0))) { 
             requestAnimationFrame(this.render.bind(this)); 
@@ -465,7 +465,7 @@
             this.currentWeights[i] += (this.targetWeights[i] - this.currentWeights[i]) * lerp;
           }
           
-          const isHolding = document.getElementById('bg-layer').classList.contains('exiting');
+          const isHolding = state.isHolding;
           this.currentBrightness += ((isHolding ? 1.5 : (isIdle ? 0.65 : 1.0)) - this.currentBrightness) * lerp;
           
           this.gl.uniform1f(this.uniforms.u_time, this.globalTime); 
@@ -519,7 +519,7 @@
         };
 
         this.layoutObserver = new ResizeObserver(() => {
-          if (this.panel.classList.contains('active')) this.updateEvasion();
+          if (this.store.getState().isPanelOpen) this.updateEvasion();
         });
         this.layoutObserver.observe(this.clockElement);
         this.layoutObserver.observe(this.panel);
@@ -533,7 +533,9 @@
       }
 
       handleStateChange(key, val) {
-        if (['is24Hour', 'showSeconds', 'leadingZero', 'clockAnimMode', 'fontStyle', 'lang', 'showDate'].includes(key)) {
+        if (key === 'isPanelOpen') {
+          this.updateEvasion();
+        } else if (['is24Hour', 'showSeconds', 'leadingZero', 'clockAnimMode', 'fontStyle', 'lang', 'showDate'].includes(key)) {
           this.lastTime = { tens: "", main: "", sec: "", ampm: "" };
           this.tick();
         }
@@ -605,7 +607,7 @@
 
       updateEvasion() {
         const state = this.store.getState();
-        if (!this.panel.classList.contains('active')) { 
+        if (!state.isPanelOpen) { 
           this.container.style.setProperty('--evade-x', '0px'); 
           this.container.style.setProperty('--evade-y', '0px'); 
           this.container.style.setProperty('--evade-scale', '1'); 
@@ -708,10 +710,8 @@
         return `#${[r,g,b].map(x => Math.max(0, Math.min(255, Math.round(x * 255))).toString(16).padStart(2, '0')).join('')}`;
       }
 
-      constructor(store, clockController, glEngine) {
+      constructor(store) {
         this.store = store;
-        this.clockController = clockController;
-        this.glEngine = glEngine;
 
         this.panel = document.getElementById('settings-panel');
         this.appContainer = document.getElementById('app-container');
@@ -857,6 +857,7 @@
         if (now - this.lastWake < 150) return; 
         this.lastWake = now; 
         document.body.classList.remove('is-idle'); 
+        this.store.setState('isIdle', false);
         clearTimeout(this.idleTimer); 
         if (state.idleTimeout !== 2) this.idleTimer = setTimeout(() => this.setIdle(), state.idleTimeout === 0 ? 3000 : 10000); 
       }
@@ -864,7 +865,9 @@
       setIdle() {
         if(!document.body.classList.contains('is-idle')) { 
           document.body.classList.add('is-idle'); 
+          this.store.setState('isIdle', true);
           this.panel.classList.remove('active'); 
+          this.store.setState('isPanelOpen', false);
           if (document.activeElement) document.activeElement.blur(); 
         }
       }
@@ -872,11 +875,13 @@
       toggleExit(isStarting) {
         if (this.isHolding === isStarting) return; 
         this.isHolding = isStarting;
+        this.store.setState('isHolding', isStarting);
         this.bgLayer.classList.toggle('exiting', isStarting); 
         this.clockLayerObj.classList.toggle('exiting', isStarting);
         if (isStarting) { 
           this.holdTimeout = setTimeout(() => { 
             this.isHolding = false; 
+            this.store.setState('isHolding', false);
             document.body.classList.add('disconnected'); 
             setTimeout(() => { try { window.close(); } catch (err) {} }, 800); 
           }, 2000); 
@@ -916,9 +921,15 @@
           } else if (swatch) { this.store.setState('colorTarget', swatch.dataset.rgb.split(',').map(Number)); } 
           else if (e.target.closest('#btn-lowpower')) {
             const newState = !state.lowPower; this.store.setState('lowPower', newState); this.showHUD(newState ? UIManager.DICT[state.lang].lpOn : UIManager.DICT[state.lang].lpOff);
-          } else if (e.target.closest('#btn-settings')) { this.panel.classList.toggle('active'); this.clockController.updateEvasion(); } 
+          } else if (e.target.closest('#btn-settings')) { 
+            this.panel.classList.toggle('active'); 
+            this.store.setState('isPanelOpen', this.panel.classList.contains('active')); 
+          } 
           else if (e.target.closest('#btn-fullscreen')) { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); else if (document.exitFullscreen) document.exitFullscreen(); } 
-          else if (!e.target.closest('.settings-panel') && !e.target.closest('#custom-color-input') && this.panel.classList.contains('active')) { this.panel.classList.remove('active'); this.clockController.updateEvasion(); }
+          else if (!e.target.closest('.settings-panel') && !e.target.closest('#custom-color-input') && this.panel.classList.contains('active')) { 
+            this.panel.classList.remove('active'); 
+            this.store.setState('isPanelOpen', false); 
+          }
           this.wakeUp();
         });
 
@@ -935,30 +946,30 @@
         document.addEventListener('touchstart', e => { if (!e.target.closest('button, .settings-panel, .swatch-wrapper, input')) { this.touchStartX = e.touches[0].clientX; this.touchStartY = e.touches[0].clientY; this.toggleExit(true); } }, { passive: true });
         document.addEventListener('touchmove', e => { if (this.isHolding && (Math.abs(e.touches[0].clientX - this.touchStartX) > 15 || Math.abs(e.touches[0].clientY - this.touchStartY) > 15)) this.toggleExit(false); }, { passive: true });
         ['touchend', 'touchcancel'].forEach(evt => document.addEventListener(evt, () => this.toggleExit(false)));
-
-        document.addEventListener('visibilitychange', () => { 
-          if (!document.hidden) { 
-            this.requestWakeLock(); 
-            this.glEngine.resume();
-            this.clockController.resume();
-          } else if (this.wakeLock) { 
-            this.wakeLock.release().catch(()=>{}); this.wakeLock = null; 
-          } 
-        });
       }
     }
 
     // --- Boot Sequence ---
-    const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false };
+    const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false, isIdle: false, isHolding: false, isPanelOpen: false };
     
     const store = new Store(defaultState);
     const glEngine = new WebGLEngine(document.getElementById('gl-canvas'), store);
     const clockController = new ClockController(document.getElementById('clock-layer'), store);
-    const uiManager = new UIManager(store, clockController, glEngine);
+    const uiManager = new UIManager(store);
 
     uiManager.init();
     glEngine.start();
     clockController.start();
+
+    document.addEventListener('visibilitychange', () => { 
+      if (!document.hidden) { 
+        uiManager.requestWakeLock(); 
+        glEngine.resume();
+        clockController.resume();
+      } else if (uiManager.wakeLock) { 
+        uiManager.wakeLock.release().catch(()=>{}); uiManager.wakeLock = null; 
+      } 
+    });
 
     requestAnimationFrame(() => requestAnimationFrame(() => { 
       document.body.classList.remove('no-transitions'); 
