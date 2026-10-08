@@ -1,4 +1,4 @@
-# Ambient Fluid Aurora - Pro
+# Ambient Aurora - v2.1.0 Sevilla
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![WebGL 1.0](https://img.shields.io/badge/WebGL-1.0-brightgreen.svg)](#)
@@ -27,7 +27,7 @@
 
 *   **Inst (即時)**：零延遲跳動，回歸最純粹的電子錶顯示。
 *   **Smooth (絲滑過渡)**：利用 Web Animations API 驅動 `opacity` 與極微小的 `scale(0.95)` 變化，創造出數字輕巧融化並重新凝結的錯覺，帶來零殘影的視覺連貫性。
-*   **Roll (物理滾輪)**：精確的 `250ms ease-out` 垂直輪換滾輪 `[cite: 16]`，嚴格依賴 `tabular-nums` 等寬字體特性確保版面零抖動 `[cite: 18, 19]`。透過字元級 Diffing 引擎即時 GC (垃圾回收)，無 DOM 節點殘留。
+*   **Roll (物理滾輪)**：精確的 `250ms ease-out` 垂直輪換滾輪 ``，嚴格依賴 `tabular-nums` 等寬字體特性確保版面零抖動 ``。透過字元級 Diffing 引擎即時 GC (垃圾回收)，無 DOM 節點殘留。
 
 ---
 
@@ -39,18 +39,18 @@
 *   **零跳幀時間軸 (Anti-Jitter Phase Engine)**：採用 `requestAnimationFrame` 搭配每幀時間差（$\Delta t$）正規化流體速度，完美適配 ProMotion 120Hz 高刷螢幕。
 
 ### 2. 設計工程與互動哲學 (Design Engineering Principles)
-*   **幾何智慧避讓 (Dynamic Evasion)**：捨棄死硬的 CSS 位移腳本，依靠 JavaScript 即時讀取面板幾何空間與視窗剩餘尺寸。當設定面板開啟時，時鐘如同具備實體般順應空間自動退讓與微縮 `[cite: 13]`。
+*   **幾何智慧避讓 (Dynamic Evasion)**：捨棄死硬的 CSS 位移腳本，依靠 JavaScript 即時讀取面板幾何空間與視窗剩餘尺寸。當設定面板開啟時，時鐘如同具備實體般順應空間自動退讓與微縮 ``。
 *   **非對稱時序退出 (Asymmetric Hold-to-Confirm)**：
-    *   **蓄力階段 (Press)**：觸發破壞性操作時，採用嚴格的 `2s linear` 緩慢推近，給予使用者決策時間 `[cite: 16]`。
-    *   **中斷復原 (Release)**：任意時刻鬆開，立即以 `200ms ease-out` 極速敏捷回彈，落實「思維與手勢並行」的打斷機制 `[cite: 13, 16]`。
+    *   **蓄力階段 (Press)**：觸發破壞性操作時，採用嚴格的 `2s linear` 緩慢推近，給予使用者決策時間 ``。
+    *   **中斷復原 (Release)**：任意時刻鬆開，立即以 `200ms ease-out` 極速敏捷回彈，落實「思維與手勢並行」的打斷機制 ``。
 *   **空間層級秩序 (Inset Grouped UI)**：面板佈局嚴格落實 Apple 的卡片群組與內聯控制項規範。頂部邊緣微光 (Rim Highlight)、`0.5px` 分隔線與實心進度填充 (Active Track) 交織出極致的物理厚度與層次。
 
 ### 3. 行動端原生標準 (Mobile-Native Engineering)
 *   **無極自訂色環 (Apple Color Ring)**：在支援預設色盤之餘，隱藏原生 `<input type="color">` 於 `-webkit-mask-image` 挖空的彩虹環之下，選中時自動產生 `2px` 透明呼吸間隙。
 *   **觸控設備防禦**：
-    *   全局配置 `100dvh` 與 `overscroll-behavior: none` 阻斷橡皮筋回彈 `[cite: 20]`。
-    *   Hover 樣式全面收攏於 `@media (hover: hover) and (pointer: fine)`，杜絕行動端點擊殘留高光 `[cite: 20]`。
-    *   絕對隱藏原生滾動條，保護毛玻璃材質的沉浸觀感。保證所有微縮控制項（如 Toggle, Swatches）均有隱形的 `44px` 觸控防誤觸熱區 `[cite: 20]`。
+    *   全局配置 `100dvh` 與 `overscroll-behavior: none` 阻斷橡皮筋回彈 ``。
+    *   Hover 樣式全面收攏於 `@media (hover: hover) and (pointer: fine)`，杜絕行動端點擊殘留高光 ``。
+    *   絕對隱藏原生滾動條，保護毛玻璃材質的沉浸觀感。保證所有微縮控制項（如 Toggle, Swatches）均有隱形的 `44px` 觸控防誤觸熱區 ``。
 
 ### 4. 系統級節能與持久化 (Efficiency & Persistence)
 *   **螢幕防休眠 (Screen Wake Lock API)**：待機時自動請求常亮，並在視窗可見性改變時無縫重獲。
