@@ -133,6 +133,7 @@ const qs = (el, sel) => el.querySelector(sel);
 const qsa = (el, sel) => el.querySelectorAll(sel);
 const on = (el, evt, cb, opt) => el.addEventListener(evt, cb, opt);
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+const haptic = p => { try { navigator.vibrate?.(p) } catch(e){} };
 class Store {
   static TRANSIENT_KEYS = new Set(['isIdle', 'isHolding', 'isPanelOpen']);
   constructor(defaultState, storageKey = 'aurora_settings') {
@@ -825,9 +826,11 @@ class UIManager {
     this.bgLayer.classList.toggle('exiting', isStarting);
     this.clockLayerObj.classList.toggle('exiting', isStarting);
     if (isStarting) {
+      haptic(15);
       this.holdTimeout = setTimeout(() => {
         this.holdTimeout = null;
         this.store.setState('isHolding', false);
+        haptic([30, 50, 30]);
         document.body.classList.add('disconnected');
         this.exitCloseTimer = setTimeout(() => {
           this.exitCloseTimer = null;
@@ -836,6 +839,7 @@ class UIManager {
         }, 800);
       }, 2000);
     } else {
+      haptic(10);
       clearTimeout(this.holdTimeout);
       this.holdTimeout = null;
     }
@@ -861,13 +865,13 @@ class UIManager {
   }
   bindEvents() {
     on(document, 'input', e => {
-      if (e.target.type === 'range') document.body.classList.add('is-dragging');
+      if (e.target.type === 'range') { document.body.classList.add('is-dragging'); const v = e.target.value; haptic(v === e.target.min || v === e.target.max ? 20 : 5); }
       const entry = Object.entries(UIManager.UI_BINDINGS).find(([, b]) => b.id === e.target.id);
       if (entry && e.target.type !== 'checkbox') { this.store.setState(entry[0], parseFloat(e.target.value)); }
       else if (e.target.id === 'custom-color-input') { this.store.setState('colorTarget', UIManager.hexToRgb(e.target.value)); }
     });
     on(document, 'change', e => {
-      if (e.target.type === 'checkbox') { const entry = Object.entries(UIManager.UI_BINDINGS).find(([, b]) => b.id === e.target.id); if (entry) this.store.setState(entry[0], e.target.checked); }
+      if (e.target.type === 'checkbox') { haptic(10); const entry = Object.entries(UIManager.UI_BINDINGS).find(([, b]) => b.id === e.target.id); if (entry) this.store.setState(entry[0], e.target.checked); }
     });
     on(document, 'pointerdown', e => {
       if (e.target.type === 'range') document.body.classList.add('is-dragging');
@@ -881,9 +885,10 @@ class UIManager {
     on(document, 'click', e => {
       const state = this.store.getState();
       const segBtn = e.target.closest('.segment-btn'), swatch = e.target.closest('.swatch-wrapper[data-rgb]');
+      if (e.target.closest('.icon-btn')) haptic(15);
       if (segBtn && !segBtn.classList.contains('active')) {
-        this.store.setState(segBtn.closest('.segmented-control').dataset.prop, isNaN(segBtn.dataset.value) ? segBtn.dataset.value : parseInt(segBtn.dataset.value));
-      } else if (swatch) { this.store.setState('colorTarget', swatch.dataset.rgb.split(',').map(Number)); }
+        haptic(10); this.store.setState(segBtn.closest('.segmented-control').dataset.prop, isNaN(segBtn.dataset.value) ? segBtn.dataset.value : parseInt(segBtn.dataset.value));
+      } else if (swatch) { haptic(10); this.store.setState('colorTarget', swatch.dataset.rgb.split(',').map(Number)); }
       else if (e.target.closest('#btn-lowpower')) {
         const newState = !state.lowPower; this.store.setState('lowPower', newState); this.showHUD(newState ? UIManager.DICT[state.lang].lpOn : UIManager.DICT[state.lang].lpOff);
       } else if (e.target.closest('#btn-settings')) {
