@@ -312,6 +312,19 @@
       // ==========================================
       // Module 2: WebGLEngine (rAF decoupling & Context Lost Protection)
       // ==========================================
+      /*
+       * [低功耗模式黑屏 Bug — 問題清單與修復]
+       * 1. (主因) render() 在節流判斷「之前」就更新了 this.lastTime，導致每一幀 dt 永遠約 16ms，
+       *    永遠小於低功耗門檻 41.6ms，節流分支一直 return，從此不再繪製任何畫面。
+       *    閒置模式 (50ms) 同樣受影響 => 畫面凍結。已改為「僅在真正繪製時才更新 lastTime」，時間會正確累積。
+       * 2. (觸發點) 切換低功耗時 resize() 會重設 canvas.width/height，這會清空繪圖緩衝區（變純黑），
+       *    而 resize() 後沒有立即重繪。已新增 draw()，resize 後立刻補畫一幀；尺寸未變時不再重設 canvas。
+       * 3. 低功耗狀態會存入 localStorage，下次開啟頁面時第一幀就不會繪製 => 開頁即黑屏。由 1、2 一併修復。
+       * 4. canvas 尺寸為小數（innerWidth * 0.75），改為 Math.round 並至少為 1，且以 drawingBufferWidth 為準。
+       * 5. webglcontextrestored 後未重設 glReady 與尺寸、且不檢查頁面是否隱藏；initGL 失敗時 glReady 殘留舊值。已修正。
+       * 6. 片段著色器強制 highp，在不支援 highp 的 GPU 上編譯失敗會黑屏。已加入 mediump 後備。
+       * 7. render 迴圈若中途拋出例外會整個停止；改為先排程下一幀再繪製。每幀 bind 也改為只 bind 一次。
+       */
       class WebGLEngine {
         constructor(canvas, store) {
           this.canvas = canvas;
@@ -331,10 +344,15 @@
           
           this.globalTime = 0;
           this.lastTime = performance.now();
+          this.renderBound = this.render.bind(this);
 
           this.vsSource = `attribute vec2 position; void main() { gl_Position = vec4(position, 0.0, 1.0); }`;
           this.fsSource = `
-        precision highp float; 
+        #ifdef GL_FRAGMENT_PRECISION_HIGH
+        precision highp float;
+        #else
+        precision mediump float;
+        #endif 
         uniform vec2 u_resolution; 
         uniform float u_time; 
         uniform vec3 u_color; 
@@ -412,7 +430,7 @@
           `;
 
           this.canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.glReady = false; this.pause(); }, false);
-          this.canvas.addEventListener('webglcontextrestored', () => { this.initGL(); this.resume(); }, false);
+          this.canvas.addEventListener('webglcontextrestored', () => { this.initGL(); if (!document.hidden) this.resume(); }, false);
 
           this.initGL();
           this.store.subscribe((key, val) => this.handleStateChange(key, val));
@@ -434,6 +452,7 @@
         initGL() {
           this.gl = this.canvas.getContext('webgl', { antialias: false, alpha: false, depth: false, stencil: false, powerPreference: 'low-power' }) || 
                     this.canvas.getContext('experimental-webgl', { antialias: false, alpha: false, depth: false, stencil: false, powerPreference: 'low-power' });
+          this.glReady = false;
           if (!this.gl) return;
           
           const vs = this.compileShader(this.gl, this.vsSource, this.gl.VERTEX_SHADER);
@@ -468,13 +487,31 @@
         }
 
         resize() {
-          if (!this.glReady) return;
+          if (!this.glReady || !this.gl || this.gl.isContextLost()) return;
           const state = this.store.getState();
-          const dpr = state.lowPower ? 0.75 : Math.min(window.devicePixelRatio || 1, 2); 
-          this.canvas.width = window.innerWidth * dpr; 
-          this.canvas.height = window.innerHeight * dpr; 
-          this.gl.viewport(0, 0, this.canvas.width, this.canvas.height); 
-          this.gl.uniform2f(this.uniforms.u_resolution, this.canvas.width, this.canvas.height);
+          const dpr = state.lowPower ? 0.75 : Math.min(window.devicePixelRatio || 1, 2);
+          const w = Math.max(1, Math.round(window.innerWidth * dpr));
+          const h = Math.max(1, Math.round(window.innerHeight * dpr));
+          // 只有尺寸真的改變才重設 canvas（重設會清空繪圖緩衝區）
+          if (this.canvas.width !== w || this.canvas.height !== h) {
+            this.canvas.width = w;
+            this.canvas.height = h;
+          }
+          const bw = this.gl.drawingBufferWidth || w;
+          const bh = this.gl.drawingBufferHeight || h;
+          this.gl.viewport(0, 0, bw, bh);
+          this.gl.uniform2f(this.uniforms.u_resolution, bw, bh);
+          // 緩衝區可能已被清空，立即補畫一幀，避免出現黑屏
+          this.draw();
+        }
+
+        draw() {
+          if (!this.glReady || !this.gl || this.gl.isContextLost()) return;
+          this.gl.uniform1f(this.uniforms.u_time, this.globalTime);
+          this.gl.uniform3f(this.uniforms.u_color, this.colorLive[0], this.colorLive[1], this.colorLive[2]);
+          this.gl.uniform1fv(this.uniforms.u_weights, this.currentWeights);
+          this.gl.uniform1f(this.uniforms.u_brightness, this.currentBrightness);
+          this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
         }
 
         pause() {
@@ -489,43 +526,41 @@
           if (this.running) return;
           this.running = true;
           this.lastTime = performance.now();
-          this.rafId = requestAnimationFrame(this.render.bind(this));
+          this.rafId = requestAnimationFrame(this.renderBound);
         }
 
         render(timestamp) {
           if (!this.running) return;
+          // 先排程下一幀，確保即使本幀發生例外，動畫迴圈也不會中斷
+          this.rafId = requestAnimationFrame(this.renderBound);
+
           const state = this.store.getState();
-          
-          const dt = Math.min(Math.max(timestamp - this.lastTime, 0), 100);
-          this.lastTime = timestamp;
-          
           const isIdle = state.isIdle;
-          if ((isIdle ? 50 : (state.lowPower ? 41.6 : 0)) > 0 && dt < (isIdle ? 50 : (state.lowPower ? 41.6 : 0))) { 
-              this.rafId = requestAnimationFrame(this.render.bind(this)); 
-              return; 
-          }
-          
+          const frameInterval = isIdle ? 50 : (state.lowPower ? 1000 / 24 : 0);
+          const elapsed = timestamp - this.lastTime;
+
+          // 節流：未達間隔就跳過，且「不更新 lastTime」，讓經過的時間能持續累積
+          if (frameInterval > 0 && elapsed < frameInterval - 4) return;
+
+          const dt = Math.min(Math.max(elapsed, 0), 100);
+          this.lastTime = timestamp;
+
           const k = 1 - Math.pow(1 - 0.033, dt / 16.666);
-          
+
           if (this.glReady) {
             this.globalTime += 0.01 * state.speed * (dt / 16.666);
             const actualColorTarget = state.nightMode ? [0.16, 0.08, 0.0] : state.colorTarget;
-            this.colorLive.forEach((_, i) => this.colorLive[i] += (actualColorTarget[i] - this.colorLive[i]) * k);
-            
+            for (let i = 0; i < 3; i++) this.colorLive[i] += (actualColorTarget[i] - this.colorLive[i]) * k;
+
             for (let i = 0; i < 5; i++) {
               this.currentWeights[i] += (this.targetWeights[i] - this.currentWeights[i]) * k;
             }
-            
+
             const isHolding = state.isHolding;
             this.currentBrightness += ((isHolding ? 1.5 : (isIdle ? 0.65 : 1.0)) - this.currentBrightness) * k;
-            
-            this.gl.uniform1f(this.uniforms.u_time, this.globalTime); 
-            this.gl.uniform3f(this.uniforms.u_color, ...this.colorLive); 
-            this.gl.uniform1fv(this.uniforms.u_weights, this.currentWeights);
-            this.gl.uniform1f(this.uniforms.u_brightness, this.currentBrightness); 
-            this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
+
+            this.draw();
           }
-          this.rafId = requestAnimationFrame(this.render.bind(this));
         }
 
         start() {
