@@ -295,17 +295,42 @@
           } catch(e){}
         }
 
+        // 單一 key 驗證：合法回傳（乾淨的）值，不合法回傳 undefined（呼叫端會保留預設值）
+        static validate(key, v, def) {
+          const isInt = (n, lo, hi) => typeof n === 'number' && Number.isInteger(n) && n >= lo && n <= hi;
+          const isNum = (n, lo, hi) => typeof n === 'number' && Number.isFinite(n) && n >= lo && n <= hi;
+          switch (key) {
+            case 'lang': return (v === 'en' || v === 'zh') ? v : undefined;
+            case 'mode': return isInt(v, 1, 5) ? v : undefined;
+            case 'fontStyle': return isInt(v, 0, 2) ? v : undefined;
+            case 'clockAnimMode': return isInt(v, 0, 3) ? v : undefined;
+            case 'idleTimeout': return isInt(v, 0, 2) ? v : undefined;
+            case 'size': return isNum(v, 5, 20) ? v : undefined;
+            case 'weight': return isNum(v, 100, 900) ? v : undefined;
+            case 'speed': return isNum(v, 0.1, 4) ? v : undefined;
+            case 'colorTarget':
+              return (Array.isArray(v) && v.length === 3 && v.every(x => isNum(x, 0, 1))) ? [v[0], v[1], v[2]] : undefined;
+            default:
+              // 其餘欄位（布林開關等）：型別必須與預設值一致
+              return (typeof v === typeof def && v !== null) ? v : undefined;
+          }
+        }
+
         load() {
-          try { 
-            const saved = JSON.parse(localStorage.getItem(this.storageKey)); 
-            if (saved) {
+          try {
+            const saved = JSON.parse(localStorage.getItem(this.storageKey));
+            if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
               const merged = { ...this.state };
-              for (const [k, v] of Object.entries(saved)) {
-                if (!Store.TRANSIENT_KEYS.has(k)) merged[k] = v;
+              // 只遍歷 defaultState 既有的 key（白名單）：未知 key、__proto__ 一律忽略
+              for (const k of Object.keys(this.state)) {
+                if (Store.TRANSIENT_KEYS.has(k)) continue;
+                if (!Object.prototype.hasOwnProperty.call(saved, k)) continue;
+                const clean = Store.validate(k, saved[k], this.state[k]);
+                if (clean !== undefined) merged[k] = clean;
               }
               this.state = Object.freeze(merged);
             }
-          } catch(e){}
+          } catch (e) {}
         }
       }
 
@@ -324,6 +349,14 @@
        * 5. webglcontextrestored 後未重設 glReady 與尺寸、且不檢查頁面是否隱藏；initGL 失敗時 glReady 殘留舊值。已修正。
        * 6. 片段著色器強制 highp，在不支援 highp 的 GPU 上編譯失敗會黑屏。已加入 mediump 後備。
        * 7. render 迴圈若中途拋出例外會整個停止；改為先排程下一幀再繪製。每幀 bind 也改為只 bind 一次。
+       *
+       * [防禦性修復 v3]
+       * 8. Store.load() 改為白名單 + 型別/範圍驗證，毒化的 localStorage 不再導致開機崩潰。
+       * 9. globalTime 超過 10000 時（Float32 精度會明顯衰減）以 0.8 秒淡出 -> 歸零 -> 淡入的方式重置，避免畫面突跳。
+       * 10. 幀率上限 60fps（相位鎖定的節流，在 60/120/144Hz 螢幕上都不會出現隔幀掉到 30fps 的情況）。
+       * 11. resize() 加入 250 萬像素預算；initGL 失敗或 context 遺失時，#bg-layer 改用 CSS 漸層備案。
+       * 12. UIManager.syncUI(skipAnim, changedKey) 依 key 局部更新，不再每次全樹遍歷與強制讀取版面。
+       * 13. WakeLock 於 init、首次點擊申請，並監聽 release 事件重置；長按退出流程在 window.close() 失敗後確實復原。
        */
       class WebGLEngine {
         constructor(canvas, store) {
@@ -345,6 +378,11 @@
           this.globalTime = 0;
           this.lastTime = performance.now();
           this.renderBound = this.render.bind(this);
+          this.frameClock = performance.now();   // 幀率節流用的相位時鐘
+          this.timeWrapState = 0;                // 0 = 正常, 1 = 淡出中, 2 = 淡入中
+          this.wrapFade = 1;
+          this.fallbackEl = canvas.parentElement; // #bg-layer
+          this.fallbackActive = false;
 
           this.vsSource = `attribute vec2 position; void main() { gl_Position = vec4(position, 0.0, 1.0); }`;
           this.fsSource = `
@@ -429,7 +467,7 @@
         }
           `;
 
-          this.canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.glReady = false; this.pause(); }, false);
+          this.canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.glReady = false; this.pause(); this.showFallback(); }, false);
           this.canvas.addEventListener('webglcontextrestored', () => { this.initGL(); if (!document.hidden) this.resume(); }, false);
 
           this.initGL();
@@ -453,7 +491,7 @@
           this.gl = this.canvas.getContext('webgl', { antialias: false, alpha: false, depth: false, stencil: false, powerPreference: 'low-power' }) || 
                     this.canvas.getContext('experimental-webgl', { antialias: false, alpha: false, depth: false, stencil: false, powerPreference: 'low-power' });
           this.glReady = false;
-          if (!this.gl) return;
+          if (!this.gl) { this.showFallback(); return; }
           
           const vs = this.compileShader(this.gl, this.vsSource, this.gl.VERTEX_SHADER);
           const fs = this.compileShader(this.gl, this.fsSource, this.gl.FRAGMENT_SHADER);
@@ -472,9 +510,36 @@
               this.gl.vertexAttribPointer(pos, 2, this.gl.FLOAT, false, 0, 0);
               ['u_resolution', 'u_time', 'u_color', 'u_weights', 'u_brightness'].forEach(n => this.uniforms[n] = this.gl.getUniformLocation(program, n));
               this.glReady = true;
+              this.hideFallback();
               this.resize();
+            } else {
+              console.error(this.gl.getProgramInfoLog(program));
             }
           }
+          if (!this.glReady) this.showFallback();
+        }
+
+        // WebGL 不可用時的 CSS 漸層備案（避免整片黑屏）
+        updateFallback() {
+          if (!this.fallbackActive || !this.fallbackEl) return;
+          const state = this.store.getState();
+          const c = state.nightMode ? [0.16, 0.08, 0.0] : state.colorTarget;
+          const rgb = (m) => `rgb(${c.map(x => Math.round(Math.max(0, Math.min(1, x * m)) * 255)).join(',')})`;
+          this.fallbackEl.style.background = `radial-gradient(ellipse at 30% 25%, ${rgb(1.6)} 0%, ${rgb(0.8)} 45%, #050505 100%)`;
+        }
+
+        showFallback() {
+          if (!this.fallbackEl) return;
+          this.fallbackActive = true;
+          this.canvas.style.display = 'none';
+          this.updateFallback();
+        }
+
+        hideFallback() {
+          if (!this.fallbackActive) return;
+          this.fallbackActive = false;
+          this.canvas.style.display = '';
+          if (this.fallbackEl) this.fallbackEl.style.background = '';
         }
 
         handleStateChange(key, val) {
@@ -483,15 +548,21 @@
             this.targetWeights[val - 1] = 1.0;
           } else if (key === 'lowPower') {
             this.resize();
+          } else if (key === 'colorTarget' || key === 'nightMode') {
+            this.updateFallback();
           }
         }
 
         resize() {
           if (!this.glReady || !this.gl || this.gl.isContextLost()) return;
           const state = this.store.getState();
+          const PIXEL_BUDGET = 2500000; // 總像素預算（約 250 萬），防止 4K/5K 螢幕 GPU 超載
+          const cssW = Math.max(1, window.innerWidth);
+          const cssH = Math.max(1, window.innerHeight);
           const dpr = state.lowPower ? 0.75 : Math.min(window.devicePixelRatio || 1, 2);
-          const w = Math.max(1, Math.round(window.innerWidth * dpr));
-          const h = Math.max(1, Math.round(window.innerHeight * dpr));
+          const scale = Math.min(dpr, Math.sqrt(PIXEL_BUDGET / (cssW * cssH)));
+          const w = Math.max(1, Math.round(cssW * scale));
+          const h = Math.max(1, Math.round(cssH * scale));
           // 只有尺寸真的改變才重設 canvas（重設會清空繪圖緩衝區）
           if (this.canvas.width !== w || this.canvas.height !== h) {
             this.canvas.width = w;
@@ -510,7 +581,8 @@
           this.gl.uniform1f(this.uniforms.u_time, this.globalTime);
           this.gl.uniform3f(this.uniforms.u_color, this.colorLive[0], this.colorLive[1], this.colorLive[2]);
           this.gl.uniform1fv(this.uniforms.u_weights, this.currentWeights);
-          this.gl.uniform1f(this.uniforms.u_brightness, this.currentBrightness);
+          const wf = this.wrapFade;
+          this.gl.uniform1f(this.uniforms.u_brightness, this.currentBrightness * (wf * wf * (3 - 2 * wf)));
           this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
         }
 
@@ -526,6 +598,7 @@
           if (this.running) return;
           this.running = true;
           this.lastTime = performance.now();
+          this.frameClock = this.lastTime;
           this.rafId = requestAnimationFrame(this.renderBound);
         }
 
@@ -536,19 +609,33 @@
 
           const state = this.store.getState();
           const isIdle = state.isIdle;
-          const frameInterval = isIdle ? 50 : (state.lowPower ? 1000 / 24 : 0);
-          const elapsed = timestamp - this.lastTime;
+          const minInterval = isIdle ? 50 : (state.lowPower ? 41.6 : 16.6);
 
-          // 節流：未達間隔就跳過，且「不更新 lastTime」，讓經過的時間能持續累積
-          if (frameInterval > 0 && elapsed < frameInterval - 4) return;
+          // 相位鎖定節流：未到下一個繪製時間點就跳過（容許 2ms 抖動）。
+          // 60Hz 每幀繪製；120Hz 隔幀繪製（60fps）；144Hz 約 58fps；低功耗約 24fps；閒置 20fps。
+          if (timestamp < this.frameClock + minInterval - 2) return;
+          this.frameClock += minInterval;
+          if (timestamp - this.frameClock > minInterval) this.frameClock = timestamp; // 落後太多就重新對齊
 
-          const dt = Math.min(Math.max(elapsed, 0), 100);
+          // dt 以「上一次實際繪製」為基準，節流期間的時間會完整累積
+          const dt = Math.min(Math.max(timestamp - this.lastTime, 0), 100);
           this.lastTime = timestamp;
 
           const k = 1 - Math.pow(1 - 0.033, dt / 16.666);
 
           if (this.glReady) {
             this.globalTime += 0.01 * state.speed * (dt / 16.666);
+
+            // Float32 精度保護：時間超過 10000 後以淡出 -> 歸零 -> 淡入的方式重置，避免畫面突跳
+            if (this.timeWrapState === 0 && this.globalTime > 10000.0) this.timeWrapState = 1;
+            if (this.timeWrapState === 1) {
+              this.wrapFade -= dt / 800;
+              if (this.wrapFade <= 0) { this.wrapFade = 0; this.globalTime = 0; this.timeWrapState = 2; }
+            } else if (this.timeWrapState === 2) {
+              this.wrapFade += dt / 800;
+              if (this.wrapFade >= 1) { this.wrapFade = 1; this.timeWrapState = 0; }
+            }
+
             const actualColorTarget = state.nightMode ? [0.16, 0.08, 0.0] : state.colorTarget;
             for (let i = 0; i < 3; i++) this.colorLive[i] += (actualColorTarget[i] - this.colorLive[i]) * k;
 
@@ -841,6 +928,8 @@
           this.wakeLockPending = false;
           
           this.holdTimeout = null;
+          this.exitCloseTimer = null;
+          this.exitRecoverTimer = null;
           this.touchStartX = 0;
           this.touchStartY = 0;
 
@@ -849,12 +938,15 @@
           this.tgDragged = false;
 
           this.store.subscribe((prop, val) => {
+            // 暫態狀態（閒置/長按/面板開關）沒有任何對應的 UI 需要同步
+            if (Store.TRANSIENT_KEYS.has(prop)) return;
             let skipAnim = false;
             if (prop === 'lang') { 
               this.renderPanel(); 
               skipAnim = true; 
             }
-            this.syncUI(skipAnim);
+            // 語系切換會重建整個面板，需完整同步；其餘只同步變動的那個 key
+            this.syncUI(skipAnim, prop === 'lang' ? null : prop);
           });
         }
 
@@ -864,6 +956,7 @@
           this.bindEvents();
           this.runPixelShift();
           this.wakeUp();
+          this.requestWakeLock();
           window.dispatchEvent(new Event('resize'));
         }
 
@@ -941,28 +1034,56 @@
           }
         }
 
-        syncUI(skipAnim = false) {
+        syncUI(skipAnim = false, changedKey = null) {
           const state = this.store.getState();
-          document.documentElement.style.setProperty('--clock-font', UIManager.FONTS[state.fontStyle]);
-          if (state.nightMode) { 
-            document.documentElement.style.setProperty('--clock-color', '#D97736'); document.documentElement.style.setProperty('--date-color', '#6E3F20'); document.documentElement.style.setProperty('--clock-shadow-color', 'transparent'); 
-          } else { 
-            document.documentElement.style.setProperty('--clock-color', 'rgba(255, 255, 255, 0.9)'); document.documentElement.style.setProperty('--date-color', 'rgba(255, 255, 255, 0.6)'); document.documentElement.style.setProperty('--clock-shadow-color', 'rgba(255, 255, 255, 0.2)'); 
-          }
-          this.runPixelShift();
-          
-          const btnLowpower = document.getElementById('btn-lowpower');
-          if (btnLowpower) btnLowpower.classList.toggle('is-active', state.lowPower);
+          const root = document.documentElement;
+          const full = changedKey === null; // 完整同步（初始化 / 語系切換）
 
-          Object.entries(UIManager.UI_BINDINGS).forEach(([k, b]) => {
+          if (full || changedKey === 'fontStyle') {
+            root.style.setProperty('--clock-font', UIManager.FONTS[state.fontStyle]);
+          }
+          if (full || changedKey === 'nightMode') {
+            if (state.nightMode) { 
+              root.style.setProperty('--clock-color', '#D97736'); root.style.setProperty('--date-color', '#6E3F20'); root.style.setProperty('--clock-shadow-color', 'transparent'); 
+            } else { 
+              root.style.setProperty('--clock-color', 'rgba(255, 255, 255, 0.9)'); root.style.setProperty('--date-color', 'rgba(255, 255, 255, 0.6)'); root.style.setProperty('--clock-shadow-color', 'rgba(255, 255, 255, 0.2)'); 
+            }
+          }
+          if (full || changedKey === 'pixelShift') this.runPixelShift();
+
+          if (full || changedKey === 'lowPower') {
+            const btnLowpower = document.getElementById('btn-lowpower');
+            if (btnLowpower) btnLowpower.classList.toggle('is-active', state.lowPower);
+          }
+
+          // 屬性綁定：只更新變動的那一項（拖曳滑桿時不再遍歷所有控制項）
+          const bindings = UIManager.UI_BINDINGS;
+          const bindKeys = full ? Object.keys(bindings) : (bindings[changedKey] ? [changedKey] : []);
+          bindKeys.forEach(k => {
+            const b = bindings[k];
             const el = document.getElementById(b.id);
-            if (el) { el[b.prop] = state[k]; if (b.cssVar) document.documentElement.style.setProperty(b.cssVar, b.format ? b.format(state[k]) : state[k]); if (el.type === 'range') this.updateSliderFill(el); }
+            if (el) {
+              if (String(el[b.prop]) !== String(state[k])) el[b.prop] = state[k];
+              if (b.cssVar) root.style.setProperty(b.cssVar, b.format ? b.format(state[k]) : state[k]);
+              if (el.type === 'range') this.updateSliderFill(el);
+            }
           });
-          document.querySelectorAll('.segmented-control').forEach(c => { const val = state[c.dataset.prop]; if (val !== undefined) requestAnimationFrame(() => this.updateSegmentHighlight(c, val, skipAnim)); });
-          document.querySelectorAll('.swatch-wrapper').forEach(s => s.classList.remove('active'));
-          const activeSwatch = document.querySelector(`.swatch-wrapper[data-rgb="${state.colorTarget.join(',')}"]`), customEl = document.getElementById('custom-swatch-color');
-          if (activeSwatch) { activeSwatch.classList.add('active'); customEl.style.background = ''; customEl.classList.remove('has-color'); } 
-          else { document.getElementById('custom-swatch-wrapper').classList.add('active'); document.getElementById('custom-color-input').value = UIManager.rgbToHex(...state.colorTarget); customEl.style.background = UIManager.rgbToHex(...state.colorTarget); customEl.classList.add('has-color'); }
+
+          // 分段高亮（會讀取 offsetWidth/offsetLeft）：只處理變動 key 所在的容器
+          if (full) {
+            document.querySelectorAll('.segmented-control').forEach(c => { const val = state[c.dataset.prop]; if (val !== undefined) requestAnimationFrame(() => this.updateSegmentHighlight(c, val, skipAnim)); });
+          } else {
+            const c = document.querySelector(`.segmented-control[data-prop="${changedKey}"]`);
+            const val = state[changedKey];
+            if (c && val !== undefined) requestAnimationFrame(() => this.updateSegmentHighlight(c, val, skipAnim));
+          }
+
+          if (full || changedKey === 'colorTarget') {
+            document.querySelectorAll('.swatch-wrapper').forEach(s => s.classList.remove('active'));
+            const activeSwatch = document.querySelector(`.swatch-wrapper[data-rgb="${state.colorTarget.join(',')}"]`), customEl = document.getElementById('custom-swatch-color');
+            if (activeSwatch) { activeSwatch.classList.add('active'); customEl.style.background = ''; customEl.classList.remove('has-color'); } 
+            else { document.getElementById('custom-swatch-wrapper').classList.add('active'); document.getElementById('custom-color-input').value = UIManager.rgbToHex(...state.colorTarget); customEl.style.background = UIManager.rgbToHex(...state.colorTarget); customEl.classList.add('has-color'); }
+          }
         }
 
         scheduleIdle() {
@@ -992,35 +1113,57 @@
           }
         }
 
+        clearExitSequence() {
+          clearTimeout(this.holdTimeout); this.holdTimeout = null;
+          clearTimeout(this.exitCloseTimer); this.exitCloseTimer = null;
+          clearTimeout(this.exitRecoverTimer); this.exitRecoverTimer = null;
+          document.body.classList.remove('disconnected');
+        }
+
+        // window.close() 失敗（一般分頁一定會失敗）後的完整復原
+        recoverFromExit() {
+          this.clearExitSequence();
+          this.bgLayer.classList.remove('exiting');
+          this.clockLayerObj.classList.remove('exiting');
+          this.store.setState('isHolding', false);
+        }
+
         exitApp(isStarting) {
           const state = this.store.getState();
           if (state.isHolding === isStarting) return; 
+          if (isStarting) this.clearExitSequence(); // 新的長按開始時，取消尚未跑完的復原計時器
           this.store.setState('isHolding', isStarting);
           this.bgLayer.classList.toggle('exiting', isStarting); 
           this.clockLayerObj.classList.toggle('exiting', isStarting);
           
           if (isStarting) { 
             this.holdTimeout = setTimeout(() => { 
+              this.holdTimeout = null;
               this.store.setState('isHolding', false);
               document.body.classList.add('disconnected'); 
-              setTimeout(() => { 
+              this.exitCloseTimer = setTimeout(() => { 
+                this.exitCloseTimer = null;
                 try { window.close(); } catch (err) {} 
-                setTimeout(() => {
-                  document.body.classList.remove('disconnected');
-                  this.store.setState('isHolding', false);
-                }, 300);
+                // 若還能執行到這裡，代表視窗沒有被關閉 -> 確實復原視覺狀態與 isHolding
+                this.exitRecoverTimer = setTimeout(() => this.recoverFromExit(), 300);
               }, 800); 
             }, 2000); 
           } else {
             clearTimeout(this.holdTimeout);
+            this.holdTimeout = null;
           }
         }
 
         async requestWakeLock() { 
           if (this.wakeLock || this.wakeLockPending) return;
+          if (!('wakeLock' in navigator) || document.hidden) return;
           this.wakeLockPending = true;
           try { 
-            if ('wakeLock' in navigator && !document.hidden) this.wakeLock = await navigator.wakeLock.request('screen'); 
+            const sentinel = await navigator.wakeLock.request('screen');
+            if (document.hidden) { sentinel.release().catch(() => {}); return; }
+            this.wakeLock = sentinel;
+            // 被系統收回（省電、分頁隱藏等）時重置狀態，之後的點擊或回到前景即可重新申請
+            sentinel.addEventListener('release', () => { if (this.wakeLock === sentinel) this.wakeLock = null; });
           } catch(e){} finally {
             this.wakeLockPending = false;
           }
@@ -1075,6 +1218,7 @@
               this.store.setState('isPanelOpen', false); 
             }
             this.wakeUp();
+            this.requestWakeLock();
           });
 
           window.addEventListener('resize', () => {
