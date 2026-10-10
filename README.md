@@ -1,4 +1,4 @@
-# Ambient Aurora - v2.1.6 Sevilla(塞維利亞)
+# Ambient Aurora - v2.1 Sevilla(塞維利亞) 最終版
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![WebGL 1.0](https://img.shields.io/badge/WebGL-1.0-brightgreen.svg)](#)
@@ -6,9 +6,9 @@
 [![Design Engineering](https://img.shields.io/badge/Craft-Emil%20Kowalski-8E75FF.svg)](#)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-0-orange.svg)](#)
 
-> **繁體中文**：一款汲取 **Apple Fluid Interface** 哲學與 **Emil Kowalski 設計工程動效原則** 的環境時鐘與螢幕保護程式。以純 HTML 單檔實現了徹底的「四大模組解耦 (State, WebGL, Clock, UI)」。結合 5 種環境 Shader、4 種物理微交互、OLED 防烙印、硬體級觸覺回饋 (Haptic Feedback) 與無縫多國語言，實現極致的 OS 級別沉浸美學。
+> **繁體中文**：一款汲取 **Apple Fluid Interface** 哲學與 **Emil Kowalski 設計工程動效原則** 的頂級環境時鐘與螢幕保護程式。在 v2.1 Sevilla 版本中，我們以純 HTML 單檔實現了徹底的「四大模組解耦 (State, WebGL, Clock, UI)」。結合 5 種環境 Shader、4 種物理微交互、橫直佈局自由切換、OLED 防烙印、硬體級觸覺回饋 (Haptics) 與無縫多國語言，實現極致的 OS 級別沉浸美學。
 >
-> **English**: An Apple-inspired ambient web timepiece engineered with **Emil Kowalski's interaction & motion principles**. Features an epic single-file modular architecture decoupling State, WebGL, Clock, and UI. Powered by 5 ambient shaders, 4 physical kinetic animations, OLED pixel-shift, hardware Haptic Feedback, and zero external dependencies for a true OS-level experience.
+> **English**: An Apple-inspired ambient web timepiece engineered with **Emil Kowalski's interaction & motion principles**. The v2.1 Sevilla release features an epic single-file modular architecture decoupling State, WebGL, Clock, and UI. Powered by 5 ambient shaders, 4 physical kinetic animations, dynamic Horizontal/Vertical layouts, OLED pixel-shift, throttled hardware Haptic Feedback, and zero external dependencies for a true OS-level experience.
 
 [體驗線上展示 (Live Demo)](https://cool-chi.github.io/ambient-aurora/)
 
@@ -43,26 +43,29 @@
 
 ### 1. 單檔模組化架構 (Single-File Modularization)
 徹底告別腳本編程，將專案封裝入 IIFE，達成「零全域變數污染」。實作嚴格的四權分立：
-*   `Store`：響應式狀態中樞 (Pub/Sub)，具備 LocalStorage 持久化與暫態保護驗證。
-*   `WebGLEngine`：純粹的圖形黑盒，幀率獨立運作 (支援 120Hz/144Hz)，具備 Context Lost 救援與像素預算 (Pixel Budget) 保護。
-*   `ClockController`：負責時間計算、DOM Diffing 與動態幾何避讓。
+*   `Store`：響應式狀態中樞 (Pub/Sub)，具備 LocalStorage 持久化與極致的防毒化校驗 (Schema Validation)。
+*   `WebGLEngine`：純粹的圖形黑盒，幀率獨立運作 (最高 60fps 防過載)，具備 Context Lost 救援與 2.5MP 像素預算 (Pixel Budget) 保護。
+*   `ClockController`：負責時間計算、DOM Diffing 基準線對齊與動態幾何避讓。
 *   `UIManager`：純粹的事件路由與介面渲染 (One-way Data Flow)。
 
-### 2. 設計工程與互動哲學 (Design Engineering Principles)
-*   **四層級觸覺回饋 (Haptic Hierarchy)**：基於漸進式增強原則 (Progressive Enhancement) 結合 `navigator.vibrate`，在支援的設備（如 Android）上帶來實體機械感：
-    *   *微觸感 (Micro Tick - 5ms)*：滑桿拖曳時的微小齒輪感。
-    *   *輕觸感 (Light Tap - 10ms)*：開關切換、色票點擊的清脆確認。
-    *   *中觸感 (Medium Tap - 15ms/20ms)*：主按鈕點擊與滑桿撞擊邊界的物理阻尼。
-    *   *重觸序列 (Heavy Sequence)*：長按解鎖成功的明確物理宣告 `[30ms, 50ms, 30ms]`。
+### 2. 空間排佈與字體排印 (Spatial Typography & Layout)
+*   **橫向與直列模式切換 (Dynamic Flow)**：完美適配行動裝置的直列模式。採用高級 Subscript (附標) 視覺層次，將秒數與 AM/PM 微縮並錨定於主視覺右下角。切換佈局時伴隨 iOS 風格的「失焦模糊 (Blur Fade-Through)」過渡動畫。
 *   **幾何智慧避讓 (Dynamic Evasion)**：時鐘能即時感知右側設定面板的啟閉與螢幕寬度，如同具備實體般進行精確的退讓與微縮。
-*   **非對稱時序退出 (Asymmetric Hold-to-Confirm)**：長按 2 秒退出具備防卡死救援機制；中途鬆開則即刻以 `200ms ease-out` 敏捷回彈。
 
-### 3. 環境常駐防護 (Ambient Safeguards)
+### 3. 設計工程與觸覺哲學 (Haptics & Micro-interactions)
+*   **四層級觸覺回饋 (Haptic Hierarchy)**：具備 40ms 冷卻節流 (Cooldown Throttle) 防過載機制，在支援的設備上帶來實體機械感：
+    *   *微觸感 (5ms)*：無極滑桿拖曳時的微小齒輪感。
+    *   *輕觸感 (10ms)*：開關切換、色票點擊的清脆確認。
+    *   *中觸感 (15ms/20ms)*：主按鈕點擊與滑桿撞擊邊界 (`isEdge`) 的物理阻尼。
+    *   *重觸序列*：長按解鎖成功的明確物理宣告 `[30ms, 50ms, 30ms]`。
+*   **非對稱時序退出 (Hold-to-Confirm)**：長按 2 秒退出具備防卡死救援機制；中途鬆開則即刻以敏捷回彈。
+
+### 4. 環境常駐防護 (Ambient Safeguards)
 專為長時間掛機作為桌面時鐘而設計的系統級保護：
 *   **Burn-in Protection (OLED 防烙印)**：硬體級軟體實現，每 60 秒極其緩慢地微移整個視窗，人眼無法察覺，有效保護 OLED 像素。
-*   **Night Mode (夜間護眼)**：靈感來自 Apple Watch Ultra。開啟後強制壓制 WebGL 背景為微弱琥珀色，時鐘字體轉為暖橘光，保護暗適應視力。
-*   **Low Power Mode HUD**：獨立的 iOS 風格電池按鈕，開啟時降低圖形解析度 (DPR) 並限制渲染幀率，配有原生質感的 HUD 提示。
-*   **Idle Timeout**：3秒/10秒/永不隱藏，閒置自動虛化 UI 並降低背景幀率至 20fps 以節省運算資源。
+*   **Night Mode (夜間護眼)**：開啟後強制壓制 WebGL 背景為微弱琥珀色，時鐘字體轉為暖橘光，保護暗適應視力。
+*   **Low Power Mode HUD**：獨立的電池按鈕，開啟時降低圖形解析度 (DPR) 並限制渲染幀率，配有原生質感的 HUD 提示。
+*   **Idle Timeout**：3秒/10秒/永不隱藏，閒置自動虛化 UI 並降低背景幀率以節省運算資源。
 
 ---
 
@@ -82,10 +85,11 @@
 
 ## 🛠️ 技術棧 / Tech Stack
 
-本專案為 **「零依賴 (Zero Dependencies)」** 的純 HTML/CSS/JS 架構。
+本專案為 **「零依賴 (Zero Dependencies)」** 的純 HTML/CSS/JS 應用程式。
 *   **Graphics Core**：Raw WebGL 1.0 (N-way Lerp Blending, GLSL Shaders, Procedural Noise).
 *   **Architecture**：ES6 Classes, Pub/Sub Pattern, Copy-on-write State, ResizeObserver.
 *   **Motion & Haptics**：Web Animations API (WAAPI), `navigator.vibrate`, `will-change` Hardware Acceleration.
+*   **Minification**: Code golfed & functionally compressed to a single <60KB file.
 
 ---
 
