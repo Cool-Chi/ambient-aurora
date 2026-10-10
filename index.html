@@ -22,17 +22,19 @@ body .background-layer.exiting{transition:transform 2s linear;transform:scale(1.
 body.is-idle .clock-layer{opacity:.35;--idle-scale:.96;transition:opacity 1500ms var(--ease-in-out),transform 1500ms var(--ease-in-out)}
 body .clock-layer.exiting{transition:opacity 2s linear,transform 2s linear;opacity:.1;--idle-scale:.9}
 #clock{margin:0;font-variant-numeric:tabular-nums;white-space:nowrap;overflow-wrap:normal;font-size:var(--clock-size);font-weight:var(--clock-weight);color:var(--clock-color);letter-spacing:-0.03em;display:flex;flex-direction:row;justify-content:center;align-items:center;filter:drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 4px var(--clock-shadow-color));position:relative;transition:color 500ms,filter 500ms,gap 300ms;font-family:var(--clock-font);will-change:transform,filter;transform:translateZ(0)}
-.clock-module{overflow:hidden;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;transition:max-width 300ms var(--ease-out),max-height 300ms var(--ease-out),opacity 300ms var(--ease-out),transform 300ms var(--ease-out),margin 300ms var(--ease-out),color 500ms}
+.clock-module{overflow:hidden;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;transition:max-width 300ms var(--ease-out),opacity 300ms var(--ease-out),transform 300ms var(--ease-out),margin 300ms var(--ease-out),color 500ms}
 .clock-module.is-hidden{max-width:0 !important;opacity:0 !important;margin-left:var(--hide-ml,0) !important;transform:scale(.8) translateX(var(--hide-tx,0px)) !important}
 .tens-group{max-width:1em}
 .colon-group{max-width:.5em}
 .seconds-group{max-width:1.4em;transform-origin:left center}
 .ampm-group{max-width:2.5em;margin-left:.5em;font-size:.25em;font-weight:500;letter-spacing:.05em;color:var(--date-color);align-items:flex-end;padding-bottom:.5em}
-#clock.is-vertical{flex-direction:column;gap:.05em}
-#clock.is-vertical .clock-module{max-height:1.5em}
-#clock.is-vertical .clock-module.is-hidden{max-height:0 !important}
-#clock.is-vertical .colon-group{max-width:0 !important;max-height:0 !important;opacity:0 !important;margin:0 !important;transform:scale(0) !important;display:none}
-#clock.is-vertical .ampm-group{margin-left:0;margin-top:.1em;padding-bottom:0;align-items:center}
+#clock.is-vertical{display:grid;grid-template-columns:1fr auto 1fr;grid-template-rows:auto 1fr auto;justify-items:center;align-items:center;gap:0}
+#clock.is-vertical .hours-row{grid-column:2;grid-row:1;line-height:.85;margin-bottom:-.05em;z-index:2}
+#clock.is-vertical .minutes-group{grid-column:2;grid-row:2/4;line-height:.85;z-index:2}
+#clock.is-vertical .seconds-group{grid-column:3;grid-row:2;justify-self:start;align-self:end;font-size:.35em;margin-left:.08em;margin-bottom:-.05em;transform:none}
+#clock.is-vertical .ampm-group{grid-column:3;grid-row:3;justify-self:start;align-self:start;font-size:.2em;margin-left:.15em;margin-top:.05em;padding:0}
+#clock.is-vertical .clock-module.is-hidden{max-height:0 !important;max-width:0 !important;opacity:0 !important;margin:0 !important;transform:scale(0) !important;display:none}
+#clock.is-vertical .colon-group{display:none}
 #clock span{position:relative;display:inline-grid;place-items:center;vertical-align:bottom;clip-path:inset(0 -40px 0 -40px);height:1em;line-height:1;text-shadow:none}
 .digit-old,.digit-new{grid-area:1 / 1;position:relative !important;width:100%}
 .digit-new{opacity:0}
@@ -137,7 +139,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.1.7 | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.1.8 | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
 const $ = id => document.getElementById(id);
 const qs = (el, sel) => el.querySelector(sel);
