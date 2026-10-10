@@ -139,7 +139,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.1.9 | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.1.10 | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
 const $ = id => document.getElementById(id);
 const qs = (el, sel) => el.querySelector(sel);
@@ -443,7 +443,7 @@ class ClockController {
     this.secCont = qs(this.clockElement, '.seconds-group');
     this.ampmCont = qs(this.clockElement, '.ampm-group');
     this.lastTime = this.blank();
-    [this.colonHM, this.colonMS].forEach(c => c.innerHTML = '<span><div class="digit-old">:</div><div class="digit-new"></div></span>');
+    [this.colonHM, this.colonMS].forEach(c => c.innerHTML = '<span><div class="digit-old">:</div><div class="digit-new">:</div></span>');
     this.clockElement.classList.toggle('is-vertical', this.store.getState().clockLayout === 1);
     this.timer = null;
     this.running = false;
@@ -505,7 +505,7 @@ class ClockController {
   diffDOM(container, newStr, oldStr) {
     if (newStr !== oldStr) {
       if (!oldStr || container.children.length !== newStr.length) {
-        container.innerHTML = newStr.split('').map(c => `<span><div class="digit-old">${c}</div><div class="digit-new"></div></span>`).join('');
+        container.innerHTML = newStr.split('').map(c => `<span><div class="digit-old">${c}</div><div class="digit-new">${c}</div></span>`).join('');
       } else {
         const { clockAnimMode } = this.store.getState();
         for (let i = 0; i < newStr.length; i++) {
@@ -539,7 +539,6 @@ class ClockController {
     const [hTens, hUnits] = pad(hh);
     const minStr = pad(now.getMinutes()), secStr = pad(now.getSeconds());
     const ampmStr = is24Hour ? '' : isPM ? 'PM' : 'AM';
-    this.ampmCont.textContent = ampmStr;
     this.tensCont.classList.toggle('is-hidden', !leadingZero && hTens === '0');
     [this.secCont, this.colonMS].forEach(c => c.classList.toggle('is-hidden', !showSeconds));
     this.ampmCont.classList.toggle('is-hidden', is24Hour);
@@ -806,7 +805,7 @@ class UIManager {
       qsa(document, '.swatch-wrapper').forEach(s => s.classList.remove('active'));
       const activeSwatch = qs(document, `.swatch-wrapper[data-rgb="${colorTarget.join(',')}"]`), customEl = $('custom-swatch-color');
       if (activeSwatch) { activeSwatch.classList.add('active'); customEl.style.background = ''; customEl.classList.remove('has-color'); }
-      else { $('custom-swatch-wrapper').classList.add('active'); $('custom-color-input').value = UIManager.rgbToHex(...colorTarget); customEl.style.background = UIManager.rgbToHex(...colorTarget); customEl.classList.add('has-color'); }
+      else { $('custom-swatch-wrapper').classList.add('active');$('custom-color-input').value = UIManager.rgbToHex(...colorTarget); customEl.style.background = UIManager.rgbToHex(...colorTarget); customEl.classList.add('has-color'); }
     }
   }
   scheduleIdle() {
@@ -949,7 +948,7 @@ class UIManager {
 const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, clockLayout: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false, isIdle: false, isHolding: false, isPanelOpen: false };
 const store = new Store(defaultState);
 const glEngine = new WebGLEngine($('gl-canvas'), store);
-const clockController = new ClockController($('clock-layer'), store, $('settings-panel'));
+const clockController = new ClockController($('clock-layer'), store,$('settings-panel'));
 const uiManager = new UIManager(store);
 uiManager.init();
 glEngine.start();
