@@ -21,12 +21,18 @@ body .background-layer.exiting{transition:transform 2s linear;transform:scale(1.
 .clock-layer{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:1;--evade-x:0px;--evade-y:0px;--evade-scale:1;--idle-scale:1;transform:translate(var(--evade-x),var(--evade-y)) scale(calc(var(--evade-scale) * var(--idle-scale)));transition:transform 400ms var(--ease-out),opacity 400ms var(--ease-out)}
 body.is-idle .clock-layer{opacity:.35;--idle-scale:.96;transition:opacity 1500ms var(--ease-in-out),transform 1500ms var(--ease-in-out)}
 body .clock-layer.exiting{transition:opacity 2s linear,transform 2s linear;opacity:.1;--idle-scale:.9}
-#clock{margin:0;font-variant-numeric:tabular-nums;white-space:nowrap;overflow-wrap:normal;font-size:var(--clock-size);font-weight:var(--clock-weight);color:var(--clock-color);letter-spacing:-0.03em;display:flex;justify-content:center;align-items:center;filter:drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 4px var(--clock-shadow-color));position:relative;transition:color 500ms,filter 500ms;font-family:var(--clock-font);will-change:transform,filter;transform:translateZ(0)}
-.clock-module{overflow:hidden;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;transition:max-width 300ms var(--ease-out),opacity 300ms var(--ease-out),transform 300ms var(--ease-out),margin 300ms var(--ease-out),color 500ms}
+#clock{margin:0;font-variant-numeric:tabular-nums;white-space:nowrap;overflow-wrap:normal;font-size:var(--clock-size);font-weight:var(--clock-weight);color:var(--clock-color);letter-spacing:-0.03em;display:flex;flex-direction:row;justify-content:center;align-items:center;filter:drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 4px var(--clock-shadow-color));position:relative;transition:color 500ms,filter 500ms,gap 300ms;font-family:var(--clock-font);will-change:transform,filter;transform:translateZ(0)}
+.clock-module{overflow:hidden;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;transition:max-width 300ms var(--ease-out),max-height 300ms var(--ease-out),opacity 300ms var(--ease-out),transform 300ms var(--ease-out),margin 300ms var(--ease-out),color 500ms}
 .clock-module.is-hidden{max-width:0 !important;opacity:0 !important;margin-left:var(--hide-ml,0) !important;transform:scale(.8) translateX(var(--hide-tx,0px)) !important}
 .tens-group{max-width:1em}
-.seconds-group{max-width:2.2em;transform-origin:left center}
+.colon-group{max-width:.5em}
+.seconds-group{max-width:1.4em;transform-origin:left center}
 .ampm-group{max-width:2.5em;margin-left:.5em;font-size:.25em;font-weight:500;letter-spacing:.05em;color:var(--date-color);align-items:flex-end;padding-bottom:.5em}
+#clock.is-vertical{flex-direction:column;gap:.05em}
+#clock.is-vertical .clock-module{max-height:1.5em}
+#clock.is-vertical .clock-module.is-hidden{max-height:0 !important}
+#clock.is-vertical .colon-group{max-width:0 !important;max-height:0 !important;opacity:0 !important;margin:0 !important;transform:scale(0) !important;display:none}
+#clock.is-vertical .ampm-group{margin-left:0;margin-top:.1em;padding-bottom:0;align-items:center}
 #clock span{position:relative;display:inline-grid;place-items:center;vertical-align:bottom;clip-path:inset(0 -40px 0 -40px);height:1em;line-height:1;text-shadow:none}
 .digit-old,.digit-new{grid-area:1 / 1;position:relative !important;width:100%}
 .digit-new{opacity:0}
@@ -109,8 +115,13 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
   <div class="background-layer" id="bg-layer"><canvas id="gl-canvas" class="gl-canvas"></canvas></div>
   <div class="clock-layer" id="clock-layer">
     <div id="clock">
-      <div class="tens-group clock-module" style="--hide-tx: 20px;"></div>
-      <div class="main-time clock-module"></div>
+      <div class="hours-row" style="display:inline-flex; align-items:center;">
+        <div class="tens-group clock-module" style="--hide-tx: 20px;"></div>
+        <div class="units-group clock-module"></div>
+      </div>
+      <div class="colon-group colon-hm clock-module">:</div>
+      <div class="minutes-group clock-module"></div>
+      <div class="colon-group colon-ms clock-module">:</div>
       <div class="seconds-group clock-module" style="--hide-tx: -20px;"></div>
       <div class="ampm-group clock-module" style="--hide-tx: -20px; --hide-ml: 0;"></div>
     </div>
@@ -126,7 +137,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.1.5 | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.1.7 | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
 const $ = id => document.getElementById(id);
 const qs = (el, sel) => el.querySelector(sel);
@@ -184,6 +195,7 @@ class Store {
       case 'mode': return isInt(v, 1, 5) ? v : undefined;
       case 'fontStyle': return isInt(v, 0, 2) ? v : undefined;
       case 'clockAnimMode': return isInt(v, 0, 3) ? v : undefined;
+      case 'clockLayout': return isInt(v, 0, 1) ? v : undefined;
       case 'idleTimeout': return isInt(v, 0, 2) ? v : undefined;
       case 'size': return isNum(v, 5, 20) ? v : undefined;
       case 'weight': return isNum(v, 100, 900) ? v : undefined;
@@ -422,10 +434,15 @@ class ClockController {
     this.clockElement = qs(this.container, '#clock');
     this.dateElement = qs(this.container, '#date');
     this.tensCont = qs(this.clockElement, '.tens-group');
-    this.mainCont = qs(this.clockElement, '.main-time');
+    this.unitsCont = qs(this.clockElement, '.units-group');
+    this.minCont = qs(this.clockElement, '.minutes-group');
+    this.colonHM = qs(this.clockElement, '.colon-hm');
+    this.colonMS = qs(this.clockElement, '.colon-ms');
     this.secCont = qs(this.clockElement, '.seconds-group');
     this.ampmCont = qs(this.clockElement, '.ampm-group');
-    this.lastTime = { tens: "", main: "", sec: "", ampm: "" };
+    this.lastTime = this.blank();
+    [this.colonHM, this.colonMS].forEach(c => c.innerHTML = '<span><div class="digit-old">:</div><div class="digit-new"></div></span>');
+    this.clockElement.classList.toggle('is-vertical', this.store.getState().clockLayout === 1);
     this.timer = null;
     this.running = false;
     this.dateFormatter = null;
@@ -456,6 +473,7 @@ class ClockController {
     this.layoutObserver.observe(this.panel);
     this.store.subscribe((key, val) => this.handleStateChange(key, val));
   }
+  blank() { return { tens: "", units: "", min: "", sec: "", ampm: "" }; }
   getDateFormatter(lang) {
     const loc = lang === 'zh' ? 'zh-TW' : 'en-US';
     if (this.currentLang !== loc || !this.dateFormatter) {
@@ -471,8 +489,14 @@ class ClockController {
   handleStateChange(key, val) {
     if (key === 'isPanelOpen') {
       this.updateEvasion();
+    } else if (key === 'clockLayout') {
+      this.clockElement.animate([{ opacity: 1, filter: 'blur(0px)', transform: 'scale(1)' }, { opacity: 0, filter: 'blur(12px)', transform: 'scale(0.95)' }], { duration: 150, easing: 'ease-in' }).onfinish = () => {
+        this.clockElement.classList.toggle('is-vertical', val === 1);
+        this.updateEvasion();
+        this.clockElement.animate([{ opacity: 0, filter: 'blur(12px)', transform: 'scale(1.05)' }, { opacity: 1, filter: 'blur(0px)', transform: 'scale(1)' }], { duration: 300, easing: 'ease-out' });
+      };
     } else if (['is24Hour', 'showSeconds', 'leadingZero', 'clockAnimMode', 'fontStyle', 'lang', 'showDate'].includes(key)) {
-      this.lastTime = { tens: "", main: "", sec: "", ampm: "" };
+      this.lastTime = this.blank();
       this.tick();
     }
   }
@@ -511,15 +535,16 @@ class ClockController {
     const isPM = hh >= 12;
     if (!is24Hour) hh = hh % 12 || 12;
     const [hTens, hUnits] = pad(hh);
-    const mainStr = `${hUnits}:${pad(now.getMinutes())}`, secStr = `:${pad(now.getSeconds())}`;
+    const minStr = pad(now.getMinutes()), secStr = pad(now.getSeconds());
     const ampmStr = is24Hour ? '' : isPM ? 'PM' : 'AM';
     this.ampmCont.textContent = ampmStr;
     this.tensCont.classList.toggle('is-hidden', !leadingZero && hTens === '0');
-    this.secCont.classList.toggle('is-hidden', !showSeconds);
+    [this.secCont, this.colonMS].forEach(c => c.classList.toggle('is-hidden', !showSeconds));
     this.ampmCont.classList.toggle('is-hidden', is24Hour);
     de.classList.toggle('is-hidden', !showDate);
     lt.tens = this.diffDOM(this.tensCont, hTens, lt.tens);
-    lt.main = this.diffDOM(this.mainCont, mainStr, lt.main);
+    lt.units = this.diffDOM(this.unitsCont, hUnits, lt.units);
+    lt.min = this.diffDOM(this.minCont, minStr, lt.min);
     lt.sec = this.diffDOM(this.secCont, secStr, lt.sec);
     lt.ampm = this.diffDOM(this.ampmCont, ampmStr, lt.ampm);
     const dateStr = this.getDateFormatter(lang).format(now);
@@ -533,7 +558,7 @@ class ClockController {
     this.timer = setTimeout(this.tick.bind(this), 1000 - (Date.now() % 1000));
   }
   updateEvasion() {
-    const { isPanelOpen, is24Hour } = this.store.getState();
+    const { isPanelOpen, is24Hour, clockLayout } = this.store.getState();
     let x = '0px', y = '0px', scale = '1';
     if (isPanelOpen) {
       const ww = window.innerWidth, wh = window.innerHeight, p = this.panel;
@@ -543,7 +568,7 @@ class ClockController {
         const availL = p.offsetLeft + p.offsetWidth + 48, availR = ww - 48;
         if (availL < availR) {
           let clockW = this.clockElement.offsetWidth || 1;
-          if (!is24Hour && this.ampmCont.textContent !== "") clockW += this.ampmCont.offsetWidth + (ww * 0.01);
+          if (!is24Hour && clockLayout !== 1 && this.ampmCont.textContent !== "") clockW += this.ampmCont.offsetWidth + (ww * 0.01);
           x = `${((availL + availR) / 2) - (ww / 2)}px`; scale = Math.min(0.95, (availR - availL) / clockW).toFixed(3);
         } else scale = '0.9';
       }
@@ -575,6 +600,7 @@ class UIManager {
         font: "Font", lz: "Leading Zero", date: "Show Date", lpOn: "Low Power Mode: On", lpOff: "Low Power Mode: Off",
         modes: ['Silk', 'Glow', 'Dust', 'Liquid', 'Horizon'],
         ticks: ['Inst', 'Depth', 'Spring', 'Flip'],
+        layout: "Layout", layouts: ['Horizontal', 'Vertical'],
         idles: ['3s', '10s', 'Never']
       },
       zh: {
@@ -584,6 +610,7 @@ class UIManager {
         font: "字體風格", lz: "補零顯示", date: "顯示日期", lpOn: "低功耗模式：已開啟", lpOff: "低功耗模式：已關閉",
         modes: ['絲綢', '光暈', '星塵', '液態', '天沿'],
         ticks: ['瞬間', '景深', '彈性', '翻牌'],
+        layout: "時鐘排佈", layouts: ['橫向', '直列'],
         idles: ['3秒', '10秒', '永不']
       }
     };
@@ -692,6 +719,7 @@ class UIManager {
         <div class="settings-row"><span class="row-label auto-w">${d.sec}</span><input type="checkbox" id="ctrl-seconds" class="toggle-switch"></div>
         <div class="settings-row"><span class="row-label auto-w">${d.date}</span><input type="checkbox" id="ctrl-date" class="toggle-switch"></div>
         ${renderSegRow(d.tick, 'clockAnimMode', d.ticks)}
+        ${renderSegRow(d.layout, 'clockLayout', d.layouts)}
       </div>
       <div class="settings-block">
         ${renderSegRow(d.idle, 'idleTimeout', d.idles)}
@@ -916,7 +944,7 @@ class UIManager {
     ['touchend', 'touchcancel'].forEach(evt => on(document, evt, () => this.exitApp(false)));
   }
 }
-const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false, isIdle: false, isHolding: false, isPanelOpen: false };
+const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, clockLayout: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false, isIdle: false, isHolding: false, isPanelOpen: false };
 const store = new Store(defaultState);
 const glEngine = new WebGLEngine($('gl-canvas'), store);
 const clockController = new ClockController($('clock-layer'), store, $('settings-panel'));
