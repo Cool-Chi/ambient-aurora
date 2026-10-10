@@ -6,19 +6,19 @@
   <meta name="theme-color" content="#000000" />
   <title>Ambient Fluid Aurora - WebGL Pro</title>
   <style>
-:root{--ease-out:cubic-bezier(.23,1,.32,1);--ease-in-out:cubic-bezier(.77,0,.175,1);--clock-size:clamp(4rem,15vw,20vw);--clock-weight:200;--bg-color:#000;--clock-font:-apple-system,BlinkMacSystemFont,"SF Pro Display","San Francisco","Inter",system-ui,sans-serif;--clock-color:rgba(255,255,255,.9);--date-color:rgba(255,255,255,.6);--clock-shadow-color:rgba(255,255,255,.2)}
+:root{--ease-out:cubic-bezier(.23,1,.32,1);--ease-in-out:cubic-bezier(.77,0,.175,1);--clock-size:clamp(4rem,15vw,20vw);--clock-weight:200;--bg-color:#000;--clock-font:-apple-system,BlinkMacSystemFont,"SF Pro Display","San Francisco","Inter",system-ui,sans-serif;--clock-color:rgba(255,255,255,.9);--date-color:rgba(255,255,255,.6);--clock-shadow-color:rgba(255,255,255,.2);--s:1;--wt:0px;--wr:0px;--wb:0px;--wl:0px}
 body.no-transitions *{transition:none !important;animation:none !important}
 body.is-dragging .clock-layer,body.is-dragging .clock-layer *{transition:none !important}
-html,body{margin:0;padding:0;width:100%;height:100dvh;background-color:var(--bg-color);overflow:hidden;overscroll-behavior:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","San Francisco","Inter",system-ui,sans-serif;color:#fff;transition:opacity 800ms var(--ease-out)}
+html,body{margin:0;padding:0;width:100%;height:100%;height:100dvh;background-color:var(--bg-color);overflow:hidden;overscroll-behavior:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","San Francisco","Inter",system-ui,sans-serif;color:#fff;transition:opacity 800ms var(--ease-out)}
 body.disconnected{opacity:0;pointer-events:none}
 body.is-fullscreen{cursor:none}
 body.is-fullscreen .settings-panel{cursor:default}
-#app-container{position:absolute;inset:0;width:100%;height:100%;transition:transform 60s linear}
+#app-container{position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;transition:transform 60s linear}
 .icon-btn,.segment-btn,.swatch-wrapper,.digit-old,.digit-new{display:flex;align-items:center;justify-content:center}
-.background-layer{position:absolute;inset:0;overflow:hidden;pointer-events:none;transition:transform 1500ms var(--ease-in-out)}
+.background-layer{position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden;pointer-events:none;transition:transform 1500ms var(--ease-in-out)}
 body .background-layer.exiting{transition:transform 2s linear;transform:scale(1.15)}
 .gl-canvas{width:100%;height:100%;display:block}
-.clock-layer{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:1;--evade-x:0px;--evade-y:0px;--evade-scale:1;--idle-scale:1;transform:translate(var(--evade-x),var(--evade-y)) scale(calc(var(--evade-scale) * var(--idle-scale)));transition:transform 400ms var(--ease-out),opacity 400ms var(--ease-out)}
+.clock-layer{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:1;--evade-x:0px;--evade-y:0px;--evade-scale:1;--idle-scale:1;transform:translate(var(--evade-x),var(--evade-y)) scale(calc(var(--evade-scale) * var(--idle-scale)));transition:transform 400ms var(--ease-out),opacity 400ms var(--ease-out)}
 body.is-idle .clock-layer{opacity:.35;--idle-scale:.96;transition:opacity 1500ms var(--ease-in-out),transform 1500ms var(--ease-in-out)}
 body .clock-layer.exiting{transition:opacity 2s linear,transform 2s linear;opacity:.1;--idle-scale:.9}
 #clock{margin:0;font-variant-numeric:tabular-nums;white-space:nowrap;overflow-wrap:normal;font-size:var(--clock-size);font-weight:var(--clock-weight);color:var(--clock-color);letter-spacing:0;display:flex;flex-direction:row;justify-content:center;align-items:center;filter:drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 4px var(--clock-shadow-color));position:relative;transition:color 500ms,filter 500ms,gap 300ms;font-family:var(--clock-font);will-change:transform,filter;transform:translateZ(0)}
@@ -40,57 +40,57 @@ body .clock-layer.exiting{transition:opacity 2s linear,transform 2s linear;opaci
 .digit-new{opacity:0}
 .date-display{font-size:calc(var(--clock-size) * .22);font-weight:var(--clock-weight);color:var(--date-color);letter-spacing:.02em;text-shadow:0 2px 12px rgba(0,0,0,.3);overflow:hidden;transition:max-height 300ms var(--ease-out),margin 300ms var(--ease-out),color 500ms;max-height:2em;margin-top:.25em;font-family:var(--clock-font);will-change:transform;transform:translateZ(0)}
 .date-display.is-hidden{max-height:0;margin-top:0}
-.ui-layer{position:absolute;inset:0;pointer-events:none}
+.ui-layer{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none}
 body.is-idle .ui-layer>*{opacity:0 !important;pointer-events:none !important;transition:opacity 1500ms var(--ease-in-out),transform 1500ms var(--ease-in-out) !important}
-.icon-btn{pointer-events:auto;position:absolute;bottom:calc(env(safe-area-inset-bottom,24px) + 20px);width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.08);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);color:white;cursor:pointer;outline:none;opacity:1;transform:scale(1);transition:transform 160ms var(--ease-out),background 200ms var(--ease-out),opacity 200ms var(--ease-out)}
+.icon-btn{pointer-events:auto;position:absolute;bottom:calc(env(safe-area-inset-bottom,24px) + var(--wb) + 20px*var(--s));width:calc(48px*var(--s));height:calc(48px*var(--s));border-radius:50%;background:rgba(255,255,255,.08);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);color:white;cursor:pointer;outline:none;opacity:1;transform:scale(1);transition:transform 160ms var(--ease-out),background 200ms var(--ease-out),opacity 200ms var(--ease-out)}
 .icon-btn:active{transform:scale(.97);background:rgba(255,255,255,.15)}
 @media (hover:hover) and (pointer:fine){.icon-btn:hover{background:rgba(255,255,255,.15)}}
 body.is-fullscreen .icon-btn{opacity:0;pointer-events:none;transform:scale(.9)}
-.btn-settings{left:24px}
-.btn-fullscreen{right:24px}
-.btn-lowpower{top:calc(env(safe-area-inset-top,24px) + 20px);right:24px;bottom:auto}
+.btn-settings{left:calc(var(--wl) + 24px)}
+.btn-fullscreen{right:calc(var(--wr) + 24px)}
+.btn-lowpower{top:calc(env(safe-area-inset-top,24px) + var(--wt) + 20px*var(--s));right:calc(var(--wr) + 24px);bottom:auto}
 .btn-lowpower.is-active{color:#f1c40f}
 .btn-lowpower .battery-level{opacity:0;transition:opacity 200ms var(--ease-out)}
 .btn-lowpower.is-active .battery-level{opacity:1}
-.hud-toast{position:absolute;top:calc(env(safe-area-inset-top,24px) + 20px);left:50%;transform:translateX(-50%) translateY(-20px) scale(.9);opacity:0;pointer-events:none;background:rgba(20,20,20,.75);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);color:#fff;font-size:14px;font-weight:500;padding:10px 20px;border-radius:999px;box-shadow:0 4px 12px rgba(0,0,0,.2),inset 0 1px 1px rgba(255,255,255,.1);transition:transform 300ms var(--ease-out),opacity 300ms var(--ease-out)}
+.hud-toast{position:absolute;top:calc(env(safe-area-inset-top,24px) + var(--wt) + 20px*var(--s));left:50%;transform:translateX(-50%) translateY(-20px) scale(.9);opacity:0;pointer-events:none;background:rgba(20,20,20,.75);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);color:#fff;font-size:calc(14px*var(--s));font-weight:500;padding:10px 20px;border-radius:999px;box-shadow:0 4px 12px rgba(0,0,0,.2),inset 0 1px 1px rgba(255,255,255,.1);transition:transform 300ms var(--ease-out),opacity 300ms var(--ease-out)}
 .hud-toast.is-visible{transform:translateX(-50%) translateY(0) scale(1);opacity:1}
 .exit-hint{position:absolute;bottom:calc(env(safe-area-inset-bottom,24px) + 20px);left:50%;transform:translateX(-50%);color:rgba(255,255,255,.4);font-size:14px;font-weight:300;letter-spacing:.05em;opacity:0;pointer-events:none;transition:opacity 200ms var(--ease-out)}
 .exit-hint::after{content:"長按空白鍵可退出"}
 @media (pointer:coarse){.exit-hint::after{content:"長按畫面可退出"}}
 body.is-fullscreen .exit-hint{opacity:1}
-.settings-panel{pointer-events:auto;position:absolute;left:24px;bottom:calc(env(safe-area-inset-bottom,24px) + 84px);width:340px;background:rgba(30,30,30,.55);backdrop-filter:blur(40px) saturate(200%);-webkit-backdrop-filter:blur(40px) saturate(200%);border:none;border-radius:24px;padding:16px;box-sizing:border-box;box-shadow:inset 0 1px 1px rgba(255,255,255,.25),inset 0 0 0 1px rgba(255,255,255,.05),0 32px 64px rgba(0,0,0,.4);opacity:0;transform:scale(.95);transform-origin:bottom left;visibility:hidden;transition:opacity 250ms var(--ease-out),transform 250ms var(--ease-out),visibility 250ms;display:flex;flex-direction:column;gap:16px;max-height:calc(100svh - 120px);overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}
+.settings-panel{pointer-events:auto;position:absolute;left:calc(var(--wl) + 24px);bottom:calc(env(safe-area-inset-bottom,24px) + var(--wb) + 84px*var(--s));width:calc(340px*var(--s));background:rgba(30,30,30,.55);backdrop-filter:blur(40px) saturate(200%);-webkit-backdrop-filter:blur(40px) saturate(200%);border:none;border-radius:24px;padding:16px;box-sizing:border-box;box-shadow:inset 0 1px 1px rgba(255,255,255,.25),inset 0 0 0 1px rgba(255,255,255,.05),0 32px 64px rgba(0,0,0,.4);opacity:0;transform:scale(.95);transform-origin:bottom left;visibility:hidden;transition:opacity 250ms var(--ease-out),transform 250ms var(--ease-out),visibility 250ms;display:flex;flex-direction:column;gap:16px;max-height:calc(100vh - var(--wb) - var(--wt) - 84px*var(--s) - 36px);max-height:calc(100svh - var(--wb) - var(--wt) - 84px*var(--s) - 36px);overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}
 .settings-panel::-webkit-scrollbar{display:none}
 .settings-panel.active{opacity:1;transform:scale(1);visibility:visible}
 body.is-fullscreen .settings-panel.active{opacity:1;transform:scale(1)}
-@media (max-width:600px){.settings-panel{left:16px;right:auto;width:calc(100vw - 32px);max-width:340px;max-height:55dvh;bottom:calc(env(safe-area-inset-bottom,16px) + 72px);overflow-y:auto;transform-origin:bottom left}}
+@media (max-width:600px){.settings-panel{left:16px;right:auto;width:calc(100vw - 32px);max-width:340px;max-height:55vh;max-height:55dvh;bottom:calc(env(safe-area-inset-bottom,16px) + 72px);overflow-y:auto;transform-origin:bottom left}}
 .settings-block{background:rgba(255,255,255,.06);border-radius:12px;overflow:hidden;flex-shrink:0}
-.settings-row{display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:0 16px;border-bottom:.5px solid rgba(255,255,255,.12)}
+.settings-row{display:flex;align-items:center;justify-content:space-between;min-height:calc(44px*var(--s));padding:0 16px;border-bottom:.5px solid rgba(255,255,255,.12)}
 .settings-row:last-child{border-bottom:none}
-.row-label{font-size:14px;font-weight:500;color:rgba(255,255,255,.85);flex-shrink:0;width:auto;flex:1;white-space:nowrap}
+.row-label{font-size:calc(14px*var(--s));font-weight:500;color:rgba(255,255,255,.85);flex-shrink:0;width:auto;flex:1;white-space:nowrap}
 .settings-row.col-layout{flex-direction:column;align-items:flex-start;padding:12px 16px;gap:12px}
 .settings-row.col-layout .row-label{width:100%}
-.settings-row.col-layout .segmented-control{align-self:stretch;width:auto;flex:none;height:32px}
-.settings-row.col-layout .segment-btn{padding:0 4px;font-size:13px}
-.slider-row{display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-bottom:.5px solid rgba(255,255,255,.12)}
+.settings-row.col-layout .segmented-control{align-self:stretch;width:auto;flex:none;height:calc(32px*var(--s))}
+.settings-row.col-layout .segment-btn{padding:0 4px;font-size:calc(13px*var(--s))}
+.slider-row{display:flex;align-items:center;justify-content:center;min-height:calc(44px*var(--s));padding:0 16px;border-bottom:.5px solid rgba(255,255,255,.12)}
 .slider-row:last-child{border-bottom:none}
 .slider-icon{width:16px;height:16px;fill:none;stroke:rgba(255,255,255,.5);stroke-width:2;flex-shrink:0}
 .slider-icon.max-icon{width:22px;height:22px}
 .slider-row .row-label{width:60px}
-.range-container{flex:1;display:flex;align-items:center;justify-content:center;margin:0 16px;height:44px}
-input[type=range]{-webkit-appearance:none;width:100%;background:transparent;margin:0;cursor:grab;height:36px;--val:50%}
+.range-container{flex:1;display:flex;align-items:center;justify-content:center;margin:0 16px;height:calc(44px*var(--s))}
+input[type=range]{-webkit-appearance:none;width:100%;background:transparent;margin:0;cursor:grab;height:calc(36px*var(--s));--val:50%}
 input[type=range]:focus{outline:none}
 input[type=range]::-webkit-slider-runnable-track{width:100%;height:4px;border-radius:2px;background:linear-gradient(to right,#fff var(--val),rgba(255,255,255,.15) var(--val))}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;height:20px;width:20px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.4);margin-top:-8px;transition:transform 160ms var(--ease-out)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;height:calc(20px*var(--s));width:calc(20px*var(--s));border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.4);margin-top:calc(2px - 10px*var(--s));transition:transform 160ms var(--ease-out)}
 input[type=range]::-webkit-slider-thumb:active{cursor:grabbing;transform:scale(.9)}
 .segmented-control{position:relative;display:flex;min-width:0;padding:2px;background:rgba(0,0,0,.25);border-radius:6px;box-sizing:border-box;box-shadow:inset 0 1px 2px rgba(0,0,0,.2)}
-.inline-seg{width:100%;max-width:none;flex:1;margin-left:12px;height:28px}
+.inline-seg{width:100%;max-width:none;flex:1;margin-left:12px;height:calc(28px*var(--s))}
 .segmented-highlight{position:absolute;top:2px;bottom:2px;left:0;background:rgba(255,255,255,.15);border-radius:4px;transition:transform 250ms var(--ease-out),width 250ms var(--ease-out);pointer-events:none;box-shadow:0 3px 8px rgba(0,0,0,.15),0 1px 2px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.1)}
-.segment-btn{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;border:none;background:transparent;color:rgba(255,255,255,.5);font-weight:500;z-index:1;cursor:pointer;transition:color 150ms var(--ease-out),transform 160ms var(--ease-out);margin:0;padding:0 4px;white-space:nowrap;display:flex;align-items:center;justify-content:center;font-size:12px}
+.segment-btn{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;border:none;background:transparent;color:rgba(255,255,255,.5);font-weight:500;z-index:1;cursor:pointer;transition:color 150ms var(--ease-out),transform 160ms var(--ease-out);margin:0;padding:0 4px;white-space:nowrap;display:flex;align-items:center;justify-content:center;font-size:calc(12px*var(--s))}
 .segment-btn.active{color:#fff}
 .segment-btn:active{transform:scale(.95)}
 .swatches-container{display:flex;gap:4px;align-items:center;justify-content:flex-end;height:44px;flex:1}
-.swatch-wrapper{position:relative;width:28px;height:28px;background:transparent;border:2px solid transparent;padding:2px;border-radius:50%;cursor:pointer;outline:none;flex-shrink:0;transition:transform 160ms var(--ease-out),border-color 200ms var(--ease-out)}
-.swatch-wrapper::before{content:'';position:absolute;inset:-8px}
+.swatch-wrapper{position:relative;width:calc(28px*var(--s));height:calc(28px*var(--s));background:transparent;border:2px solid transparent;padding:2px;border-radius:50%;cursor:pointer;outline:none;flex-shrink:0;transition:transform 160ms var(--ease-out),border-color 200ms var(--ease-out)}
+.swatch-wrapper::before{content:'';position:absolute;top:-8px;left:-8px;right:-8px;bottom:-8px}
 .swatch-color{width:100%;height:100%;border-radius:50%;transition:transform 150ms var(--ease-out)}
 .swatch-wrapper:active{transform:scale(.85)}
 .swatch-wrapper.active{border-color:rgba(255,255,255,.8)}
@@ -99,17 +99,23 @@ input[type=range]::-webkit-slider-thumb:active{cursor:grabbing;transform:scale(.
 .custom-swatch-color::before{width:12px;height:2px;border-radius:1px}
 .custom-swatch-color::after{width:2px;height:12px;border-radius:1px}
 .custom-swatch-color.has-color::before,.custom-swatch-color.has-color::after{opacity:0}
-#custom-color-input{opacity:0;position:absolute;inset:-8px;width:44px;height:44px;cursor:pointer;z-index:10;padding:0;border:none}
-.toggle-switch{appearance:none;width:44px;height:26px;background:rgba(255,255,255,.15);border-radius:13px;position:relative;cursor:pointer;outline:none;transition:background 200ms var(--ease-out),transform 160ms var(--ease-out);margin:0;flex-shrink:0;box-shadow:inset 0 1px 2px rgba(0,0,0,.1)}
-.toggle-switch::after{content:'';position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.3);transition:transform 250ms var(--ease-out)}
+#custom-color-input{opacity:0;position:absolute;top:-8px;left:-8px;width:44px;height:44px;cursor:pointer;z-index:10;padding:0;border:none}
+.toggle-switch{-webkit-appearance:none;appearance:none;width:calc(44px*var(--s));height:calc(26px*var(--s));background:rgba(255,255,255,.15);border-radius:calc(13px*var(--s));position:relative;cursor:pointer;outline:none;transition:background 200ms var(--ease-out),transform 160ms var(--ease-out);margin:0;flex-shrink:0;box-shadow:inset 0 1px 2px rgba(0,0,0,.1)}
+.toggle-switch::after{content:'';position:absolute;top:2px;left:2px;width:calc(22px*var(--s));height:calc(22px*var(--s));border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.3);transition:transform 250ms var(--ease-out)}
 .toggle-switch:checked{background:#34c759}
-.toggle-switch:checked::after{transform:translateX(18px)}
+.toggle-switch:checked::after{transform:translateX(calc(18px*var(--s)))}
 .toggle-switch:active{transform:scale(.95)}
 .fs-icon path{transition:transform 250ms var(--ease-out);transform-origin:center}
 body.is-fullscreen .fs-top-left{transform:translate(2px,2px)}
 body.is-fullscreen .fs-top-right{transform:translate(-2px,2px)}
 body.is-fullscreen .fs-bottom-left{transform:translate(2px,-2px)}
 body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
+.is-wpe .btn-fullscreen,.is-wpe .exit-hint{display:none !important}
+.is-wpe *{-webkit-user-drag:none}
+.is-wpe .icon-btn svg{transform:scale(var(--s))}
+.is-wpe .icon-btn:hover{background:rgba(255,255,255,.15)}
+.is-wpe .settings-panel{background:rgba(30,30,30,.72)}
+@media (min-width:900px){.is-wpe .settings-panel{display:block;-webkit-column-count:2;column-count:2;-webkit-column-gap:16px;column-gap:16px;width:min(calc(700px*var(--s)),calc(100vw - var(--wl) - var(--wr) - 48px))}.is-wpe .settings-block{-webkit-column-break-inside:avoid;break-inside:avoid;margin-bottom:16px}.is-wpe .settings-block:last-child{margin-bottom:0}}
 </style>
 </head>
 <body class="no-transitions">
@@ -139,8 +145,10 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.1.11 | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.1.12 | WPE-adaptive | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
+const isWPE = ['wallpaperRegisterAudioListener', 'wallpaperRegisterMediaStatusListener', 'wallpaperRequestRandomFileForProperty'].some(k => window[k] !== undefined) || /[?&]wpe=1(&|$)/.test(location.search);
+document.documentElement.classList.toggle('is-wpe', isWPE);
 function initPWA() {
   const metaCap = document.createElement('meta'); metaCap.name = 'apple-mobile-web-app-capable'; metaCap.content = 'yes';
   const metaStatus = document.createElement('meta'); metaStatus.name = 'apple-mobile-web-app-status-bar-style'; metaStatus.content = 'black-translucent';
@@ -162,7 +170,7 @@ function initPWA() {
   const swBlob = new Blob([swCode], {type: 'application/javascript'});
   if ('serviceWorker' in navigator) navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(()=>{});
 }
-initPWA();
+if (!isWPE) try { initPWA(); } catch (e) {}
 const $ = id => document.getElementById(id);
 const qs = (el, sel) => el.querySelector(sel);
 const qsa = (el, sel) => el.querySelectorAll(sel);
@@ -695,6 +703,7 @@ class UIManager {
     this.tgStart = null;
     this.tgTarget = null;
     this.tgDragged = false;
+    this.S = 1;
     this.store.subscribe((prop, val) => {
       if (Store.TRANSIENT_KEYS.has(prop)) return;
       let skipAnim = false;
@@ -706,6 +715,7 @@ class UIManager {
     });
   }
   init() {
+    this.applyWPE();
     [['btn-lowpower', 24, '', `<rect x="2" y="7" width="16" height="10" rx="3" ry="3"/> <line x1="22" y1="11" x2="22" y2="13"/> <rect class="battery-level" x="4" y="9" width="12" height="6" rx="1" fill="currentColor" stroke="none"/>`],
     ['btn-settings', 20, '', `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>`],
     ['btn-fullscreen', 20, 'fs-icon', `<path class="fs-top-left" d="M8 3H5a2 2 0 0 0-2 2v3"/><path class="fs-top-right" d="M16 3h3a2 2 0 0 1 2 2v3"/><path class="fs-bottom-left" d="M8 21H5a2 2 0 0 1-2-2v-3"/><path class="fs-bottom-right" d="M16 21h3a2 2 0 0 0 2-2v-3"/>`]].forEach(([id, size, cls, paths]) => $(id).innerHTML = UIManager.renderIcon(paths, cls, size));
@@ -716,6 +726,17 @@ class UIManager {
     this.wakeUp();
     this.requestWakeLock();
     window.dispatchEvent(new Event('resize'));
+    isWPE && [600, 3000].forEach(ms => setTimeout(() => window.dispatchEvent(new Event('resize')), ms));
+  }
+  applyWPE() {
+    if (!isWPE) return;
+    const sc = window.screen, sp = (k, v) => document.documentElement.style.setProperty(k, v), n = v => Number.isFinite(v) ? clamp(Math.round(v), 0, 160) : 0, aT = sc.availTop || 0, aL = sc.availLeft || 0;
+    this.S = Math.round(clamp((Math.min(window.innerHeight, window.innerWidth * 9 / 16) || 1080) / 940, 0.85, 2.4) * 100) / 100;
+    sp('--s', this.S); sp('--wt', n(aT) + 'px'); sp('--wl', n(aL) + 'px'); sp('--wr', n(sc.width - aL - sc.availWidth) + 'px'); sp('--wb', Math.max(52, n(sc.height - aT - sc.availHeight) + 4) + 'px');
+  }
+  refreshHighlights() {
+    const st = this.store.getState();
+    requestAnimationFrame(() => qsa(document, '.segmented-control').forEach(c => { const v = st[c.dataset.prop]; v !== undefined && this.updateSegmentHighlight(c, v, true); }));
   }
   renderPanel() {
     const { lang } = this.store.getState(), d = UIManager.DICT[lang];
@@ -834,7 +855,8 @@ class UIManager {
     const state = this.store.getState();
     clearTimeout(this.idleTimer);
     if (state.idleTimeout !== 2) {
-      this.idleTimer = setTimeout(() => this.setIdle(), state.idleTimeout === 0 ? 3000 : 10000);
+      const open = isWPE && this.panel.classList.contains('active');
+      this.idleTimer = setTimeout(() => this.setIdle(), open ? 30000 : state.idleTimeout === 0 ? 3000 : 10000);
     }
   }
   wakeUp() {
@@ -870,6 +892,7 @@ class UIManager {
     this.store.setState('isHolding', false);
   }
   exitApp(isStarting) {
+    if (isWPE) return;
     const state = this.store.getState();
     if (state.isHolding === isStarting) return;
     if (isStarting) this.clearExitSequence();
@@ -896,7 +919,7 @@ class UIManager {
     }
   }
   async requestWakeLock() {
-    if (this.wakeLock || this.wakeLockPending) return;
+    if (isWPE || this.wakeLock || this.wakeLockPending) return;
     if (!('wakeLock' in navigator) || document.hidden) return;
     this.wakeLockPending = true;
     try {
@@ -928,7 +951,7 @@ class UIManager {
     on(document, 'pointerdown', e => {
       if (e.target.type === 'range') document.body.classList.add('is-dragging');
       const t = e.target.closest('.toggle-switch'); if (t) { this.tgStart = e.clientX; this.tgTarget = t; this.tgDragged = false; }
-    });
+    }, true);
     on(document, 'pointermove', e => { if (this.tgTarget && this.tgStart !== null) { const dx = e.clientX - this.tgStart; if (Math.abs(dx) > 8) { this.tgDragged = true; const checkedState = dx > 0; if (this.tgTarget.checked !== checkedState) { this.tgTarget.checked = checkedState; this.tgTarget.dispatchEvent(new Event('change', { bubbles: true })); } } } });
     const endDrag = () => { document.body.classList.remove('is-dragging'); this.tgStart = null; setTimeout(() => this.tgTarget = null, 0); };
     on(document, 'pointerup', endDrag, { passive: true });
@@ -946,8 +969,9 @@ class UIManager {
       } else if (e.target.closest('#btn-settings')) {
         this.panel.classList.toggle('active');
         this.store.setState('isPanelOpen', this.panel.classList.contains('active'));
+        isWPE && this.scheduleIdle();
       }
-      else if (e.target.closest('#btn-fullscreen')) { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); else if (document.exitFullscreen) document.exitFullscreen(); }
+      else if (!isWPE && e.target.closest('#btn-fullscreen')) { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); else if (document.exitFullscreen) document.exitFullscreen(); }
       else if (!e.target.closest('.settings-panel') && !e.target.closest('#custom-color-input') && this.panel.classList.contains('active')) {
         this.panel.classList.remove('active');
         this.store.setState('isPanelOpen', false);
@@ -956,16 +980,36 @@ class UIManager {
       this.requestWakeLock();
     });
     on(window, 'resize', () => {
-      document.body.classList.toggle('is-fullscreen', (window.innerHeight >= window.screen.height - 1) || !!document.fullscreenElement);
-      this.wakeUp();
+      document.body.classList.toggle('is-fullscreen', !isWPE && ((window.innerHeight >= window.screen.height - 1) || !!document.fullscreenElement));
+      if (isWPE) { this.applyWPE(); this.refreshHighlights(); } else this.wakeUp();
     });
     on(document, 'fullscreenchange', () => window.dispatchEvent(new Event('resize')));
-    ['mousemove', 'pointermove', 'touchstart', 'keydown'].forEach(evt => on(window, evt, () => this.wakeUp(), { passive: true }));
+    ['mousemove', 'pointermove', 'touchstart', 'keydown', ...(isWPE ? ['pointerdown', 'mousedown'] : [])].forEach(evt => on(window, evt, () => this.wakeUp(), { passive: true }));
     on(document, 'keydown', e => { if (e.target.tagName !== 'INPUT' && e.code === 'Space') { e.preventDefault(); if (!e.repeat) this.exitApp(true); } });
     on(document, 'keyup', e => { if (e.code === 'Space') this.exitApp(false); }); on(window, 'blur', () => this.exitApp(false));
     on(document, 'touchstart', e => { if (!e.target.closest('button, .settings-panel, .swatch-wrapper, input')) { this.touchStartX = e.touches[0].clientX; this.touchStartY = e.touches[0].clientY; this.exitApp(true); } }, { passive: true });
     on(document, 'touchmove', e => { const state = this.store.getState(); if (state.isHolding && (Math.abs(e.touches[0].clientX - this.touchStartX) > 15 || Math.abs(e.touches[0].clientY - this.touchStartY) > 15)) this.exitApp(false); }, { passive: true });
     ['touchend', 'touchcancel'].forEach(evt => on(document, evt, () => this.exitApp(false)));
+    if (!isWPE) return;
+    const sel = 'button,.segment-btn,.swatch-wrapper,.toggle-switch,.range-container,#custom-color-input';
+    let rg = null, trust = false, dn = null, ck = false;
+    const put = x => { const r = rg.getBoundingClientRect(), th = 20 * this.S, mn = +rg.min, mx = +rg.max, st = +rg.step || 1, o = rg.value; rg.value = clamp(Math.round(clamp((x - r.left - th / 2) / Math.max(1, r.width - th), 0, 1) * (mx - mn) / st) * st + mn, mn, mx); if (rg.value !== o) rg.dispatchEvent(new Event('input', { bubbles: true })); };
+    const stop = () => { rg = null; trust = false; endDrag(); };
+    on(document, 'pointerdown', e => { if (e.button === 0 && e.target.closest(sel)) { e.stopPropagation(); this.wakeUp(); } }, true);
+    on(document, 'mousedown', e => {
+      dn = e.button === 0 ? e.target.closest(sel) : null; ck = false; trust = false;
+      if (!dn) return;
+      e.stopPropagation(); this.wakeUp();
+      const box = dn.closest('.range-container');
+      if (box) { e.preventDefault(); rg = qs(box, 'input'); document.body.classList.add('is-dragging'); put(e.clientX); }
+    }, true);
+    on(document, 'mousemove', e => { if (!rg) return; if (e.buttons) trust = true; else if (trust) return stop(); put(e.clientX); }, true);
+    on(document, 'pointermove', e => { if (this.tgTarget && this.tgStart !== null) { if (e.buttons) trust = true; else if (trust) stop(); } }, true);
+    ['mouseup', 'pointerup', 'pointercancel', 'dragend'].forEach(t => on(document, t, stop, true));
+    on(document.documentElement, 'mouseleave', stop); on(window, 'blur', stop);
+    on(document, 'click', () => ck = true, true);
+    on(document, 'mouseup', e => { const c = dn; dn = null; if (c && !c.closest('.range-container') && !this.tgDragged && c === e.target.closest(sel)) setTimeout(() => { if (!ck) c.click(); }, 16); }, true);
+    on(document, 'contextmenu', e => e.preventDefault());
   }
 }
 const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, clockLayout: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false, isIdle: false, isHolding: false, isPanelOpen: false };
@@ -976,18 +1020,11 @@ const uiManager = new UIManager(store);
 uiManager.init();
 glEngine.start();
 clockController.start();
-on(document, 'visibilitychange', () => {
-  if (document.hidden) {
-    uiManager.releaseWakeLock();
-    glEngine.pause();
-    clockController.pause();
-    store.flush();
-  } else {
-    uiManager.requestWakeLock();
-    glEngine.resume();
-    clockController.resume();
-  }
-});
+let wpePaused = false;
+const suspend = () => { uiManager.releaseWakeLock(); glEngine.pause(); clockController.pause(); store.flush(); };
+const awake = () => { uiManager.requestWakeLock(); glEngine.resume(); clockController.resume(); };
+on(document, 'visibilitychange', () => document.hidden ? suspend() : wpePaused || awake());
+if (isWPE) window.wallpaperPropertyListener = { setPaused: p => { wpePaused = !!p; wpePaused || document.hidden ? suspend() : awake(); } };
 requestAnimationFrame(() => requestAnimationFrame(() => {
   document.body.classList.remove('no-transitions');
   clockController.updateEvasion();
