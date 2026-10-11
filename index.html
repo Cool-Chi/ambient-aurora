@@ -22,7 +22,7 @@ body .background-layer.exiting{transition:transform 2s linear;transform:scale(1.
 body.is-idle .clock-layer{opacity:.35;--idle-scale:.96;transition:opacity 1500ms var(--ease-in-out),transform 1500ms var(--ease-in-out)}
 body .clock-layer.exiting{transition:opacity 2s linear,transform 2s linear;opacity:.1;--idle-scale:.9}
 #clock{margin:0;font-variant-numeric:tabular-nums;white-space:nowrap;overflow-wrap:normal;font-size:var(--clock-size);font-weight:var(--clock-weight);color:var(--clock-color);letter-spacing:0;display:flex;flex-direction:row;justify-content:center;align-items:center;filter:drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 4px var(--clock-shadow-color));position:relative;transition:color 500ms,filter 500ms,gap 300ms;font-family:var(--clock-font);will-change:transform,filter;transform:translateZ(0)}
-.clock-module{overflow:hidden;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;transition:max-width 300ms var(--ease-out),opacity 300ms var(--ease-out),transform 300ms var(--ease-out),margin 300ms var(--ease-out),color 500ms}
+.clock-module{overflow:hidden;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;transition:max-width 300ms var(--ease-out),max-height 300ms var(--ease-out),opacity 300ms var(--ease-out),transform 300ms var(--ease-out),margin 300ms var(--ease-out),color 500ms}
 .clock-module.is-hidden{max-width:0 !important;opacity:0 !important;margin-left:var(--hide-ml,0) !important;transform:scale(.8) translateX(var(--hide-tx,0px)) !important}
 .tens-group{max-width:1.5em}
 .colon-group{max-width:.8em}
@@ -33,7 +33,8 @@ body .clock-layer.exiting{transition:opacity 2s linear,transform 2s linear;opaci
 #clock.is-vertical .minutes-group{grid-column:2;grid-row:2/4;line-height:.85;z-index:2}
 #clock.is-vertical .seconds-group{grid-column:3;grid-row:2;justify-self:start;align-self:end;font-size:.35em;margin-left:.08em;margin-bottom:-.05em;transform:none}
 #clock.is-vertical .ampm-group{grid-column:3;grid-row:3;justify-self:start;align-self:start;font-size:.2em;margin-left:.15em;margin-top:.05em;padding:0}
-#clock.is-vertical .clock-module.is-hidden{max-height:0 !important;max-width:0 !important;opacity:0 !important;margin:0 !important;transform:scale(0) !important;display:none}
+#clock.is-vertical .clock-module{max-height:1.5em}
+#clock.is-vertical .clock-module.is-hidden{max-height:0 !important;max-width:0 !important;opacity:0 !important;margin:0 !important;transform:scale(.8) !important}
 #clock.is-vertical .colon-group{display:none}
 #clock span{position:relative;display:inline-grid;place-items:center;vertical-align:bottom;clip-path:inset(0 -40px 0 -40px);height:1em;line-height:1;text-shadow:none}
 .digit-old,.digit-new{grid-area:1 / 1;position:relative !important;width:100%}
@@ -69,8 +70,9 @@ body.is-fullscreen .settings-panel.active{opacity:1;transform:scale(1)}
 .tab-header::-webkit-scrollbar{display:none}
 .tab-nav-btn{background:transparent;border:none;color:rgba(255,255,255,.5);font-size:14px;font-weight:600;padding:4px 8px;cursor:pointer;transition:color 200ms;white-space:nowrap;flex-shrink:0}
 .tab-nav-btn.active{color:#fff}
-.tab-pane{display:none;flex-direction:column;gap:16px;flex-shrink:0}
-.tab-pane.active{display:flex}
+.tab-panes{display:grid;grid-template-columns:minmax(0,1fr);flex-shrink:0}
+.tab-pane{grid-area:1/1;display:flex;flex-direction:column;gap:16px;max-height:0;overflow:hidden;opacity:0;visibility:hidden;transform:translateY(10px);transition:opacity 250ms,visibility 250ms,transform 250ms,max-height 250ms}
+.tab-pane.active{max-height:1200px;opacity:1;visibility:visible;transform:translateY(0)}
 @media (max-width:600px){.tab-nav-btn{padding:4px 6px}}
 .settings-row{display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:0 16px;border-bottom:.5px solid rgba(255,255,255,.12)}
 .settings-row:last-child{border-bottom:none}
@@ -147,7 +149,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.5.0 (Burgos) | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.2.2 | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
 function initPWA() {
   const metaCap = document.createElement('meta'); metaCap.name = 'apple-mobile-web-app-capable'; metaCap.content = 'yes';
@@ -229,7 +231,6 @@ class Store {
       case 'clockAnimMode': return isInt(v, 0, 3) ? v : undefined;
       case 'clockLayout': return isInt(v, 0, 1) ? v : undefined;
       case 'textColor': return (typeof v === 'string' && /^#[0-9A-Fa-f]{6}$/i.test(v)) ? v : undefined;
-      case 'textOpacity': return isNum(v, 0.1, 1) ? v : undefined;
       case 'blendMode': return isInt(v, 0, 3) ? v : undefined;
       case 'clockOpacity': return isNum(v, 0.1, 1) ? v : undefined;
       case 'datePosition': return isInt(v, 0, 1) ? v : undefined;
@@ -534,8 +535,11 @@ class ClockController {
         this.clockElement.animate([{ opacity: 0, filter: 'blur(12px)', transform: 'scale(1.05)' }, { opacity: 1, filter: 'blur(0px)', transform: 'scale(1)' }], { duration: 300, easing: 'ease-out' });
       };
     } else if (key === 'datePosition') {
-      this.dateElement.classList.toggle('is-above', val === 1);
-      this.updateEvasion();
+      this.dateElement.animate([{ opacity: 1, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(8px)' }], { duration: 150, easing: 'ease-in' }).onfinish = () => {
+        this.dateElement.classList.toggle('is-above', val === 1);
+        this.updateEvasion();
+        this.dateElement.animate([{ opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)' }], { duration: 250, easing: 'ease-out' });
+      };
     } else if (['is24Hour', 'showSeconds', 'leadingZero', 'clockAnimMode', 'fontStyle', 'lang', 'showDate'].includes(key)) {
       this.lastTime = this.blank();
       this.tick();
@@ -642,7 +646,7 @@ class UIManager {
         ticks: ['Inst', 'Depth', 'Spring', 'Flip'],
         layout: "Layout", layouts: ['Horizontal', 'Vertical'],
         tabs: ['Appearance', 'Layout', 'Motion', 'System'],
-        tc: "Text Color", to: "Text Opacity", bm: "Blend Mode", bms: ['Normal', 'Overlay', 'Diff', 'Soft'],
+        tc: "Text Color", bm: "Blend Mode", bms: ['Normal', 'Overlay', 'Diff', 'Soft'],
         opacity: "Opacity", datePos: "Date Pos", datePositions: ['Below', 'Above'],
         idles: ['3s', '10s', 'Never']
       },
@@ -655,7 +659,7 @@ class UIManager {
         ticks: ['瞬間', '景深', '彈性', '翻牌'],
         layout: "時鐘排佈", layouts: ['橫向', '直列'],
         tabs: ['外觀', '排版', '動效', '系統'],
-        tc: "字體色彩", to: "字體透明度", bm: "混合模式", bms: ['正常', '疊加', '差值', '柔光'],
+        tc: "字體色彩", bm: "混合模式", bms: ['正常', '疊加', '差值', '柔光'],
         opacity: "透明度", datePos: "日期位置", datePositions: ['下方', '上方'],
         idles: ['3秒', '10秒', '永不']
       }
@@ -680,14 +684,13 @@ class UIManager {
       { id: 'ctrl-size', key: 'size', min: 5, max: 20, step: 1, svgMin: '<path d="M12 6L8 18M12 6L16 18M9.5 14H14.5" stroke-linecap="round" stroke-linejoin="round"/>', svgMax: '<path d="M12 3L5 21M12 3L19 21M8 15H16" stroke-linecap="round" stroke-linejoin="round"/>' },
       { id: 'ctrl-weight', key: 'weight', min: 100, max: 900, step: 100, svgMin: '<circle cx="12" cy="12" r="8" stroke-width="1"/>', svgMax: '<circle cx="12" cy="12" r="8" stroke-width="4"/>' },
       { id: 'ctrl-speed', key: 'speed', min: 0.1, max: 4, step: 0.01, svgMin: '<path d="M4 12h10M4 8h6M4 16h8" stroke-linecap="round"/>', svgMax: '<path d="M2 12h16M2 8h12M2 16h14M18 12a2 2 0 1 0-2-2M14 8a2 2 0 1 0-2-2M16 16a2 2 0 1 1-2 2" stroke-linecap="round"/>' },
-      { id: 'ctrl-topacity', key: 'to', min: 0.1, max: 1, step: 0.05, svgMin: '<circle cx="12" cy="12" r="4"/>', svgMax: '<circle cx="12" cy="12" r="10"/>' },
       { id: 'ctrl-opacity', key: 'opacity', min: 0.1, max: 1, step: 0.05, svgMin: '<circle cx="12" cy="12" r="8" stroke-dasharray="2 2"/>', svgMax: '<circle cx="12" cy="12" r="8" fill="rgba(255,255,255,.5)"/>' }
     ];
   }
   static get UI_BINDINGS() {
     return {
       size: { id: 'ctrl-size', prop: 'value', cssVar: '--clock-size', format: v => `clamp(4rem, ${v}vw, 20vw)` },
-      weight: { id: 'ctrl-weight', prop: 'value', cssVar: '--clock-weight' }, speed: { id: 'ctrl-speed', prop: 'value' }, textOpacity: { id: 'ctrl-topacity', prop: 'value' }, clockOpacity: { id: 'ctrl-opacity', prop: 'value' },
+      weight: { id: 'ctrl-weight', prop: 'value', cssVar: '--clock-weight' }, speed: { id: 'ctrl-speed', prop: 'value' }, clockOpacity: { id: 'ctrl-opacity', prop: 'value' },
       is24Hour: { id: 'ctrl-24hr', prop: 'checked' }, leadingZero: { id: 'ctrl-leadingzero', prop: 'checked' },
       showSeconds: { id: 'ctrl-seconds', prop: 'checked' }, showDate: { id: 'ctrl-date', prop: 'checked' },
       pixelShift: { id: 'ctrl-pixelshift', prop: 'checked' }, nightMode: { id: 'ctrl-nightmode', prop: 'checked' }
@@ -753,12 +756,12 @@ class UIManager {
     const theme = row(d.theme, `<div class="swatches-container">${UIManager.THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}<div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div></div>`);
     const tcRow = row(d.tc, `<div class="swatch-wrapper active"><div class="swatch-color" id="text-swatch-color" style="background: ${textColor}"></div><input type="color" id="ctrl-textcolor" value="${textColor}"></div>`);
     const tabs = [
-      [[seg(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono']), seg(d.mode, 'mode', d.modes, 1), theme], [tcRow, seg(d.bm, 'blendMode', d.bms)], [slider('size'), slider('weight'), slider('to'), slider('opacity')]],
+      [[seg(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono']), seg(d.mode, 'mode', d.modes, 1), theme], [tcRow, seg(d.bm, 'blendMode', d.bms)], [slider('size'), slider('weight'), slider('opacity')]],
       [[tg('ctrl-24hr', d.time), tg('ctrl-leadingzero', d.lz), tg('ctrl-seconds', d.sec), tg('ctrl-date', d.date), seg(d.layout, 'clockLayout', d.layouts), seg(d.datePos, 'datePosition', d.datePositions)]],
       [[seg(d.tick, 'clockAnimMode', d.ticks)], [slider('speed')]],
       [[langRow, seg(d.idle, 'idleTimeout', d.idles), tg('ctrl-pixelshift', d.burn), tg('ctrl-nightmode', d.night)]]
     ];
-    this.panel.innerHTML = `<div class="tab-header" role="tablist">${d.tabs.map((t, i) => `<button class="tab-nav-btn${i === I ? ' active' : ''}" data-tab="${i}" role="tab">${t}</button>`).join('')}</div>${tabs.map((blocks, i) => `<div class="tab-pane${i === I ? ' active' : ''}">${blocks.map(b => `<div class="settings-block">${b.join('')}</div>`).join('')}</div>`).join('')}`;
+    this.panel.innerHTML = `<div class="tab-header" role="tablist">${d.tabs.map((t, i) => `<button class="tab-nav-btn${i === I ? ' active' : ''}" data-tab="${i}" role="tab">${t}</button>`).join('')}</div><div class="tab-panes">${tabs.map((blocks, i) => `<div class="tab-pane${i === I ? ' active' : ''}">${blocks.map(b => `<div class="settings-block">${b.join('')}</div>`).join('')}</div>`).join('')}</div>`;
   }
   setTab(i) {
     this.activeTab = i;
@@ -792,7 +795,7 @@ class UIManager {
     }
   }
   syncUI(skipAnim = false, changedKey = null) {
-    const state = this.store.getState(), { fontStyle, nightMode, lowPower, colorTarget, textColor, textOpacity, blendMode, clockOpacity: op } = state;
+    const state = this.store.getState(), { fontStyle, nightMode, lowPower, colorTarget, textColor, blendMode, clockOpacity: op } = state;
     const root = document.documentElement, sp = (k, v) => root.style.setProperty(k, v);
     const full = changedKey === null;
     if (full || changedKey === 'fontStyle') {
@@ -801,7 +804,7 @@ class UIManager {
     if (full || ['nightMode', 'clockOpacity'].includes(changedKey)) {
       sp('--date-color', nightMode ? `rgba(110, 63, 32, ${op})` : `rgba(255, 255, 255, ${0.6 * op})`); sp('--clock-shadow-color', nightMode ? 'transparent' : `rgba(255, 255, 255, ${0.2 * op})`);
     }
-    if (full || ['nightMode', 'textColor', 'textOpacity', 'clockOpacity'].includes(changedKey)) sp('--clock-color', nightMode ? `rgba(217, 119, 54, ${op})` : `rgba(${UIManager.hexToRgb(textColor).map(x => Math.round(x * 255)).join(', ')}, ${textOpacity * op})`);
+    if (full || ['nightMode', 'textColor', 'clockOpacity'].includes(changedKey)) sp('--clock-color', nightMode ? `rgba(217, 119, 54, ${op})` : `rgba(${UIManager.hexToRgb(textColor).map(x => Math.round(x * 255)).join(', ')}, ${op})`);
     if (full || changedKey === 'textColor') { $('ctrl-textcolor').value = textColor; $('text-swatch-color').style.background = textColor; }
     if (full || changedKey === 'blendMode') sp('--clock-blend', ['normal', 'overlay', 'difference', 'soft-light'][blendMode]);
     if (full || changedKey === 'pixelShift') this.runPixelShift();
@@ -975,7 +978,7 @@ class UIManager {
     ['touchend', 'touchcancel'].forEach(evt => on(document, evt, () => this.exitApp(false)));
   }
 }
-const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, clockLayout: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false, textColor: '#ffffff', textOpacity: 0.9, blendMode: 0, clockOpacity: 1, datePosition: 0, isIdle: false, isHolding: false, isPanelOpen: false };
+const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, clockLayout: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false, textColor: '#ffffff', blendMode: 0, clockOpacity: 1, datePosition: 0, isIdle: false, isHolding: false, isPanelOpen: false };
 const store = new Store(defaultState);
 const glEngine = new WebGLEngine($('gl-canvas'), store);
 const clockController = new ClockController($('clock-layer'), store,$('settings-panel'));
