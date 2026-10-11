@@ -18,7 +18,7 @@ body.is-fullscreen .settings-panel{cursor:default}
 .background-layer{position:absolute;inset:0;overflow:hidden;pointer-events:none;transition:transform 1500ms var(--ease-in-out)}
 body .background-layer.exiting{transition:transform 2s linear;transform:scale(1.15)}
 .gl-canvas{width:100%;height:100%;display:block}
-.clock-layer{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:1;--evade-x:0px;--evade-y:0px;--evade-scale:1;--idle-scale:1;transform:translate(var(--evade-x),var(--evade-y)) scale(calc(var(--evade-scale) * var(--idle-scale)));transition:transform 400ms var(--ease-out),opacity 400ms var(--ease-out)}
+.clock-layer{position:absolute;inset:0;mix-blend-mode:var(--clock-blend,normal);display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:1;--evade-x:0px;--evade-y:0px;--evade-scale:1;--idle-scale:1;transform:translate(var(--evade-x),var(--evade-y)) scale(calc(var(--evade-scale) * var(--idle-scale)));transition:transform 400ms var(--ease-out),opacity 400ms var(--ease-out)}
 body.is-idle .clock-layer{opacity:.35;--idle-scale:.96;transition:opacity 1500ms var(--ease-in-out),transform 1500ms var(--ease-in-out)}
 body .clock-layer.exiting{transition:opacity 2s linear,transform 2s linear;opacity:.1;--idle-scale:.9}
 #clock{margin:0;font-variant-numeric:tabular-nums;white-space:nowrap;overflow-wrap:normal;font-size:var(--clock-size);font-weight:var(--clock-weight);color:var(--clock-color);letter-spacing:0;display:flex;flex-direction:row;justify-content:center;align-items:center;filter:drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 4px var(--clock-shadow-color));position:relative;transition:color 500ms,filter 500ms,gap 300ms;font-family:var(--clock-font);will-change:transform,filter;transform:translateZ(0)}
@@ -38,8 +38,9 @@ body .clock-layer.exiting{transition:opacity 2s linear,transform 2s linear;opaci
 #clock span{position:relative;display:inline-grid;place-items:center;vertical-align:bottom;clip-path:inset(0 -40px 0 -40px);height:1em;line-height:1;text-shadow:none}
 .digit-old,.digit-new{grid-area:1 / 1;position:relative !important;width:100%}
 .digit-new{opacity:0}
-.date-display{font-size:calc(var(--clock-size) * .22);font-weight:var(--clock-weight);color:var(--date-color);letter-spacing:.02em;text-shadow:0 2px 12px rgba(0,0,0,.3);overflow:hidden;transition:max-height 300ms var(--ease-out),margin 300ms var(--ease-out),color 500ms;max-height:2em;margin-top:.25em;font-family:var(--clock-font);will-change:transform;transform:translateZ(0)}
-.date-display.is-hidden{max-height:0;margin-top:0}
+.date-display{font-size:calc(var(--clock-size) * .22);font-weight:var(--clock-weight);color:var(--date-color);letter-spacing:.02em;text-shadow:0 2px 12px rgba(0,0,0,.3);overflow:hidden;transition:max-height 300ms var(--ease-out),margin 300ms var(--ease-out),color 500ms;max-height:2em;order:1;margin-top:.25em;margin-bottom:0;font-family:var(--clock-font);will-change:transform;transform:translateZ(0)}
+.date-display.is-above{order:-1;margin-top:0;margin-bottom:.25em}
+.date-display.is-hidden{max-height:0;margin-top:0;margin-bottom:0}
 .ui-layer{position:absolute;inset:0;pointer-events:none}
 body.is-idle .ui-layer>*{opacity:0 !important;pointer-events:none !important;transition:opacity 1500ms var(--ease-in-out),transform 1500ms var(--ease-in-out) !important}
 .icon-btn{pointer-events:auto;position:absolute;bottom:calc(env(safe-area-inset-bottom,24px) + 20px);width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.08);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);color:white;cursor:pointer;outline:none;opacity:1;transform:scale(1);transition:transform 160ms var(--ease-out),background 200ms var(--ease-out),opacity 200ms var(--ease-out)}
@@ -106,7 +107,7 @@ input[type=range]::-webkit-slider-thumb:active{cursor:grabbing;transform:scale(.
 .custom-swatch-color::before{width:12px;height:2px;border-radius:1px}
 .custom-swatch-color::after{width:2px;height:12px;border-radius:1px}
 .custom-swatch-color.has-color::before,.custom-swatch-color.has-color::after{opacity:0}
-#custom-color-input{opacity:0;position:absolute;inset:-8px;width:44px;height:44px;cursor:pointer;z-index:10;padding:0;border:none}
+#custom-color-input,#ctrl-textcolor{opacity:0;position:absolute;inset:-8px;width:44px;height:44px;cursor:pointer;z-index:10;padding:0;border:none}
 .toggle-switch{appearance:none;width:44px;height:26px;background:rgba(255,255,255,.15);border-radius:13px;position:relative;cursor:pointer;outline:none;transition:background 200ms var(--ease-out),transform 160ms var(--ease-out);margin:0;flex-shrink:0;box-shadow:inset 0 1px 2px rgba(0,0,0,.1)}
 .toggle-switch::after{content:'';position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.3);transition:transform 250ms var(--ease-out)}
 .toggle-switch:checked{background:#34c759}
@@ -146,7 +147,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.4.0 (Burgos) | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.5.0 (Burgos) | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
 function initPWA() {
   const metaCap = document.createElement('meta'); metaCap.name = 'apple-mobile-web-app-capable'; metaCap.content = 'yes';
@@ -227,6 +228,11 @@ class Store {
       case 'fontStyle': return isInt(v, 0, 2) ? v : undefined;
       case 'clockAnimMode': return isInt(v, 0, 3) ? v : undefined;
       case 'clockLayout': return isInt(v, 0, 1) ? v : undefined;
+      case 'textColor': return (typeof v === 'string' && /^#[0-9A-Fa-f]{6}$/i.test(v)) ? v : undefined;
+      case 'textOpacity': return isNum(v, 0.1, 1) ? v : undefined;
+      case 'blendMode': return isInt(v, 0, 3) ? v : undefined;
+      case 'clockOpacity': return isNum(v, 0.1, 1) ? v : undefined;
+      case 'datePosition': return isInt(v, 0, 1) ? v : undefined;
       case 'idleTimeout': return isInt(v, 0, 2) ? v : undefined;
       case 'size': return isNum(v, 5, 20) ? v : undefined;
       case 'weight': return isNum(v, 100, 900) ? v : undefined;
@@ -474,6 +480,7 @@ class ClockController {
     this.lastTime = this.blank();
     [this.colonHM, this.colonMS].forEach(c => c.innerHTML = '<span><div class="digit-old">:</div><div class="digit-new">:</div></span>');
     this.clockElement.classList.toggle('is-vertical', this.store.getState().clockLayout === 1);
+    this.dateElement.classList.toggle('is-above', this.store.getState().datePosition === 1);
     this.timer = null;
     this.running = false;
     this.dateFormatter = null;
@@ -526,6 +533,9 @@ class ClockController {
         this.updateEvasion();
         this.clockElement.animate([{ opacity: 0, filter: 'blur(12px)', transform: 'scale(1.05)' }, { opacity: 1, filter: 'blur(0px)', transform: 'scale(1)' }], { duration: 300, easing: 'ease-out' });
       };
+    } else if (key === 'datePosition') {
+      this.dateElement.classList.toggle('is-above', val === 1);
+      this.updateEvasion();
     } else if (['is24Hour', 'showSeconds', 'leadingZero', 'clockAnimMode', 'fontStyle', 'lang', 'showDate'].includes(key)) {
       this.lastTime = this.blank();
       this.tick();
@@ -632,6 +642,8 @@ class UIManager {
         ticks: ['Inst', 'Depth', 'Spring', 'Flip'],
         layout: "Layout", layouts: ['Horizontal', 'Vertical'],
         tabs: ['Appearance', 'Layout', 'Motion', 'System'],
+        tc: "Text Color", to: "Text Opacity", bm: "Blend Mode", bms: ['Normal', 'Overlay', 'Diff', 'Soft'],
+        opacity: "Opacity", datePos: "Date Pos", datePositions: ['Below', 'Above'],
         idles: ['3s', '10s', 'Never']
       },
       zh: {
@@ -643,6 +655,8 @@ class UIManager {
         ticks: ['瞬間', '景深', '彈性', '翻牌'],
         layout: "時鐘排佈", layouts: ['橫向', '直列'],
         tabs: ['外觀', '排版', '動效', '系統'],
+        tc: "字體色彩", to: "字體透明度", bm: "混合模式", bms: ['正常', '疊加', '差值', '柔光'],
+        opacity: "透明度", datePos: "日期位置", datePositions: ['下方', '上方'],
         idles: ['3秒', '10秒', '永不']
       }
     };
@@ -665,13 +679,15 @@ class UIManager {
     return [
       { id: 'ctrl-size', key: 'size', min: 5, max: 20, step: 1, svgMin: '<path d="M12 6L8 18M12 6L16 18M9.5 14H14.5" stroke-linecap="round" stroke-linejoin="round"/>', svgMax: '<path d="M12 3L5 21M12 3L19 21M8 15H16" stroke-linecap="round" stroke-linejoin="round"/>' },
       { id: 'ctrl-weight', key: 'weight', min: 100, max: 900, step: 100, svgMin: '<circle cx="12" cy="12" r="8" stroke-width="1"/>', svgMax: '<circle cx="12" cy="12" r="8" stroke-width="4"/>' },
-      { id: 'ctrl-speed', key: 'speed', min: 0.1, max: 4, step: 0.01, svgMin: '<path d="M4 12h10M4 8h6M4 16h8" stroke-linecap="round"/>', svgMax: '<path d="M2 12h16M2 8h12M2 16h14M18 12a2 2 0 1 0-2-2M14 8a2 2 0 1 0-2-2M16 16a2 2 0 1 1-2 2" stroke-linecap="round"/>' }
+      { id: 'ctrl-speed', key: 'speed', min: 0.1, max: 4, step: 0.01, svgMin: '<path d="M4 12h10M4 8h6M4 16h8" stroke-linecap="round"/>', svgMax: '<path d="M2 12h16M2 8h12M2 16h14M18 12a2 2 0 1 0-2-2M14 8a2 2 0 1 0-2-2M16 16a2 2 0 1 1-2 2" stroke-linecap="round"/>' },
+      { id: 'ctrl-topacity', key: 'to', min: 0.1, max: 1, step: 0.05, svgMin: '<circle cx="12" cy="12" r="4"/>', svgMax: '<circle cx="12" cy="12" r="10"/>' },
+      { id: 'ctrl-opacity', key: 'opacity', min: 0.1, max: 1, step: 0.05, svgMin: '<circle cx="12" cy="12" r="8" stroke-dasharray="2 2"/>', svgMax: '<circle cx="12" cy="12" r="8" fill="rgba(255,255,255,.5)"/>' }
     ];
   }
   static get UI_BINDINGS() {
     return {
       size: { id: 'ctrl-size', prop: 'value', cssVar: '--clock-size', format: v => `clamp(4rem, ${v}vw, 20vw)` },
-      weight: { id: 'ctrl-weight', prop: 'value', cssVar: '--clock-weight' }, speed: { id: 'ctrl-speed', prop: 'value' },
+      weight: { id: 'ctrl-weight', prop: 'value', cssVar: '--clock-weight' }, speed: { id: 'ctrl-speed', prop: 'value' }, textOpacity: { id: 'ctrl-topacity', prop: 'value' }, clockOpacity: { id: 'ctrl-opacity', prop: 'value' },
       is24Hour: { id: 'ctrl-24hr', prop: 'checked' }, leadingZero: { id: 'ctrl-leadingzero', prop: 'checked' },
       showSeconds: { id: 'ctrl-seconds', prop: 'checked' }, showDate: { id: 'ctrl-date', prop: 'checked' },
       pixelShift: { id: 'ctrl-pixelshift', prop: 'checked' }, nightMode: { id: 'ctrl-nightmode', prop: 'checked' }
@@ -728,16 +744,17 @@ class UIManager {
     window.dispatchEvent(new Event('resize'));
   }
   renderPanel() {
-    const { lang } = this.store.getState(), d = UIManager.DICT[lang], I = this.activeTab;
+    const { lang, textColor } = this.store.getState(), d = UIManager.DICT[lang], I = this.activeTab;
     const row = (label, ctrl) => `<div class="settings-row"><span class="row-label auto-w">${label}</span>${ctrl}</div>`;
     const tg = (id, label) => row(label, `<input type="checkbox" id="${id}" class="toggle-switch">`);
     const seg = (label, prop, options, offset = 0) => { const isCol = options.length > 3; return `<div class="settings-row${isCol ? ' col-layout' : ''}"><span class="row-label auto-w">${label}</span><div class="segmented-control${isCol ? '' : ' inline-seg'}" data-prop="${prop}" role="radiogroup"><div class="segmented-highlight"></div>${options.map((t, i) => `<button class="segment-btn" data-value="${i + offset}">${t}</button>`).join('')}</div></div>`; };
     const slider = key => { const s = UIManager.SLIDERS.find(s => s.key === key); return `<div class="slider-row" aria-label="${d[key]}">${UIManager.renderIcon(s.svgMin, 'slider-icon min-icon')}<div class="range-container"><input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}"></div>${UIManager.renderIcon(s.svgMax, 'slider-icon max-icon')}</div>`; };
     const langRow = row(d.lang, `<div class="segmented-control inline-seg" data-prop="lang" role="radiogroup" style="max-width:120px"><div class="segmented-highlight"></div><button class="segment-btn ${lang === 'en' ? 'active' : ''}" data-value="en">EN</button><button class="segment-btn ${lang === 'zh' ? 'active' : ''}" data-value="zh">中</button></div>`);
     const theme = row(d.theme, `<div class="swatches-container">${UIManager.THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}<div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div></div>`);
+    const tcRow = row(d.tc, `<div class="swatch-wrapper active"><div class="swatch-color" id="text-swatch-color" style="background: ${textColor}"></div><input type="color" id="ctrl-textcolor" value="${textColor}"></div>`);
     const tabs = [
-      [[seg(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono']), seg(d.mode, 'mode', d.modes, 1), theme], [slider('size'), slider('weight')]],
-      [[tg('ctrl-24hr', d.time), tg('ctrl-leadingzero', d.lz), tg('ctrl-seconds', d.sec), tg('ctrl-date', d.date), seg(d.layout, 'clockLayout', d.layouts)]],
+      [[seg(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono']), seg(d.mode, 'mode', d.modes, 1), theme], [tcRow, seg(d.bm, 'blendMode', d.bms)], [slider('size'), slider('weight'), slider('to'), slider('opacity')]],
+      [[tg('ctrl-24hr', d.time), tg('ctrl-leadingzero', d.lz), tg('ctrl-seconds', d.sec), tg('ctrl-date', d.date), seg(d.layout, 'clockLayout', d.layouts), seg(d.datePos, 'datePosition', d.datePositions)]],
       [[seg(d.tick, 'clockAnimMode', d.ticks)], [slider('speed')]],
       [[langRow, seg(d.idle, 'idleTimeout', d.idles), tg('ctrl-pixelshift', d.burn), tg('ctrl-nightmode', d.night)]]
     ];
@@ -775,19 +792,18 @@ class UIManager {
     }
   }
   syncUI(skipAnim = false, changedKey = null) {
-    const state = this.store.getState(), { fontStyle, nightMode, lowPower, colorTarget } = state;
+    const state = this.store.getState(), { fontStyle, nightMode, lowPower, colorTarget, textColor, textOpacity, blendMode, clockOpacity: op } = state;
     const root = document.documentElement, sp = (k, v) => root.style.setProperty(k, v);
     const full = changedKey === null;
     if (full || changedKey === 'fontStyle') {
       sp('--clock-font', UIManager.FONTS[fontStyle]);
     }
-    if (full || changedKey === 'nightMode') {
-      if (nightMode) {
-        sp('--clock-color', '#D97736'); sp('--date-color', '#6E3F20'); sp('--clock-shadow-color', 'transparent');
-      } else {
-        sp('--clock-color', 'rgba(255, 255, 255, 0.9)'); sp('--date-color', 'rgba(255, 255, 255, 0.6)'); sp('--clock-shadow-color', 'rgba(255, 255, 255, 0.2)');
-      }
+    if (full || ['nightMode', 'clockOpacity'].includes(changedKey)) {
+      sp('--date-color', nightMode ? `rgba(110, 63, 32, ${op})` : `rgba(255, 255, 255, ${0.6 * op})`); sp('--clock-shadow-color', nightMode ? 'transparent' : `rgba(255, 255, 255, ${0.2 * op})`);
     }
+    if (full || ['nightMode', 'textColor', 'textOpacity', 'clockOpacity'].includes(changedKey)) sp('--clock-color', nightMode ? `rgba(217, 119, 54, ${op})` : `rgba(${UIManager.hexToRgb(textColor).map(x => Math.round(x * 255)).join(', ')}, ${textOpacity * op})`);
+    if (full || changedKey === 'textColor') { $('ctrl-textcolor').value = textColor; $('text-swatch-color').style.background = textColor; }
+    if (full || changedKey === 'blendMode') sp('--clock-blend', ['normal', 'overlay', 'difference', 'soft-light'][blendMode]);
     if (full || changedKey === 'pixelShift') this.runPixelShift();
     if (full || changedKey === 'lowPower') {
       const btnLowpower = $('btn-lowpower');
@@ -812,7 +828,7 @@ class UIManager {
       if (c && val !== undefined) requestAnimationFrame(() => this.updateSegmentHighlight(c, val, skipAnim));
     }
     if (full || changedKey === 'colorTarget') {
-      qsa(document, '.swatch-wrapper').forEach(s => s.classList.remove('active'));
+      qsa(document, '.swatches-container .swatch-wrapper').forEach(s => s.classList.remove('active'));
       const activeSwatch = qs(document, `.swatch-wrapper[data-rgb="${colorTarget.join(',')}"]`), customEl = $('custom-swatch-color');
       if (activeSwatch) { activeSwatch.classList.add('active'); customEl.style.background = ''; customEl.classList.remove('has-color'); }
       else { $('custom-swatch-wrapper').classList.add('active');$('custom-color-input').value = UIManager.rgbToHex(...colorTarget); customEl.style.background = UIManager.rgbToHex(...colorTarget); customEl.classList.add('has-color'); }
@@ -908,9 +924,11 @@ class UIManager {
       if (e.target.type === 'range') { document.body.classList.add('is-dragging'); const t = e.target, v = t.value, isEdge = v === t.min || v === t.max, now = Date.now(); if (isEdge || now - lastHap > 40) { haptic(isEdge ? 20 : 5); lastHap = now; } }
       const entry = Object.entries(UIManager.UI_BINDINGS).find(([, b]) => b.id === e.target.id);
       if (entry && e.target.type !== 'checkbox') { this.store.setState(entry[0], parseFloat(e.target.value)); }
+      else if (e.target.id === 'ctrl-textcolor') this.store.setState('textColor', e.target.value);
       else if (e.target.id === 'custom-color-input') { this.store.setState('colorTarget', UIManager.hexToRgb(e.target.value)); }
     });
     on(document, 'change', e => {
+      if (e.target.id === 'ctrl-textcolor') haptic(10);
       if (e.target.type === 'checkbox') { haptic(10); const entry = Object.entries(UIManager.UI_BINDINGS).find(([, b]) => b.id === e.target.id); if (entry) this.store.setState(entry[0], e.target.checked); }
     });
     on(document, 'pointerdown', e => {
@@ -957,7 +975,7 @@ class UIManager {
     ['touchend', 'touchcancel'].forEach(evt => on(document, evt, () => this.exitApp(false)));
   }
 }
-const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, clockLayout: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false, isIdle: false, isHolding: false, isPanelOpen: false };
+const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, clockLayout: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false, textColor: '#ffffff', textOpacity: 0.9, blendMode: 0, clockOpacity: 1, datePosition: 0, isIdle: false, isHolding: false, isPanelOpen: false };
 const store = new Store(defaultState);
 const glEngine = new WebGLEngine($('gl-canvas'), store);
 const clockController = new ClockController($('clock-layer'), store,$('settings-panel'));
