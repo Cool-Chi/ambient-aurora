@@ -42,6 +42,8 @@ body .clock-layer.exiting{transition:opacity 2s linear,transform 2s linear;opaci
 .date-display{font-size:calc(var(--clock-size) * .22);font-weight:var(--clock-weight);color:var(--date-color);letter-spacing:.02em;text-shadow:0 2px 12px rgba(0,0,0,.3);overflow:hidden;transition:max-height 300ms var(--ease-out),margin 300ms var(--ease-out),color 500ms;max-height:2em;order:1;margin-top:.25em;margin-bottom:0;font-family:var(--clock-font);will-change:transform;transform:translateZ(0)}
 .date-display.is-above{order:-1;margin-top:0;margin-bottom:.25em}
 .date-display.is-hidden{max-height:0;margin-top:0;margin-bottom:0}
+#custom-text{max-width:90vw;white-space:nowrap;text-overflow:ellipsis}
+#custom-text:empty{margin:0}
 .ui-layer{position:absolute;inset:0;pointer-events:none}
 body.is-idle .ui-layer>*{opacity:0 !important;pointer-events:none !important;transition:opacity 1500ms var(--ease-in-out),transform 1500ms var(--ease-in-out) !important}
 .icon-btn{pointer-events:auto;position:absolute;bottom:calc(env(safe-area-inset-bottom,24px) + 20px);width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.08);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);color:white;cursor:pointer;outline:none;opacity:1;transform:scale(1);transition:transform 160ms var(--ease-out),background 200ms var(--ease-out),opacity 200ms var(--ease-out)}
@@ -138,6 +140,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
       <div class="ampm-group clock-module" style="--hide-tx: -20px; --hide-ml: 0;"></div>
     </div>
     <div id="date" class="date-display"></div>
+    <div id="custom-text" class="date-display"></div>
   </div>
   <div class="ui-layer">
     <div class="exit-hint"></div>
@@ -149,7 +152,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.2.3 | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.2.4 | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
 function initPWA() {
   const metaCap = document.createElement('meta'); metaCap.name = 'apple-mobile-web-app-capable'; metaCap.content = 'yes';
@@ -232,6 +235,8 @@ class Store {
       case 'clockLayout': return isInt(v, 0, 1) ? v : undefined;
       case 'textColor': return (typeof v === 'string' && /^#[0-9A-Fa-f]{6}$/i.test(v)) ? v : undefined;
       case 'material': return isInt(v, 0, 2) ? v : undefined;
+      case 'showCustomText': return typeof v === 'boolean' ? v : undefined;
+      case 'customText': return typeof v === 'string' ? v.substring(0, 30) : undefined;
       case 'clockOpacity': return isNum(v, 0.1, 1) ? v : undefined;
       case 'datePosition': return isInt(v, 0, 1) ? v : undefined;
       case 'idleTimeout': return isInt(v, 0, 2) ? v : undefined;
@@ -471,6 +476,7 @@ class ClockController {
     this.panel = obstacleEl;
     this.clockElement = qs(this.container, '#clock');
     this.dateElement = qs(this.container, '#date');
+    this.customTextElement = qs(this.container, '#custom-text');
     this.tensCont = qs(this.clockElement, '.tens-group');
     this.unitsCont = qs(this.clockElement, '.units-group');
     this.minCont = qs(this.clockElement, '.minutes-group');
@@ -481,7 +487,10 @@ class ClockController {
     this.lastTime = this.blank();
     [this.colonHM, this.colonMS].forEach(c => c.innerHTML = '<span><div class="digit-old">:</div><div class="digit-new">:</div></span>');
     this.clockElement.classList.toggle('is-vertical', this.store.getState().clockLayout === 1);
-    this.dateElement.classList.toggle('is-above', this.store.getState().datePosition === 1);
+    const { customText, showCustomText, datePosition } = this.store.getState();
+    this.customTextElement.textContent = customText;
+    this.customTextElement.classList.toggle('is-hidden', !showCustomText);
+    [this.dateElement, this.customTextElement].forEach(el => el.classList.toggle('is-above', datePosition === 1));
     this.timer = null;
     this.running = false;
     this.dateFormatter = null;
@@ -535,11 +544,15 @@ class ClockController {
         this.clockElement.animate([{ opacity: 0, filter: 'blur(12px)', transform: 'scale(1.05)' }, { opacity: 1, filter: 'blur(0px)', transform: 'scale(1)' }], { duration: 300, easing: 'ease-out' });
       };
     } else if (key === 'datePosition') {
-      this.dateElement.animate([{ opacity: 1, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(8px)' }], { duration: 150, easing: 'ease-in' }).onfinish = () => {
-        this.dateElement.classList.toggle('is-above', val === 1);
-        this.updateEvasion();
-        this.dateElement.animate([{ opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)' }], { duration: 250, easing: 'ease-out' });
-      };
+      [this.dateElement, this.customTextElement].forEach((el, i) => el.animate([{ opacity: 1, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(8px)' }], { duration: 150, easing: 'ease-in' }).onfinish = () => {
+        el.classList.toggle('is-above', val === 1);
+        if (i) this.updateEvasion();
+        el.animate([{ opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)' }], { duration: 250, easing: 'ease-out' });
+      });
+    } else if (key === 'customText') {
+      this.customTextElement.textContent = val;
+    } else if (key === 'showCustomText') {
+      this.customTextElement.classList.toggle('is-hidden', !val);
     } else if (['is24Hour', 'showSeconds', 'leadingZero', 'clockAnimMode', 'fontStyle', 'lang', 'showDate'].includes(key)) {
       this.lastTime = this.blank();
       this.tick();
@@ -646,7 +659,7 @@ class UIManager {
         ticks: ['Inst', 'Depth', 'Spring', 'Flip'],
         layout: "Layout", layouts: ['Horizontal', 'Vertical'],
         tabs: ['Appearance', 'Layout', 'Motion', 'System'],
-        tc: "Text Color", mat: "Material", mats: ['Classic', 'Hollow', 'Glow'],
+        tc: "Text Color", mat: "Material", mats: ['Classic', 'Hollow', 'Glow'], sct: "Custom Text", ctph: "Enter text...",
         opacity: "Opacity", datePos: "Date Pos", datePositions: ['Below', 'Above'],
         idles: ['3s', '10s', 'Never']
       },
@@ -659,7 +672,7 @@ class UIManager {
         ticks: ['瞬間', '景深', '彈性', '翻牌'],
         layout: "時鐘排佈", layouts: ['橫向', '直列'],
         tabs: ['外觀', '排版', '動效', '系統'],
-        tc: "字體色彩", mat: "字體材質", mats: ['實色', '鏤空', '高光'],
+        tc: "字體色彩", mat: "字體材質", mats: ['實色', '鏤空', '高光'], sct: "自定義文字", ctph: "輸入文字...",
         opacity: "透明度", datePos: "日期位置", datePositions: ['下方', '上方'],
         idles: ['3秒', '10秒', '永不']
       }
@@ -690,7 +703,7 @@ class UIManager {
   static get UI_BINDINGS() {
     return {
       size: { id: 'ctrl-size', prop: 'value', cssVar: '--clock-size', format: v => `clamp(4rem, ${v}vw, 20vw)` },
-      weight: { id: 'ctrl-weight', prop: 'value', cssVar: '--clock-weight' }, speed: { id: 'ctrl-speed', prop: 'value' }, clockOpacity: { id: 'ctrl-opacity', prop: 'value' },
+      weight: { id: 'ctrl-weight', prop: 'value', cssVar: '--clock-weight' }, speed: { id: 'ctrl-speed', prop: 'value' }, clockOpacity: { id: 'ctrl-opacity', prop: 'value' }, showCustomText: { id: 'ctrl-showcustom', prop: 'checked' }, customText: { id: 'ctrl-customtext', prop: 'value' },
       is24Hour: { id: 'ctrl-24hr', prop: 'checked' }, leadingZero: { id: 'ctrl-leadingzero', prop: 'checked' },
       showSeconds: { id: 'ctrl-seconds', prop: 'checked' }, showDate: { id: 'ctrl-date', prop: 'checked' },
       pixelShift: { id: 'ctrl-pixelshift', prop: 'checked' }, nightMode: { id: 'ctrl-nightmode', prop: 'checked' }
@@ -757,7 +770,7 @@ class UIManager {
     const tcRow = row(d.tc, `<div class="swatch-wrapper active"><div class="swatch-color" id="text-swatch-color" style="background: ${textColor}"></div><input type="color" id="ctrl-textcolor" value="${textColor}"></div>`);
     const tabs = [
       [[seg(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono']), seg(d.mode, 'mode', d.modes, 1), theme], [tcRow, seg(d.mat, 'material', d.mats)], [slider('size'), slider('weight'), slider('opacity')]],
-      [[tg('ctrl-24hr', d.time), tg('ctrl-leadingzero', d.lz), tg('ctrl-seconds', d.sec), tg('ctrl-date', d.date), seg(d.layout, 'clockLayout', d.layouts), seg(d.datePos, 'datePosition', d.datePositions)]],
+      [[tg('ctrl-24hr', d.time), tg('ctrl-leadingzero', d.lz), tg('ctrl-seconds', d.sec), tg('ctrl-date', d.date), seg(d.layout, 'clockLayout', d.layouts), seg(d.datePos, 'datePosition', d.datePositions)], [tg('ctrl-showcustom', d.sct), `<div class="settings-row"><input type="text" id="ctrl-customtext" maxlength="30" placeholder="${d.ctph}" style="width:100%; background:rgba(255,255,255,0.1); border:none; color:#fff; border-radius:6px; padding:6px 12px; outline:none; font-family:inherit;"></div>`]],
       [[seg(d.tick, 'clockAnimMode', d.ticks)], [slider('speed')]],
       [[langRow, seg(d.idle, 'idleTimeout', d.idles), tg('ctrl-pixelshift', d.burn), tg('ctrl-nightmode', d.night)]]
     ];
@@ -806,7 +819,8 @@ class UIManager {
     }
     if (full || ['nightMode', 'textColor', 'clockOpacity', 'material'].includes(changedKey)) {
       const cColor = nightMode ? `rgba(217, 119, 54, ${op})` : `rgba(${UIManager.hexToRgb(textColor).map(x => Math.round(x * 255)).join(', ')}, ${op})`;
-      sp('--clock-color', cColor); sp('--clock-fill', material === 1 ? 'transparent' : cColor); sp('--clock-stroke', material === 1 ? `max(1px, 0.02em) ${cColor}` : '0'); sp('--clock-blend', material === 2 ? 'color-dodge' : 'normal');
+      sp('--clock-color', cColor); sp('--clock-fill', material === 1 ? 'transparent' : cColor); sp('--clock-stroke', material === 1 ? `max(1px, 0.02em) ${cColor}` : '0'); sp('--clock-blend', material === 2 ? 'screen' : 'normal');
+      if (!full) { const clk = $('clock'); if (clk) { clk.style.opacity = 0.99; clearTimeout(this.rp); this.rp = setTimeout(() => clk.style.opacity = '', 50); } }
     }
     if (full || changedKey === 'textColor') { $('ctrl-textcolor').value = textColor; $('text-swatch-color').style.background = textColor; }
     if (full || changedKey === 'pixelShift') this.runPixelShift();
@@ -928,7 +942,7 @@ class UIManager {
     on(document, 'input', e => {
       if (e.target.type === 'range') { document.body.classList.add('is-dragging'); const t = e.target, v = t.value, isEdge = v === t.min || v === t.max, now = Date.now(); if (isEdge || now - lastHap > 40) { haptic(isEdge ? 20 : 5); lastHap = now; } }
       const entry = Object.entries(UIManager.UI_BINDINGS).find(([, b]) => b.id === e.target.id);
-      if (entry && e.target.type !== 'checkbox') { this.store.setState(entry[0], parseFloat(e.target.value)); }
+      if (entry && e.target.type !== 'checkbox') { this.store.setState(entry[0], e.target.type === 'text' ? e.target.value : parseFloat(e.target.value)); }
       else if (e.target.id === 'ctrl-textcolor') this.store.setState('textColor', e.target.value);
       else if (e.target.id === 'custom-color-input') { this.store.setState('colorTarget', UIManager.hexToRgb(e.target.value)); }
     });
@@ -980,7 +994,7 @@ class UIManager {
     ['touchend', 'touchcancel'].forEach(evt => on(document, evt, () => this.exitApp(false)));
   }
 }
-const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, clockLayout: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false, textColor: '#ffffff', material: 0, clockOpacity: 1, datePosition: 0, isIdle: false, isHolding: false, isPanelOpen: false };
+const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, clockLayout: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false, textColor: '#ffffff', material: 0, showCustomText: false, customText: "Ambient Aurora", clockOpacity: 1, datePosition: 0, isIdle: false, isHolding: false, isPanelOpen: false };
 const store = new Store(defaultState);
 const glEngine = new WebGLEngine($('gl-canvas'), store);
 const clockController = new ClockController($('clock-layer'), store,$('settings-panel'));
