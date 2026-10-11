@@ -64,6 +64,13 @@ body.is-fullscreen .exit-hint{opacity:1}
 body.is-fullscreen .settings-panel.active{opacity:1;transform:scale(1)}
 @media (max-width:600px){.settings-panel{left:16px;right:auto;width:calc(100vw - 32px);max-width:340px;max-height:55dvh;bottom:calc(env(safe-area-inset-bottom,16px) + 72px);overflow-y:auto;transform-origin:bottom left}}
 .settings-block{background:rgba(255,255,255,.06);border-radius:12px;overflow:hidden;flex-shrink:0}
+.tab-header{display:flex;gap:4px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:8px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+.tab-header::-webkit-scrollbar{display:none}
+.tab-nav-btn{background:transparent;border:none;color:rgba(255,255,255,.5);font-size:14px;font-weight:600;padding:4px 8px;cursor:pointer;transition:color 200ms;white-space:nowrap;flex-shrink:0}
+.tab-nav-btn.active{color:#fff}
+.tab-pane{display:none;flex-direction:column;gap:16px;flex-shrink:0}
+.tab-pane.active{display:flex}
+@media (max-width:600px){.tab-nav-btn{padding:4px 6px}}
 .settings-row{display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:0 16px;border-bottom:.5px solid rgba(255,255,255,.12)}
 .settings-row:last-child{border-bottom:none}
 .row-label{font-size:14px;font-weight:500;color:rgba(255,255,255,.85);flex-shrink:0;width:auto;flex:1;white-space:nowrap}
@@ -139,7 +146,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.3.0 (Sevilla) | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.4.0 (Burgos) | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
 function initPWA() {
   const metaCap = document.createElement('meta'); metaCap.name = 'apple-mobile-web-app-capable'; metaCap.content = 'yes';
@@ -624,6 +631,7 @@ class UIManager {
         modes: ['Silk', 'Glow', 'Dust', 'Liquid', 'Horizon'],
         ticks: ['Inst', 'Depth', 'Spring', 'Flip'],
         layout: "Layout", layouts: ['Horizontal', 'Vertical'],
+        tabs: ['Appearance', 'Layout', 'Motion', 'System'],
         idles: ['3s', '10s', 'Never']
       },
       zh: {
@@ -634,6 +642,7 @@ class UIManager {
         modes: ['絲綢', '光暈', '星塵', '液態', '天沿'],
         ticks: ['瞬間', '景深', '彈性', '翻牌'],
         layout: "時鐘排佈", layouts: ['橫向', '直列'],
+        tabs: ['外觀', '排版', '動效', '系統'],
         idles: ['3秒', '10秒', '永不']
       }
     };
@@ -677,6 +686,7 @@ class UIManager {
   constructor(store) {
     this.store = store;
     this.panel = $('settings-panel');
+    this.activeTab = 0;
     this.appContainer = $('app-container');
     this.hudToast = $('hud-toast');
     this.bgLayer = $('bg-layer');
@@ -718,48 +728,26 @@ class UIManager {
     window.dispatchEvent(new Event('resize'));
   }
   renderPanel() {
-    const { lang } = this.store.getState(), d = UIManager.DICT[lang];
-    const renderSegRow = (label, prop, options, offset = 0) => {
-      const isCol = options.length > 3;
-      return `
-        <div class="settings-row ${isCol ? 'col-layout' : ''}">
-          <span class="row-label auto-w">${label}</span>
-          <div class="segmented-control ${isCol ? '' : 'inline-seg'}" data-prop="${prop}" role="radiogroup">
-            <div class="segmented-highlight"></div>
-            ${options.map((t, i) => `<button class="segment-btn" data-value="${i + offset}">${t}</button>`).join('')}
-          </div>
-        </div>
-      `;
-    };
-    this.panel.innerHTML = `
-      <div class="settings-block">
-        <div class="settings-row"><span class="row-label auto-w">${d.lang}</span><div class="segmented-control inline-seg" data-prop="lang" role="radiogroup" style="max-width:120px"><div class="segmented-highlight"></div><button class="segment-btn ${lang==='en'?'active':''}" data-value="en">EN</button><button class="segment-btn ${lang==='zh'?'active':''}" data-value="zh">中</button></div></div>
-        ${renderSegRow(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono'])}
-      </div>
-      <div class="settings-block">
-        <div class="settings-row"><span class="row-label auto-w">${d.time}</span><input type="checkbox" id="ctrl-24hr" class="toggle-switch"></div>
-        <div class="settings-row"><span class="row-label auto-w">${d.lz}</span><input type="checkbox" id="ctrl-leadingzero" class="toggle-switch"></div>
-        <div class="settings-row"><span class="row-label auto-w">${d.sec}</span><input type="checkbox" id="ctrl-seconds" class="toggle-switch"></div>
-        <div class="settings-row"><span class="row-label auto-w">${d.date}</span><input type="checkbox" id="ctrl-date" class="toggle-switch"></div>
-        ${renderSegRow(d.tick, 'clockAnimMode', d.ticks)}
-        ${renderSegRow(d.layout, 'clockLayout', d.layouts)}
-      </div>
-      <div class="settings-block">
-        ${renderSegRow(d.idle, 'idleTimeout', d.idles)}
-        <div class="settings-row"><span class="row-label auto-w">${d.burn}</span><input type="checkbox" id="ctrl-pixelshift" class="toggle-switch"></div>
-        <div class="settings-row"><span class="row-label auto-w">${d.night}</span><input type="checkbox" id="ctrl-nightmode" class="toggle-switch"></div>
-      </div>
-      <div class="settings-block">
-        ${renderSegRow(d.mode, 'mode', d.modes, 1)}
-        <div class="settings-row"><span class="row-label auto-w">${d.theme}</span><div class="swatches-container">
-          ${UIManager.THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}
-          <div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div>
-        </div></div>
-      </div>
-      <div class="settings-block">
-        ${UIManager.SLIDERS.map(s => `<div class="slider-row" aria-label="${d[s.key]}">${UIManager.renderIcon(s.svgMin, 'slider-icon min-icon')}<div class="range-container"><input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}"></div>${UIManager.renderIcon(s.svgMax, 'slider-icon max-icon')}</div>`).join('')}
-      </div>
-    `;
+    const { lang } = this.store.getState(), d = UIManager.DICT[lang], I = this.activeTab;
+    const row = (label, ctrl) => `<div class="settings-row"><span class="row-label auto-w">${label}</span>${ctrl}</div>`;
+    const tg = (id, label) => row(label, `<input type="checkbox" id="${id}" class="toggle-switch">`);
+    const seg = (label, prop, options, offset = 0) => { const isCol = options.length > 3; return `<div class="settings-row${isCol ? ' col-layout' : ''}"><span class="row-label auto-w">${label}</span><div class="segmented-control${isCol ? '' : ' inline-seg'}" data-prop="${prop}" role="radiogroup"><div class="segmented-highlight"></div>${options.map((t, i) => `<button class="segment-btn" data-value="${i + offset}">${t}</button>`).join('')}</div></div>`; };
+    const slider = key => { const s = UIManager.SLIDERS.find(s => s.key === key); return `<div class="slider-row" aria-label="${d[key]}">${UIManager.renderIcon(s.svgMin, 'slider-icon min-icon')}<div class="range-container"><input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}"></div>${UIManager.renderIcon(s.svgMax, 'slider-icon max-icon')}</div>`; };
+    const langRow = row(d.lang, `<div class="segmented-control inline-seg" data-prop="lang" role="radiogroup" style="max-width:120px"><div class="segmented-highlight"></div><button class="segment-btn ${lang === 'en' ? 'active' : ''}" data-value="en">EN</button><button class="segment-btn ${lang === 'zh' ? 'active' : ''}" data-value="zh">中</button></div>`);
+    const theme = row(d.theme, `<div class="swatches-container">${UIManager.THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}<div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div></div>`);
+    const tabs = [
+      [[seg(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono']), seg(d.mode, 'mode', d.modes, 1), theme], [slider('size'), slider('weight')]],
+      [[tg('ctrl-24hr', d.time), tg('ctrl-leadingzero', d.lz), tg('ctrl-seconds', d.sec), tg('ctrl-date', d.date), seg(d.layout, 'clockLayout', d.layouts)]],
+      [[seg(d.tick, 'clockAnimMode', d.ticks)], [slider('speed')]],
+      [[langRow, seg(d.idle, 'idleTimeout', d.idles), tg('ctrl-pixelshift', d.burn), tg('ctrl-nightmode', d.night)]]
+    ];
+    this.panel.innerHTML = `<div class="tab-header" role="tablist">${d.tabs.map((t, i) => `<button class="tab-nav-btn${i === I ? ' active' : ''}" data-tab="${i}" role="tab">${t}</button>`).join('')}</div>${tabs.map((blocks, i) => `<div class="tab-pane${i === I ? ' active' : ''}">${blocks.map(b => `<div class="settings-block">${b.join('')}</div>`).join('')}</div>`).join('')}`;
+  }
+  setTab(i) {
+    this.activeTab = i;
+    const state = this.store.getState();
+    qsa(this.panel, '.tab-nav-btn').forEach((b, j) => b.classList.toggle('active', j === i));
+    qsa(this.panel, '.tab-pane').forEach((p, j) => { p.classList.toggle('active', j === i); if (j === i) qsa(p, '.segmented-control').forEach(c => this.updateSegmentHighlight(c, state[c.dataset.prop], true)); });
   }
   runPixelShift() {
     const state = this.store.getState();
@@ -936,9 +924,10 @@ class UIManager {
     on(document, 'click', e => { if (e.target.closest('.toggle-switch') && this.tgDragged) { e.preventDefault(); e.stopPropagation(); } }, { capture: true });
     on(document, 'click', e => {
       const state = this.store.getState();
-      const segBtn = e.target.closest('.segment-btn'), swatch = e.target.closest('.swatch-wrapper[data-rgb]');
+      const segBtn = e.target.closest('.segment-btn'), swatch = e.target.closest('.swatch-wrapper[data-rgb]'), tabBtn = e.target.closest('.tab-nav-btn');
       if (e.target.closest('.icon-btn')) haptic(15);
-      if (segBtn && !segBtn.classList.contains('active')) {
+      if (tabBtn) { const i = +tabBtn.dataset.tab; if (i !== this.activeTab) { haptic(10); this.setTab(i); } }
+      else if (segBtn && !segBtn.classList.contains('active')) {
         haptic(10); this.store.setState(segBtn.closest('.segmented-control').dataset.prop, isNaN(segBtn.dataset.value) ? segBtn.dataset.value : parseInt(segBtn.dataset.value));
       } else if (swatch) { haptic(10); this.store.setState('colorTarget', swatch.dataset.rgb.split(',').map(Number)); }
       else if (e.target.closest('#btn-lowpower')) {
