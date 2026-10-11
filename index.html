@@ -21,8 +21,8 @@ body .background-layer.exiting{transition:transform 2s linear;transform:scale(1.
 .clock-layer{position:absolute;inset:0;mix-blend-mode:var(--clock-blend,normal);display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:1;--evade-x:0px;--evade-y:0px;--evade-scale:1;--idle-scale:1;transform:translate(var(--evade-x),var(--evade-y)) scale(calc(var(--evade-scale) * var(--idle-scale)));transition:transform 400ms var(--ease-out),opacity 400ms var(--ease-out)}
 body.is-idle .clock-layer{opacity:.35;--idle-scale:.96;transition:opacity 1500ms var(--ease-in-out),transform 1500ms var(--ease-in-out)}
 body .clock-layer.exiting{transition:opacity 2s linear,transform 2s linear;opacity:.1;--idle-scale:.9}
-#clock{margin:0;font-variant-numeric:tabular-nums;white-space:nowrap;overflow-wrap:normal;font-size:var(--clock-size);font-weight:var(--clock-weight);color:var(--clock-color);letter-spacing:0;display:flex;flex-direction:row;justify-content:center;align-items:center;filter:drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 4px var(--clock-shadow-color));position:relative;transition:color 500ms,filter 500ms,gap 300ms;font-family:var(--clock-font);will-change:transform,filter;transform:translateZ(0)}
-.clock-module{overflow:hidden;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;transition:max-width 300ms var(--ease-out),max-height 300ms var(--ease-out),opacity 300ms var(--ease-out),transform 300ms var(--ease-out),margin 300ms var(--ease-out),color 500ms}
+#clock{margin:0;font-variant-numeric:tabular-nums;white-space:nowrap;overflow-wrap:normal;font-size:var(--clock-size);font-weight:var(--clock-weight);color:var(--clock-fill,var(--clock-color));letter-spacing:0;display:flex;flex-direction:row;justify-content:center;align-items:center;filter:drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 4px var(--clock-shadow-color));position:relative;transition:color 500ms,filter 500ms,gap 300ms;font-family:var(--clock-font);will-change:transform,filter;transform:translateZ(0)}
+.clock-module{-webkit-text-stroke:var(--clock-stroke,0);overflow:hidden;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;transition:max-width 300ms var(--ease-out),max-height 300ms var(--ease-out),opacity 300ms var(--ease-out),transform 300ms var(--ease-out),margin 300ms var(--ease-out),color 500ms}
 .clock-module.is-hidden{max-width:0 !important;opacity:0 !important;margin-left:var(--hide-ml,0) !important;transform:scale(.8) translateX(var(--hide-tx,0px)) !important}
 .tens-group{max-width:1.5em}
 .colon-group{max-width:.8em}
@@ -149,7 +149,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.2.2 | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.2.3 | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
 function initPWA() {
   const metaCap = document.createElement('meta'); metaCap.name = 'apple-mobile-web-app-capable'; metaCap.content = 'yes';
@@ -231,7 +231,7 @@ class Store {
       case 'clockAnimMode': return isInt(v, 0, 3) ? v : undefined;
       case 'clockLayout': return isInt(v, 0, 1) ? v : undefined;
       case 'textColor': return (typeof v === 'string' && /^#[0-9A-Fa-f]{6}$/i.test(v)) ? v : undefined;
-      case 'blendMode': return isInt(v, 0, 3) ? v : undefined;
+      case 'material': return isInt(v, 0, 2) ? v : undefined;
       case 'clockOpacity': return isNum(v, 0.1, 1) ? v : undefined;
       case 'datePosition': return isInt(v, 0, 1) ? v : undefined;
       case 'idleTimeout': return isInt(v, 0, 2) ? v : undefined;
@@ -646,7 +646,7 @@ class UIManager {
         ticks: ['Inst', 'Depth', 'Spring', 'Flip'],
         layout: "Layout", layouts: ['Horizontal', 'Vertical'],
         tabs: ['Appearance', 'Layout', 'Motion', 'System'],
-        tc: "Text Color", bm: "Blend Mode", bms: ['Normal', 'Overlay', 'Diff', 'Soft'],
+        tc: "Text Color", mat: "Material", mats: ['Classic', 'Hollow', 'Glow'],
         opacity: "Opacity", datePos: "Date Pos", datePositions: ['Below', 'Above'],
         idles: ['3s', '10s', 'Never']
       },
@@ -659,7 +659,7 @@ class UIManager {
         ticks: ['瞬間', '景深', '彈性', '翻牌'],
         layout: "時鐘排佈", layouts: ['橫向', '直列'],
         tabs: ['外觀', '排版', '動效', '系統'],
-        tc: "字體色彩", bm: "混合模式", bms: ['正常', '疊加', '差值', '柔光'],
+        tc: "字體色彩", mat: "字體材質", mats: ['實色', '鏤空', '高光'],
         opacity: "透明度", datePos: "日期位置", datePositions: ['下方', '上方'],
         idles: ['3秒', '10秒', '永不']
       }
@@ -756,7 +756,7 @@ class UIManager {
     const theme = row(d.theme, `<div class="swatches-container">${UIManager.THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}<div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div></div>`);
     const tcRow = row(d.tc, `<div class="swatch-wrapper active"><div class="swatch-color" id="text-swatch-color" style="background: ${textColor}"></div><input type="color" id="ctrl-textcolor" value="${textColor}"></div>`);
     const tabs = [
-      [[seg(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono']), seg(d.mode, 'mode', d.modes, 1), theme], [tcRow, seg(d.bm, 'blendMode', d.bms)], [slider('size'), slider('weight'), slider('opacity')]],
+      [[seg(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono']), seg(d.mode, 'mode', d.modes, 1), theme], [tcRow, seg(d.mat, 'material', d.mats)], [slider('size'), slider('weight'), slider('opacity')]],
       [[tg('ctrl-24hr', d.time), tg('ctrl-leadingzero', d.lz), tg('ctrl-seconds', d.sec), tg('ctrl-date', d.date), seg(d.layout, 'clockLayout', d.layouts), seg(d.datePos, 'datePosition', d.datePositions)]],
       [[seg(d.tick, 'clockAnimMode', d.ticks)], [slider('speed')]],
       [[langRow, seg(d.idle, 'idleTimeout', d.idles), tg('ctrl-pixelshift', d.burn), tg('ctrl-nightmode', d.night)]]
@@ -795,7 +795,7 @@ class UIManager {
     }
   }
   syncUI(skipAnim = false, changedKey = null) {
-    const state = this.store.getState(), { fontStyle, nightMode, lowPower, colorTarget, textColor, blendMode, clockOpacity: op } = state;
+    const state = this.store.getState(), { fontStyle, nightMode, lowPower, colorTarget, textColor, material, clockOpacity: op } = state;
     const root = document.documentElement, sp = (k, v) => root.style.setProperty(k, v);
     const full = changedKey === null;
     if (full || changedKey === 'fontStyle') {
@@ -804,9 +804,11 @@ class UIManager {
     if (full || ['nightMode', 'clockOpacity'].includes(changedKey)) {
       sp('--date-color', nightMode ? `rgba(110, 63, 32, ${op})` : `rgba(255, 255, 255, ${0.6 * op})`); sp('--clock-shadow-color', nightMode ? 'transparent' : `rgba(255, 255, 255, ${0.2 * op})`);
     }
-    if (full || ['nightMode', 'textColor', 'clockOpacity'].includes(changedKey)) sp('--clock-color', nightMode ? `rgba(217, 119, 54, ${op})` : `rgba(${UIManager.hexToRgb(textColor).map(x => Math.round(x * 255)).join(', ')}, ${op})`);
+    if (full || ['nightMode', 'textColor', 'clockOpacity', 'material'].includes(changedKey)) {
+      const cColor = nightMode ? `rgba(217, 119, 54, ${op})` : `rgba(${UIManager.hexToRgb(textColor).map(x => Math.round(x * 255)).join(', ')}, ${op})`;
+      sp('--clock-color', cColor); sp('--clock-fill', material === 1 ? 'transparent' : cColor); sp('--clock-stroke', material === 1 ? `max(1px, 0.02em) ${cColor}` : '0'); sp('--clock-blend', material === 2 ? 'color-dodge' : 'normal');
+    }
     if (full || changedKey === 'textColor') { $('ctrl-textcolor').value = textColor; $('text-swatch-color').style.background = textColor; }
-    if (full || changedKey === 'blendMode') sp('--clock-blend', ['normal', 'overlay', 'difference', 'soft-light'][blendMode]);
     if (full || changedKey === 'pixelShift') this.runPixelShift();
     if (full || changedKey === 'lowPower') {
       const btnLowpower = $('btn-lowpower');
@@ -978,7 +980,7 @@ class UIManager {
     ['touchend', 'touchcancel'].forEach(evt => on(document, evt, () => this.exitApp(false)));
   }
 }
-const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, clockLayout: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false, textColor: '#ffffff', blendMode: 0, clockOpacity: 1, datePosition: 0, isIdle: false, isHolding: false, isPanelOpen: false };
+const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, clockLayout: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false, textColor: '#ffffff', material: 0, clockOpacity: 1, datePosition: 0, isIdle: false, isHolding: false, isPanelOpen: false };
 const store = new Store(defaultState);
 const glEngine = new WebGLEngine($('gl-canvas'), store);
 const clockController = new ClockController($('clock-layer'), store,$('settings-panel'));
