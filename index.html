@@ -102,9 +102,9 @@ input[type=range]::-webkit-slider-runnable-track{width:100%;height:4px;border-ra
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;height:20px;width:20px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.4);margin-top:-8px;transition:transform 160ms var(--ease-out)}
 input[type=range]::-webkit-slider-thumb:active{cursor:grabbing;transform:scale(.9)}
 .segmented-control{position:relative;display:flex;min-width:0;padding:2px;background:rgba(0,0,0,.25);border-radius:6px;box-sizing:border-box;box-shadow:inset 0 1px 2px rgba(0,0,0,.2)}
-.inline-seg{width:100%;max-width:none;flex:1;margin-left:12px;height:28px}
+.inline-seg{width:auto;max-width:none;flex:1 1 auto;margin-left:12px;height:28px}
 .segmented-highlight{position:absolute;top:2px;bottom:2px;left:0;background:rgba(255,255,255,.15);border-radius:4px;transition:transform 250ms var(--ease-out),width 250ms var(--ease-out);pointer-events:none;box-shadow:0 3px 8px rgba(0,0,0,.15),0 1px 2px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.1)}
-.segment-btn{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;border:none;background:transparent;color:rgba(255,255,255,.5);font-weight:500;z-index:1;cursor:pointer;transition:color 150ms var(--ease-out),transform 160ms var(--ease-out);margin:0;padding:0 4px;white-space:nowrap;display:flex;align-items:center;justify-content:center;font-size:12px}
+.segment-btn{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;border:none;background:transparent;color:rgba(255,255,255,.5);font-weight:500;z-index:1;cursor:pointer;transition:color 150ms var(--ease-out),transform 160ms var(--ease-out);margin:0;padding:0 8px;white-space:nowrap;display:flex;align-items:center;justify-content:center;font-size:12px}
 .segment-btn.active{color:#fff}
 .segment-btn:active{transform:scale(.95)}
 .swatches-container{display:flex;gap:4px;align-items:center;justify-content:flex-end;height:44px;flex:1}
@@ -159,7 +159,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.2.6 | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.2.7 | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
 function initPWA() {
   const metaCap = document.createElement('meta'); metaCap.name = 'apple-mobile-web-app-capable'; metaCap.content = 'yes';
@@ -566,8 +566,8 @@ class ClockController {
         if (this.anchorAnim) this.anchorAnim.forEach(a => a.cancel());
         this.updateEvasion();
         this.anchorAnim = els.map((e, i) => {
-          const l = e.getBoundingClientRect(), rx = first[i].left - l.left, ry = first[i].top - l.top, sc = e.offsetWidth ? l.width / e.offsetWidth : 1;
-          return e.offsetHeight && (Math.abs(rx) > 1 || Math.abs(ry) > 1) && e.animate([{ transform: `translate(${rx / sc}px,${ry / sc}px)`, filter: 'blur(8px)' }, { transform: 'translate(0px, 0px)', filter: 'blur(0px)' }], { duration: 400, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+          const l = e.getBoundingClientRect(), rx = first[i].left - l.left, ry = first[i].top - l.top, sc = e.offsetWidth ? l.width / e.offsetWidth : 1, dist = Math.sqrt(rx * rx + ry * ry), blur = Math.min(12, dist * 0.05);
+          return e.offsetHeight && dist > 1 && e.animate([{ transform: `translate(${rx / sc}px,${ry / sc}px)`, filter: `blur(${blur}px)` }, { transform: 'translate(0px, 0px)', filter: 'blur(0px)' }], { duration: 400, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
         }).filter(Boolean);
       });
     } else if (key === 'offsetX' || key === 'offsetY') {
@@ -971,11 +971,22 @@ class UIManager {
     }
   }
   bindEvents() {
-    let lastHap = 0, centerHold = null;
-    const clearCenterHold = () => { if (centerHold) { clearTimeout(centerHold); centerHold = null; } };
-    on(document, 'pointerdown', e => { if (e.target.closest('.anchor-btn[data-value="4"]')) { clearCenterHold(); centerHold = setTimeout(() => { centerHold = null; haptic([30, 50]); this.store.setState('offsetX', 0); this.store.setState('offsetY', 0); if (this.store.getState().anchor !== 4) this.store.setState('anchor', 4); }, 600); } }, { passive: true });
-    ['pointerup', 'pointercancel'].forEach(t => on(document, t, clearCenterHold, { passive: true }));
-    on(document, 'pointerout', e => { if (e.target.closest && e.target.closest('.anchor-btn[data-value="4"]')) clearCenterHold(); }, { passive: true });
+    let lastHap = 0, anchorHold = null, holdFired = false;
+    const clearAnchorHold = () => { if (anchorHold) { clearTimeout(anchorHold); anchorHold = null; } };
+    on(document, 'pointerdown', e => {
+      const btn = e.target.closest('.anchor-btn');
+      if (btn) {
+        clearAnchorHold(); holdFired = false;
+        anchorHold = setTimeout(() => {
+          holdFired = true; anchorHold = null; haptic([30, 50]);
+          this.store.setState('offsetX', 0); this.store.setState('offsetY', 0);
+          if (this.store.getState().anchor !== +btn.dataset.value) this.store.setState('anchor', +btn.dataset.value);
+        }, 600);
+      } else if (e.button === 0 && !e.target.closest('button, .settings-panel, .swatch-wrapper, input, .anchor-grid')) { this.touchStartX = e.clientX; this.touchStartY = e.clientY; this.exitApp(true); }
+    }, { passive: true });
+    ['pointerup', 'pointercancel'].forEach(t => on(document, t, () => { clearAnchorHold(); this.exitApp(false); }, { passive: true }));
+    on(document, 'pointerout', e => { if (e.target.closest && e.target.closest('.anchor-grid')) clearAnchorHold(); }, { passive: true });
+    on(document, 'pointermove', e => { const state = this.store.getState(); if (state.isHolding && this.touchStartX !== null && (Math.abs(e.clientX - this.touchStartX) > 15 || Math.abs(e.clientY - this.touchStartY) > 15)) this.exitApp(false); }, { passive: true });
     on(document, 'input', e => {
       if (e.target.type === 'range') { document.body.classList.add('is-dragging'); const t = e.target, v = t.value, isEdge = v === t.min || v === t.max, now = Date.now(); if (isEdge || now - lastHap > 40) { haptic(isEdge ? 20 : 5); lastHap = now; } }
       const entry = Object.entries(UIManager.UI_BINDINGS).find(([, b]) => b.id === e.target.id);
@@ -1001,7 +1012,7 @@ class UIManager {
       const segBtn = e.target.closest('.segment-btn'), swatch = e.target.closest('.swatch-wrapper[data-rgb]'), tabBtn = e.target.closest('.tab-nav-btn'), anchorBtn = e.target.closest('.anchor-btn');
       if (e.target.closest('.icon-btn')) haptic(15);
       if (tabBtn) { const i = +tabBtn.dataset.tab; if (i !== this.activeTab) { haptic(10); this.setTab(i); } }
-      else if (anchorBtn) { if (!anchorBtn.classList.contains('active')) { haptic(10); this.store.setState('anchor', +anchorBtn.dataset.value); } }
+      else if (anchorBtn) { if (!holdFired && !anchorBtn.classList.contains('active')) { haptic(10); this.store.setState('anchor', +anchorBtn.dataset.value); } holdFired = false; }
       else if (segBtn && !segBtn.classList.contains('active')) {
         haptic(10); this.store.setState(segBtn.closest('.segmented-control').dataset.prop, isNaN(segBtn.dataset.value) ? segBtn.dataset.value : parseInt(segBtn.dataset.value));
       } else if (swatch) { haptic(10); this.store.setState('colorTarget', swatch.dataset.rgb.split(',').map(Number)); }
@@ -1025,11 +1036,8 @@ class UIManager {
     });
     on(document, 'fullscreenchange', () => window.dispatchEvent(new Event('resize')));
     ['mousemove', 'pointermove', 'touchstart', 'keydown'].forEach(evt => on(window, evt, () => this.wakeUp(), { passive: true }));
-    on(document, 'keydown', e => { if (e.target.tagName !== 'INPUT' && e.code === 'Space') { e.preventDefault(); if (!e.repeat) this.exitApp(true); } });
-    on(document, 'keyup', e => { if (e.code === 'Space') this.exitApp(false); }); on(window, 'blur', () => this.exitApp(false));
-    on(document, 'touchstart', e => { if (!e.target.closest('button, .settings-panel, .swatch-wrapper, input')) { this.touchStartX = e.touches[0].clientX; this.touchStartY = e.touches[0].clientY; this.exitApp(true); } }, { passive: true });
-    on(document, 'touchmove', e => { const state = this.store.getState(); if (state.isHolding && (Math.abs(e.touches[0].clientX - this.touchStartX) > 15 || Math.abs(e.touches[0].clientY - this.touchStartY) > 15)) this.exitApp(false); }, { passive: true });
-    ['touchend', 'touchcancel'].forEach(evt => on(document, evt, () => this.exitApp(false)));
+    on(document, 'keydown', e => { if (e.target.tagName !== 'INPUT' && (e.code === 'Space' || e.key === ' ')) { e.preventDefault(); if (!e.repeat) { this.touchStartX = null; this.exitApp(true); } } });
+    on(document, 'keyup', e => { if (e.code === 'Space' || e.key === ' ') this.exitApp(false); }); on(window, 'blur', () => this.exitApp(false));
   }
 }
 const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, clockAnimMode: 0, clockLayout: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false, textColor: '#ffffff', material: 0, showCustomText: false, customText: "Ambient Aurora", anchor: 4, offsetX: 0, offsetY: 0, clockOpacity: 1, datePosition: 0, isIdle: false, isHolding: false, isPanelOpen: false };
