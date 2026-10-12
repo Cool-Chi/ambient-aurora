@@ -44,7 +44,7 @@ body .clock-layer.exiting{transition:opacity 2s linear,transform 2s linear;opaci
 .date-display.is-hidden{max-height:0;margin-top:0;margin-bottom:0}
 #custom-text{max-width:90vw;white-space:nowrap;text-overflow:ellipsis}
 #custom-text:empty{margin:0}
-.ui-layer{position:absolute;inset:0;pointer-events:none}
+.ui-layer{position:absolute;inset:0;z-index:10;pointer-events:none}
 body.is-idle .ui-layer>*{opacity:0 !important;pointer-events:none !important;transition:opacity 1500ms var(--ease-in-out),transform 1500ms var(--ease-in-out) !important}
 .icon-btn{pointer-events:auto;position:absolute;bottom:calc(env(safe-area-inset-bottom,24px) + 20px);width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.08);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);color:white;cursor:pointer;outline:none;opacity:1;transform:scale(1);transition:transform 160ms var(--ease-out),background 200ms var(--ease-out),opacity 200ms var(--ease-out)}
 .icon-btn:active{transform:scale(.97);background:rgba(255,255,255,.15)}
@@ -88,6 +88,7 @@ body.is-fullscreen .settings-panel.active{opacity:1;transform:scale(1)}
 .anchor-btn{padding:0;border:none;border-radius:4px;background:rgba(255,255,255,.14);cursor:pointer;transition:background 150ms,transform 100ms}
 .anchor-btn:active{transform:scale(.88)}
 .anchor-btn.active{background:#fff}
+.anchor-btn[data-value="4"].active{background:#FF9F0A}
 @media (hover:hover){.anchor-btn:not(.active):hover{background:rgba(255,255,255,.3)}}
 .slider-row{display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-bottom:.5px solid rgba(255,255,255,.12)}
 .slider-row:last-child{border-bottom:none}
@@ -158,7 +159,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.2.5 | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.2.6 | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
 function initPWA() {
   const metaCap = document.createElement('meta'); metaCap.name = 'apple-mobile-web-app-capable'; metaCap.content = 'yes';
@@ -558,8 +559,19 @@ class ClockController {
         if (i) this.updateEvasion();
         el.animate([{ opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)' }], { duration: 250, easing: 'ease-out' });
       });
-    } else if (['anchor', 'offsetX', 'offsetY'].includes(key)) {
-      Promise.resolve().then(() => this.updateEvasion());
+    } else if (key === 'anchor') {
+      const els = [this.clockElement, this.dateElement, this.customTextElement], first = els.map(e => e.getBoundingClientRect());
+      if (this.anchorAnim) this.anchorAnim.forEach(a => a.cancel());
+      requestAnimationFrame(() => {
+        if (this.anchorAnim) this.anchorAnim.forEach(a => a.cancel());
+        this.updateEvasion();
+        this.anchorAnim = els.map((e, i) => {
+          const l = e.getBoundingClientRect(), rx = first[i].left - l.left, ry = first[i].top - l.top, sc = e.offsetWidth ? l.width / e.offsetWidth : 1;
+          return e.offsetHeight && (Math.abs(rx) > 1 || Math.abs(ry) > 1) && e.animate([{ transform: `translate(${rx / sc}px,${ry / sc}px)`, filter: 'blur(8px)' }, { transform: 'translate(0px, 0px)', filter: 'blur(0px)' }], { duration: 400, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+        }).filter(Boolean);
+      });
+    } else if (key === 'offsetX' || key === 'offsetY') {
+      this.updateEvasion();
     } else if (key === 'customText') {
       this.customTextElement.textContent = val;
     } else if (key === 'showCustomText') {
@@ -959,7 +971,11 @@ class UIManager {
     }
   }
   bindEvents() {
-    let lastHap = 0;
+    let lastHap = 0, centerHold = null;
+    const clearCenterHold = () => { if (centerHold) { clearTimeout(centerHold); centerHold = null; } };
+    on(document, 'pointerdown', e => { if (e.target.closest('.anchor-btn[data-value="4"]')) { clearCenterHold(); centerHold = setTimeout(() => { centerHold = null; haptic([30, 50]); this.store.setState('offsetX', 0); this.store.setState('offsetY', 0); if (this.store.getState().anchor !== 4) this.store.setState('anchor', 4); }, 600); } }, { passive: true });
+    ['pointerup', 'pointercancel'].forEach(t => on(document, t, clearCenterHold, { passive: true }));
+    on(document, 'pointerout', e => { if (e.target.closest && e.target.closest('.anchor-btn[data-value="4"]')) clearCenterHold(); }, { passive: true });
     on(document, 'input', e => {
       if (e.target.type === 'range') { document.body.classList.add('is-dragging'); const t = e.target, v = t.value, isEdge = v === t.min || v === t.max, now = Date.now(); if (isEdge || now - lastHap > 40) { haptic(isEdge ? 20 : 5); lastHap = now; } }
       const entry = Object.entries(UIManager.UI_BINDINGS).find(([, b]) => b.id === e.target.id);
