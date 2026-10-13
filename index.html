@@ -21,6 +21,7 @@ body .background-layer.exiting{transition:transform 2s linear;transform:scale(1.
 .clock-layer{position:absolute;inset:0;mix-blend-mode:var(--clock-blend,normal);display:flex;flex-direction:column;align-items:var(--pos-x,center);justify-content:var(--pos-y,center);padding:4vmin;pointer-events:none;opacity:1;--evade-x:0px;--evade-y:0px;--evade-scale:1;--idle-scale:1;transform-origin:var(--ox,50%) var(--oy,50%);transform:translate(calc(var(--evade-x) + var(--off-x,0vw)),calc(var(--evade-y) + var(--off-y,0vh))) scale(calc(var(--evade-scale) * var(--idle-scale)));transition:transform 400ms var(--ease-out),opacity 400ms var(--ease-out)}
 body.is-idle .clock-layer{opacity:.35;--idle-scale:.96;transition:opacity 1500ms var(--ease-in-out),transform 1500ms var(--ease-in-out)}
 body .clock-layer.exiting{transition:opacity 2s linear,transform 2s linear;opacity:.1;--idle-scale:.9}
+.clock-layer.is-flipping{transition:none !important}
 #clock{margin:0;font-variant-numeric:tabular-nums;white-space:nowrap;overflow-wrap:normal;font-size:var(--clock-size);font-weight:var(--clock-weight);color:var(--clock-fill,var(--clock-color));letter-spacing:0;display:flex;flex-direction:row;justify-content:center;align-items:center;filter:drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 4px var(--clock-shadow-color));position:relative;transition:color 500ms,filter 500ms,gap 300ms;font-family:var(--clock-font);will-change:transform,filter;transform:translateZ(0)}
 .clock-module{-webkit-text-stroke:var(--clock-stroke,0);overflow:hidden;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;transition:max-width 300ms var(--ease-out),max-height 300ms var(--ease-out),opacity 300ms var(--ease-out),transform 300ms var(--ease-out),margin 300ms var(--ease-out),color 500ms}
 .clock-module.is-hidden{max-width:0 !important;opacity:0 !important;margin-left:var(--hide-ml,0) !important;transform:scale(.8) translateX(var(--hide-tx,0px)) !important}
@@ -62,9 +63,9 @@ body.is-fullscreen .icon-btn{opacity:0;pointer-events:none;transform:scale(.9)}
 .exit-hint::after{content:"長按空白鍵可退出"}
 @media (pointer:coarse){.exit-hint::after{content:"長按畫面可退出"}}
 body.is-fullscreen .exit-hint{opacity:1}
-.settings-panel{pointer-events:auto;position:absolute;left:24px;bottom:calc(env(safe-area-inset-bottom,24px) + 84px);width:340px;background:rgba(30,30,30,.55);backdrop-filter:blur(40px) saturate(200%);-webkit-backdrop-filter:blur(40px) saturate(200%);border:none;border-radius:24px;padding:16px;box-sizing:border-box;box-shadow:inset 0 1px 1px rgba(255,255,255,.25),inset 0 0 0 1px rgba(255,255,255,.05),0 32px 64px rgba(0,0,0,.4);opacity:0;transform:scale(.95);transform-origin:bottom left;visibility:hidden;transition:opacity 250ms var(--ease-out),transform 250ms var(--ease-out),visibility 250ms;display:flex;flex-direction:column;gap:16px;height:480px;max-height:calc(100svh - 120px);overflow:hidden}
+.settings-panel{pointer-events:none;position:absolute;left:24px;bottom:calc(env(safe-area-inset-bottom,24px) + 84px);width:340px;background:rgba(30,30,30,.55);backdrop-filter:blur(40px) saturate(200%);-webkit-backdrop-filter:blur(40px) saturate(200%);border:none;border-radius:24px;padding:16px;box-sizing:border-box;box-shadow:inset 0 1px 1px rgba(255,255,255,.25),inset 0 0 0 1px rgba(255,255,255,.05),0 32px 64px rgba(0,0,0,.4);opacity:0;transform:scale(.95);transform-origin:bottom left;visibility:hidden;transition:opacity 250ms var(--ease-out),transform 250ms var(--ease-out),visibility 250ms;display:flex;flex-direction:column;gap:16px;height:480px;max-height:calc(100svh - 120px);overflow:hidden}
 .settings-panel::-webkit-scrollbar{display:none}
-.settings-panel.active{opacity:1;transform:scale(1);visibility:visible}
+.settings-panel.active{opacity:1;transform:scale(1);visibility:visible;pointer-events:auto}
 body.is-fullscreen .settings-panel.active{opacity:1;transform:scale(1)}
 @media (max-width:600px){.settings-panel{left:16px;right:auto;width:calc(100vw - 32px);max-width:340px;max-height:55dvh;bottom:calc(env(safe-area-inset-bottom,16px) + 72px);transform-origin:bottom left}}
 .settings-block{background:rgba(255,255,255,.06);border-radius:12px;overflow:hidden;flex-shrink:0}
@@ -77,7 +78,7 @@ body.is-fullscreen .settings-panel.active{opacity:1;transform:scale(1)}
 .tab-panes::-webkit-scrollbar-track{background:transparent}
 .tab-panes::-webkit-scrollbar-thumb{background:rgba(255,255,255,.3);border-radius:2px}
 .tab-pane{position:absolute;inset:0 0 10px;display:flex;flex-direction:column;gap:16px;overflow:hidden;opacity:0;visibility:hidden;transform:translateY(10px);transition:opacity 250ms,visibility 250ms,transform 250ms}
-.tab-pane.active{position:relative;inset:auto;overflow:visible;opacity:1;visibility:visible;transform:translateY(0)}
+.tab-pane.active{position:relative;inset:auto;overflow:visible;opacity:1;visibility:inherit;transform:translateY(0)}
 @media (max-width:600px){.tab-nav-btn{padding:4px 6px}}
 .settings-row{display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:0 16px;border-bottom:.5px solid rgba(255,255,255,.12)}
 .settings-row:last-child{border-bottom:none}
@@ -164,7 +165,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.2.8 | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.2.9 | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
 function initPWA() {
   const metaCap = document.createElement('meta'); metaCap.name = 'apple-mobile-web-app-capable'; metaCap.content = 'yes';
@@ -566,13 +567,18 @@ class ClockController {
         el.animate([{ opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)' }], { duration: 250, easing: 'ease-out' });
       });
     } else if (key === 'anchor') {
-      const cw = this.clockWrapper, first = cw.getBoundingClientRect();
-      if (this.anchorAnim) this.anchorAnim.cancel();
+      const cw = this.clockWrapper, cl = this.container, first = cw.getBoundingClientRect();
+      if (this.anchorAnim) { this.anchorAnim.cancel(); cl.classList.remove('is-flipping'); }
       requestAnimationFrame(() => {
         if (this.anchorAnim) this.anchorAnim.cancel();
+        cl.classList.add('is-flipping');
         this.updateEvasion();
+        void cw.offsetWidth;
         const last = cw.getBoundingClientRect(), rx = first.left - last.left, ry = first.top - last.top, dist = Math.sqrt(rx * rx + ry * ry), sc = cw.offsetWidth ? last.width / cw.offsetWidth : 1;
-        if (dist > 1) this.anchorAnim = cw.animate([{ transform: `translate(${rx / sc}px,${ry / sc}px)`, filter: `blur(${Math.min(12, dist * 0.05)}px)` }, { transform: 'translate(0px, 0px)', filter: 'blur(0px)' }], { duration: 400, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+        if (dist > 5) {
+          const a = this.anchorAnim = cw.animate([{ transform: `translate(${rx / sc}px,${ry / sc}px)`, filter: `blur(${Math.min(12, dist * 0.05)}px)` }, { transform: 'translate(0px, 0px)', filter: 'blur(0px)' }], { duration: 400, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+          a.onfinish = a.oncancel = () => { if (this.anchorAnim === a) cl.classList.remove('is-flipping'); };
+        } else cl.classList.remove('is-flipping');
       });
     } else if (key === 'offsetX' || key === 'offsetY') {
       this.updateEvasion();
