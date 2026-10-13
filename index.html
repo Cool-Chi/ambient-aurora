@@ -62,19 +62,22 @@ body.is-fullscreen .icon-btn{opacity:0;pointer-events:none;transform:scale(.9)}
 .exit-hint::after{content:"長按空白鍵可退出"}
 @media (pointer:coarse){.exit-hint::after{content:"長按畫面可退出"}}
 body.is-fullscreen .exit-hint{opacity:1}
-.settings-panel{pointer-events:auto;position:absolute;left:24px;bottom:calc(env(safe-area-inset-bottom,24px) + 84px);width:340px;background:rgba(30,30,30,.55);backdrop-filter:blur(40px) saturate(200%);-webkit-backdrop-filter:blur(40px) saturate(200%);border:none;border-radius:24px;padding:16px;box-sizing:border-box;box-shadow:inset 0 1px 1px rgba(255,255,255,.25),inset 0 0 0 1px rgba(255,255,255,.05),0 32px 64px rgba(0,0,0,.4);opacity:0;transform:scale(.95);transform-origin:bottom left;visibility:hidden;transition:opacity 250ms var(--ease-out),transform 250ms var(--ease-out),visibility 250ms;display:flex;flex-direction:column;gap:16px;max-height:calc(100svh - 120px);overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}
+.settings-panel{pointer-events:auto;position:absolute;left:24px;bottom:calc(env(safe-area-inset-bottom,24px) + 84px);width:340px;background:rgba(30,30,30,.55);backdrop-filter:blur(40px) saturate(200%);-webkit-backdrop-filter:blur(40px) saturate(200%);border:none;border-radius:24px;padding:16px;box-sizing:border-box;box-shadow:inset 0 1px 1px rgba(255,255,255,.25),inset 0 0 0 1px rgba(255,255,255,.05),0 32px 64px rgba(0,0,0,.4);opacity:0;transform:scale(.95);transform-origin:bottom left;visibility:hidden;transition:opacity 250ms var(--ease-out),transform 250ms var(--ease-out),visibility 250ms;display:flex;flex-direction:column;gap:16px;height:480px;max-height:calc(100svh - 120px);overflow:hidden}
 .settings-panel::-webkit-scrollbar{display:none}
 .settings-panel.active{opacity:1;transform:scale(1);visibility:visible}
 body.is-fullscreen .settings-panel.active{opacity:1;transform:scale(1)}
-@media (max-width:600px){.settings-panel{left:16px;right:auto;width:calc(100vw - 32px);max-width:340px;max-height:55dvh;bottom:calc(env(safe-area-inset-bottom,16px) + 72px);overflow-y:auto;transform-origin:bottom left}}
+@media (max-width:600px){.settings-panel{left:16px;right:auto;width:calc(100vw - 32px);max-width:340px;max-height:55dvh;bottom:calc(env(safe-area-inset-bottom,16px) + 72px);transform-origin:bottom left}}
 .settings-block{background:rgba(255,255,255,.06);border-radius:12px;overflow:hidden;flex-shrink:0}
 .tab-header{display:flex;gap:4px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:8px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
 .tab-header::-webkit-scrollbar{display:none}
 .tab-nav-btn{background:transparent;border:none;color:rgba(255,255,255,.5);font-size:14px;font-weight:600;padding:4px 8px;cursor:pointer;transition:color 200ms;white-space:nowrap;flex-shrink:0}
 .tab-nav-btn.active{color:#fff}
-.tab-panes{display:grid;grid-template-columns:minmax(0,1fr);flex-shrink:0}
-.tab-pane{grid-area:1/1;display:flex;flex-direction:column;gap:16px;max-height:0;overflow:hidden;opacity:0;visibility:hidden;transform:translateY(10px);transition:opacity 250ms,visibility 250ms,transform 250ms,max-height 250ms}
-.tab-pane.active{max-height:1200px;opacity:1;visibility:visible;transform:translateY(0)}
+.tab-panes{position:relative;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;padding-right:4px;margin-right:-4px}
+.tab-panes::-webkit-scrollbar{width:4px}
+.tab-panes::-webkit-scrollbar-track{background:transparent}
+.tab-panes::-webkit-scrollbar-thumb{background:rgba(255,255,255,.3);border-radius:2px}
+.tab-pane{position:absolute;inset:0 0 10px;display:flex;flex-direction:column;gap:16px;overflow:hidden;opacity:0;visibility:hidden;transform:translateY(10px);transition:opacity 250ms,visibility 250ms,transform 250ms}
+.tab-pane.active{position:relative;inset:auto;overflow:visible;opacity:1;visibility:visible;transform:translateY(0)}
 @media (max-width:600px){.tab-nav-btn{padding:4px 6px}}
 .settings-row{display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:0 16px;border-bottom:.5px solid rgba(255,255,255,.12)}
 .settings-row:last-child{border-bottom:none}
@@ -135,6 +138,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
 <div id="app-container">
   <div class="background-layer" id="bg-layer"><canvas id="gl-canvas" class="gl-canvas"></canvas></div>
   <div class="clock-layer" id="clock-layer">
+    <div id="clock-wrapper" style="display:flex; flex-direction:column; align-items:center;">
     <div id="clock">
       <div class="hours-row" style="display:inline-flex; align-items:center;">
         <div class="tens-group clock-module" style="--hide-tx: 20px;"></div>
@@ -148,6 +152,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     </div>
     <div id="date" class="date-display"></div>
     <div id="custom-text" class="date-display"></div>
+    </div>
   </div>
   <div class="ui-layer">
     <div class="exit-hint"></div>
@@ -159,7 +164,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.2.7 | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.2.8 | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
 function initPWA() {
   const metaCap = document.createElement('meta'); metaCap.name = 'apple-mobile-web-app-capable'; metaCap.content = 'yes';
@@ -484,6 +489,7 @@ class ClockController {
     this.store = store;
     this.panel = obstacleEl;
     this.clockElement = qs(this.container, '#clock');
+    this.clockWrapper = qs(this.container, '#clock-wrapper');
     this.dateElement = qs(this.container, '#date');
     this.customTextElement = qs(this.container, '#custom-text');
     this.tensCont = qs(this.clockElement, '.tens-group');
@@ -528,7 +534,7 @@ class ClockController {
     });
     this.layoutObserver.observe(this.clockElement);
     this.layoutObserver.observe(this.panel);
-    [this.container, this.dateElement, this.customTextElement].forEach(e => this.layoutObserver.observe(e));
+    [this.container, this.clockWrapper].forEach(e => this.layoutObserver.observe(e));
     this.store.subscribe((key, val) => this.handleStateChange(key, val));
   }
   blank() { return { tens: "", units: "", min: "", sec: "", ampm: "" }; }
@@ -560,15 +566,13 @@ class ClockController {
         el.animate([{ opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)' }], { duration: 250, easing: 'ease-out' });
       });
     } else if (key === 'anchor') {
-      const els = [this.clockElement, this.dateElement, this.customTextElement], first = els.map(e => e.getBoundingClientRect());
-      if (this.anchorAnim) this.anchorAnim.forEach(a => a.cancel());
+      const cw = this.clockWrapper, first = cw.getBoundingClientRect();
+      if (this.anchorAnim) this.anchorAnim.cancel();
       requestAnimationFrame(() => {
-        if (this.anchorAnim) this.anchorAnim.forEach(a => a.cancel());
+        if (this.anchorAnim) this.anchorAnim.cancel();
         this.updateEvasion();
-        this.anchorAnim = els.map((e, i) => {
-          const l = e.getBoundingClientRect(), rx = first[i].left - l.left, ry = first[i].top - l.top, sc = e.offsetWidth ? l.width / e.offsetWidth : 1, dist = Math.sqrt(rx * rx + ry * ry), blur = Math.min(12, dist * 0.05);
-          return e.offsetHeight && dist > 1 && e.animate([{ transform: `translate(${rx / sc}px,${ry / sc}px)`, filter: `blur(${blur}px)` }, { transform: 'translate(0px, 0px)', filter: 'blur(0px)' }], { duration: 400, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
-        }).filter(Boolean);
+        const last = cw.getBoundingClientRect(), rx = first.left - last.left, ry = first.top - last.top, dist = Math.sqrt(rx * rx + ry * ry), sc = cw.offsetWidth ? last.width / cw.offsetWidth : 1;
+        if (dist > 1) this.anchorAnim = cw.animate([{ transform: `translate(${rx / sc}px,${ry / sc}px)`, filter: `blur(${Math.min(12, dist * 0.05)}px)` }, { transform: 'translate(0px, 0px)', filter: 'blur(0px)' }], { duration: 400, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
       });
     } else if (key === 'offsetX' || key === 'offsetY') {
       this.updateEvasion();
@@ -642,8 +646,7 @@ class ClockController {
     let x = 0, y = 0, k = 1;
     if (isPanelOpen) {
       const ww = window.innerWidth, wh = window.innerHeight, p = this.panel, m = 16;
-      const els = [this.clockElement, this.dateElement, this.customTextElement].filter(e => e.offsetHeight > 0);
-      const B = { l: Math.min(...els.map(e => e.offsetLeft)), r: Math.max(...els.map(e => e.offsetLeft + e.offsetWidth)), t: Math.min(...els.map(e => e.offsetTop)), b: Math.max(...els.map(e => e.offsetTop + e.offsetHeight)) };
+      const cw = this.clockWrapper, B = { l: cw.offsetLeft, r: cw.offsetLeft + cw.offsetWidth, t: cw.offsetTop, b: cw.offsetTop + cw.offsetHeight };
       const pad = Math.min(ww, wh) * 0.04, ox = [pad, ww / 2, ww - pad][anchor % 3], oy = [pad, wh / 2, wh - pad][Math.floor(anchor / 3)], dx = offsetX * ww / 100, dy = offsetY * wh / 100;
       const R = f => ({ l: ox + f * (B.l - ox) + dx, r: ox + f * (B.r - ox) + dx, t: oy + f * (B.t - oy) + dy, b: oy + f * (B.b - oy) + dy });
       const P = { l: p.offsetLeft - m, r: p.offsetLeft + p.offsetWidth + m, t: p.offsetTop - m, b: p.offsetTop + p.offsetHeight + m };
@@ -685,7 +688,7 @@ class UIManager {
         modes: ['Silk', 'Glow', 'Dust', 'Liquid', 'Horizon'],
         ticks: ['Inst', 'Depth', 'Spring', 'Flip'],
         layout: "Layout", layouts: ['Horizontal', 'Vertical'],
-        tabs: ['Appearance', 'Layout', 'Motion', 'System'],
+        tabs: ['Clock', 'Background', 'System'],
         tc: "Text Color", mat: "Material", mats: ['Classic', 'Hollow', 'Glow'], sct: "Custom Text", ctph: "Enter text...", anchor: "Position", offset: "Offset X / Y",
         opacity: "Opacity", datePos: "Date Pos", datePositions: ['Below', 'Above'],
         idles: ['3s', '10s', 'Never']
@@ -698,7 +701,7 @@ class UIManager {
         modes: ['絲綢', '光暈', '星塵', '液態', '天沿'],
         ticks: ['瞬間', '景深', '彈性', '翻牌'],
         layout: "時鐘排佈", layouts: ['橫向', '直列'],
-        tabs: ['外觀', '排版', '動效', '系統'],
+        tabs: ['時鐘', '背景', '系統'],
         tc: "字體色彩", mat: "字體材質", mats: ['實色', '鏤空', '高光'], sct: "自定義文字", ctph: "輸入文字...", anchor: "空間位置", offset: "X / Y 軸偏移",
         opacity: "透明度", datePos: "日期位置", datePositions: ['下方', '上方'],
         idles: ['3秒', '10秒', '永不']
@@ -798,15 +801,16 @@ class UIManager {
     const theme = row(d.theme, `<div class="swatches-container">${UIManager.THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}<div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div></div>`);
     const tcRow = row(d.tc, `<div class="swatch-wrapper active"><div class="swatch-color" id="text-swatch-color" style="background: ${textColor}"></div><input type="color" id="ctrl-textcolor" value="${textColor}"></div>`);
     const anchorRow = `<div class="settings-row anchor-row"><span class="row-label auto-w">${d.anchor}</span><div class="anchor-grid" data-prop="anchor" role="radiogroup">${[...Array(9)].map((_, i) => `<button class="anchor-btn" data-value="${i}" role="radio"></button>`).join('')}</div></div>`;
+    const ctRow = `<div class="settings-row"><input type="text" id="ctrl-customtext" maxlength="30" placeholder="${d.ctph}" style="width:100%; background:rgba(255,255,255,0.1); border:none; color:#fff; border-radius:6px; padding:6px 12px; outline:none; font-family:inherit;"></div>`;
     const tabs = [
-      [[seg(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono']), seg(d.mode, 'mode', d.modes, 1), theme], [tcRow, seg(d.mat, 'material', d.mats)], [slider('size'), slider('weight'), slider('opacity')]],
-      [[tg('ctrl-24hr', d.time), tg('ctrl-leadingzero', d.lz), tg('ctrl-seconds', d.sec), tg('ctrl-date', d.date), seg(d.layout, 'clockLayout', d.layouts), seg(d.datePos, 'datePosition', d.datePositions)], [tg('ctrl-showcustom', d.sct), `<div class="settings-row"><input type="text" id="ctrl-customtext" maxlength="30" placeholder="${d.ctph}" style="width:100%; background:rgba(255,255,255,0.1); border:none; color:#fff; border-radius:6px; padding:6px 12px; outline:none; font-family:inherit;"></div>`], [anchorRow, slider('offset', 'ctrl-offx'), slider('offset', 'ctrl-offy')]],
-      [[seg(d.tick, 'clockAnimMode', d.ticks)], [slider('speed')]],
-      [[langRow, seg(d.idle, 'idleTimeout', d.idles), tg('ctrl-pixelshift', d.burn), tg('ctrl-nightmode', d.night)]]
+      [[seg(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono']), tcRow], [slider('size'), slider('weight'), slider('opacity')], [tg('ctrl-24hr', d.time), tg('ctrl-leadingzero', d.lz), tg('ctrl-seconds', d.sec), seg(d.tick, 'clockAnimMode', d.ticks)], [tg('ctrl-date', d.date), seg(d.layout, 'clockLayout', d.layouts), seg(d.datePos, 'datePosition', d.datePositions)], [tg('ctrl-showcustom', d.sct), ctRow], [anchorRow, slider('offset', 'ctrl-offx'), slider('offset', 'ctrl-offy')]],
+      [[seg(d.mode, 'mode', d.modes, 1), theme], [seg(d.mat, 'material', d.mats)], [slider('speed')]],
+      [[langRow, seg(d.idle, 'idleTimeout', d.idles)], [tg('ctrl-pixelshift', d.burn), tg('ctrl-nightmode', d.night)]]
     ];
     this.panel.innerHTML = `<div class="tab-header" role="tablist">${d.tabs.map((t, i) => `<button class="tab-nav-btn${i === I ? ' active' : ''}" data-tab="${i}" role="tab">${t}</button>`).join('')}</div><div class="tab-panes">${tabs.map((blocks, i) => `<div class="tab-pane${i === I ? ' active' : ''}">${blocks.map(b => `<div class="settings-block">${b.join('')}</div>`).join('')}</div>`).join('')}</div>`;
   }
   setTab(i) {
+    const tp = qs(this.panel, '.tab-panes'); if (tp) tp.scrollTop = 0;
     this.activeTab = i;
     const state = this.store.getState();
     qsa(this.panel, '.tab-nav-btn').forEach((b, j) => b.classList.toggle('active', j === i));
