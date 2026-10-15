@@ -161,6 +161,45 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
         <feFlood id="hollow-flood" flood-color="#ffffff" flood-opacity="1" result="col"/>
         <feComposite in="col" in2="ring" operator="in"/>
       </filter>
+      <filter id="glass-fx" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="0.9" id="glass-rim-blur" result="rb"/>
+        <feComponentTransfer in="rb" result="rOut"><feFuncA type="linear" slope="10" intercept="-1.4"/></feComponentTransfer>
+        <feComponentTransfer in="rb" result="rIn"><feFuncA type="linear" slope="10" intercept="-6.2"/></feComponentTransfer>
+        <feComposite in="rOut" in2="rIn" operator="out" result="rimRing"/>
+        <feGaussianBlur in="SourceAlpha" stdDeviation="3.2" id="glass-bevel-blur" result="bb"/>
+        <feComponentTransfer in="bb" result="bInner"><feFuncA type="linear" slope="2.4" intercept="-1.15"/></feComponentTransfer>
+        <feComposite in="SourceAlpha" in2="bInner" operator="out" result="bevelMask"/>
+        <feOffset in="SourceAlpha" dx="1.1" dy="1.3" id="glass-crest-off" result="sOff"/>
+        <feComposite in="SourceAlpha" in2="sOff" operator="out" result="crestMask"/>
+        <feOffset in="bInner" dx="-1.4" dy="-1.6" id="glass-caustic-off" result="cOff"/>
+        <feComposite in="SourceAlpha" in2="cOff" operator="out" result="causticRaw"/>
+        <feComposite in="causticRaw" in2="bInner" operator="in" result="causticMask"/>
+        <feOffset in="rimRing" dx="-0.85" dy="-0.65" id="glass-prism-c-off" result="pcOff"/>
+        <feFlood id="glass-prism-c-flood" flood-color="#5ce1ff" flood-opacity="0.34" result="pcCol"/>
+        <feComposite in="pcCol" in2="pcOff" operator="in" result="prismCool"/>
+        <feOffset in="rimRing" dx="0.85" dy="0.65" id="glass-prism-w-off" result="pwOff"/>
+        <feFlood id="glass-prism-w-flood" flood-color="#ff85d0" flood-opacity="0.3" result="pwCol"/>
+        <feComposite in="pwCol" in2="pwOff" operator="in" result="prismWarm"/>
+        <feFlood id="glass-body-flood" flood-color="#ffffff" flood-opacity="0.16" result="bodyCol"/>
+        <feComposite in="bodyCol" in2="SourceAlpha" operator="in" result="glassBody"/>
+        <feFlood id="glass-bevel-flood" flood-color="#ffffff" flood-opacity="0.36" result="bevelCol"/>
+        <feComposite in="bevelCol" in2="bevelMask" operator="in" result="glassBevel"/>
+        <feFlood id="glass-caustic-flood" flood-color="#ffffff" flood-opacity="0.45" result="causticCol"/>
+        <feComposite in="causticCol" in2="causticMask" operator="in" result="glassCaustic"/>
+        <feFlood id="glass-rim-flood" flood-color="#ffffff" flood-opacity="0.88" result="rimCol"/>
+        <feComposite in="rimCol" in2="rimRing" operator="in" result="glassRim"/>
+        <feFlood id="glass-crest-flood" flood-color="#ffffff" flood-opacity="0.96" result="crestCol"/>
+        <feComposite in="crestCol" in2="crestMask" operator="in" result="glassCrest"/>
+        <feMerge>
+          <feMergeNode in="glassBody"/>
+          <feMergeNode in="glassBevel"/>
+          <feMergeNode in="glassCaustic"/>
+          <feMergeNode in="prismCool"/>
+          <feMergeNode in="prismWarm"/>
+          <feMergeNode in="glassRim"/>
+          <feMergeNode in="glassCrest"/>
+        </feMerge>
+      </filter>
     </defs>
   </svg>
   <div class="background-layer" id="bg-layer"><canvas id="gl-canvas" class="gl-canvas"></canvas></div>
@@ -191,7 +230,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.2.14 | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.2.15 | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
 function initPWA() {
   const metaCap = document.createElement('meta'); metaCap.name = 'apple-mobile-web-app-capable'; metaCap.content = 'yes';
@@ -273,7 +312,7 @@ class Store {
       case 'clockAnimMode': return isInt(v, 0, 3) ? v : undefined;
       case 'clockLayout': return isInt(v, 0, 1) ? v : undefined;
       case 'textColor': case 'ampmColor': case 'dateColor': case 'customTextColor': return (typeof v === 'string' && /^#[0-9A-Fa-f]{6}$/i.test(v)) ? v : undefined;
-      case 'material': return isInt(v, 0, 2) ? v : undefined;
+      case 'material': return isInt(v, 0, 3) ? v : undefined;
       case 'showCustomText': case 'showY': case 'showM': case 'showD': case 'showW': return typeof v === 'boolean' ? v : undefined;
       case 'customText': return typeof v === 'string' ? v.substring(0, 30) : undefined;
       case 'anchor': return isInt(v, 0, 8) ? v : undefined;
@@ -642,7 +681,7 @@ class ClockController {
         container.innerHTML = newStr.split('').map(c => `<span><div class="digit-old">${c}</div><div class="digit-new">${c}</div></span>`).join('');
       } else {
         const { clockAnimMode, material } = this.store.getState();
-        const pfx = (material === 1 && container !== this.ampmCont) ? 'url(#hollow-fx) ' : '';
+        const pfx = (container !== this.ampmCont && (material === 1 || material === 3)) ? (material === 1 ? 'url(#hollow-fx) ' : 'url(#glass-fx) ') : '';
         for (let i = 0; i < newStr.length; i++) {
           if (newStr[i] !== oldStr[i]) {
             const span = container.children[i], oldEl = qs(span, '.digit-old'), newEl = qs(span, '.digit-new');
@@ -742,7 +781,7 @@ class UIManager {
         ticks: ['Inst', 'Depth', 'Spring', 'Flip'],
         layout: "Layout", layouts: ['Horizontal', 'Vertical'],
         tabs: ['Clock', 'Background', 'System'],
-        tc: "Color", tcItems: ['Clock', 'AM', 'Date', 'Text'], mat: "Material", mats: ['Classic', 'Hollow', 'Glow'], sct: "Custom Text", ctph: "Enter text...", anchor: "Position", offset: "Offset X / Y",
+        tc: "Color", tcItems: ['Clock', 'AM', 'Date', 'Text'], mat: "Material", mats: ['Classic', 'Hollow', 'Glow', 'Glass'], sct: "Custom Text", ctph: "Enter text...", anchor: "Position", offset: "Offset X / Y",
         opacity: "Opacity", datePos: "Date Pos", datePositions: ['Below', 'Above'],
         df: "Format", dY: "Y", dM: "M", dD: "D", dW: "W",
         idles: ['3s', '10s', 'Never']
@@ -756,7 +795,7 @@ class UIManager {
         ticks: ['瞬間', '景深', '彈性', '翻牌'],
         layout: "時鐘排佈", layouts: ['橫向', '直列'],
         tabs: ['時鐘', '背景', '系統'],
-        tc: "字體色彩", tcItems: ['時鐘', 'AM', '日期', '文字'], mat: "字體材質", mats: ['實色', '鏤空', '高光'], sct: "自定義文字", ctph: "輸入文字...", anchor: "空間位置", offset: "X / Y 軸偏移",
+        tc: "字體色彩", tcItems: ['時鐘', 'AM', '日期', '文字'], mat: "字體材質", mats: ['實色', '鏤空', '高光', '玻璃'], sct: "自定義文字", ctph: "輸入文字...", anchor: "空間位置", offset: "X / Y 軸偏移",
         opacity: "透明度", datePos: "日期位置", datePositions: ['下方', '上方'],
         df: "格式", dY: "年", dM: "月", dD: "日", dW: "週",
         idles: ['3秒', '10秒', '永不']
@@ -901,7 +940,7 @@ class UIManager {
     }
   }
   applyVisualVars(full = false) {
-    const { fontStyle, nightMode, textColor, ampmColor, dateColor, customTextColor, material, clockOpacity: op, size } = this.store.getState();
+    const { fontStyle, nightMode, textColor, ampmColor, dateColor, customTextColor, material, clockOpacity: op, size, colorTarget } = this.store.getState();
     const root = document.documentElement, sp = (k, v) => root.style.setProperty(k, v);
     const rgba = (hex, a) => `rgba(${UIManager.hexToRgb(hex).map(x => Math.round(x * 255)).join(', ')}, ${a})`;
     const nightCol = `rgba(110, 63, 32, ${op})`;
@@ -929,6 +968,39 @@ class UIManager {
       stroke = `max(1px, 0.015em) rgba(${r}, ${g}, ${b}, ${(0.9 * op).toFixed(2)})`;
       blend = 'screen';
       filter = `drop-shadow(0 0 2px rgba(255, 255, 255, ${(0.65 * op).toFixed(2)})) drop-shadow(0 0 6px rgba(${r}, ${g}, ${b}, ${(0.95 * op).toFixed(2)})) drop-shadow(0 0 16px rgba(${r}, ${g}, ${b}, ${(0.75 * op).toFixed(2)})) drop-shadow(0 0 34px rgba(${r}, ${g}, ${b}, ${(0.45 * op).toFixed(2)}))`;
+    } else if (material === 3) {
+      const maxC = Math.max(colorTarget[0], colorTarget[1], colorTarget[2], 0.01);
+      const [ar, ag, ab] = nightMode ? [217, 119, 54] : colorTarget.map(v => Math.round(clamp((v / maxC) * 185 + 70, 0, 255)));
+      const [gr, gg, gb] = nightMode ? [217, 119, 54] : [Math.round(r * 0.55 + ar * 0.45), Math.round(g * 0.55 + ag * 0.45), Math.round(b * 0.55 + ab * 0.45)];
+      const [sr, sg, sb] = nightMode ? [242, 168, 110] : [gr, gg, gb].map(c => Math.round(c + (255 - c) * 0.72));
+      const [cr, cg, cb] = nightMode ? [255, 200, 150] : [r, g, b].map(c => Math.round(c + (255 - c) * 0.88));
+      const reduceTrans = window.matchMedia?.('(prefers-reduced-transparency: reduce)').matches;
+      fill = `rgb(${gr}, ${gg}, ${gb})`;
+      stroke = '0';
+      digitFilter = 'url(#glass-fx)';
+      filter = `drop-shadow(0 10px 20px rgba(0, 0, 0, ${(0.38 * op).toFixed(2)})) drop-shadow(0 2px 5px rgba(0, 0, 0, ${(0.28 * op).toFixed(2)})) drop-shadow(0 0 12px rgba(${gr}, ${gg}, ${gb}, ${(0.26 * op).toFixed(2)}))`;
+      const setAttr = (id, k, v) => { const el = $(id); if (el) el.setAttribute(k, v); };
+      const setFlood = (id, col, a) => { setAttr(id, 'flood-color', col); setAttr(id, 'flood-opacity', (a * op).toFixed(3)); };
+      setAttr('glass-rim-blur', 'stdDeviation', Math.max(0.75, size * 0.055).toFixed(2));
+      setAttr('glass-bevel-blur', 'stdDeviation', Math.max(1.8, size * 0.22).toFixed(2));
+      const crestOff = Math.max(0.8, size * 0.075).toFixed(2);
+      setAttr('glass-crest-off', 'dx', crestOff);
+      setAttr('glass-crest-off', 'dy', (crestOff * 1.15).toFixed(2));
+      const caustOff = (-Math.max(1.0, size * 0.095)).toFixed(2);
+      setAttr('glass-caustic-off', 'dx', caustOff);
+      setAttr('glass-caustic-off', 'dy', (caustOff * 1.15).toFixed(2));
+      const pOff = Math.max(0.55, size * 0.055).toFixed(2);
+      setAttr('glass-prism-c-off', 'dx', (-pOff));
+      setAttr('glass-prism-c-off', 'dy', (-pOff * 0.75).toFixed(2));
+      setAttr('glass-prism-w-off', 'dx', pOff);
+      setAttr('glass-prism-w-off', 'dy', (pOff * 0.75).toFixed(2));
+      setFlood('glass-body-flood', `rgb(${gr}, ${gg}, ${gb})`, reduceTrans ? 0.38 : 0.16);
+      setFlood('glass-bevel-flood', `rgb(${gr}, ${gg}, ${gb})`, reduceTrans ? 0.52 : 0.36);
+      setFlood('glass-caustic-flood', `rgb(${sr}, ${sg}, ${sb})`, 0.46);
+      setFlood('glass-rim-flood', `rgb(${sr}, ${sg}, ${sb})`, 0.88);
+      setFlood('glass-crest-flood', `rgb(${cr}, ${cg}, ${cb})`, 0.96);
+      setFlood('glass-prism-c-flood', '#5ce1ff', nightMode ? 0 : 0.34);
+      setFlood('glass-prism-w-flood', '#ff85d0', nightMode ? 0 : 0.30);
     }
     sp('--clock-color', cColor);
     sp('--clock-fill', fill);
@@ -967,7 +1039,7 @@ class UIManager {
           inAnim.onfinish = inAnim.oncancel = () => { if (this.typoAnim === inAnim) this.typoAnim = null; };
         };
       } else this.applyVisualVars(false);
-    } else if (full || skipAnim || ['nightMode', 'textColor', 'ampmColor', 'dateColor', 'customTextColor', 'clockOpacity', 'size'].includes(changedKey)) {
+    } else if (full || skipAnim || ['nightMode', 'textColor', 'ampmColor', 'dateColor', 'customTextColor', 'clockOpacity', 'size', 'colorTarget'].includes(changedKey)) {
       this.applyVisualVars(full);
     }
     if (full || changedKey === 'anchor') { const ax = anchor % 3, ay = Math.floor(anchor / 3), F = ['flex-start', 'center', 'flex-end'], O = ['4vmin', '50%', 'calc(100% - 4vmin)']; sp('--pos-x', F[ax]); sp('--pos-y', F[ay]); sp('--ox', O[ax]); sp('--oy', O[ay]); qsa(document, '.anchor-btn').forEach((b, i) => b.classList.toggle('active', i === anchor)); }
