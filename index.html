@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#000000" />
   <title>Ambient Fluid Aurora - WebGL Pro</title>
   <style>
-:root{--ease-out:cubic-bezier(.23,1,.32,1);--ease-in-out:cubic-bezier(.77,0,.175,1);--clock-size:clamp(4rem,15vw,20vw);--clock-weight:200;--bg-color:#000;--clock-font:-apple-system,BlinkMacSystemFont,"SF Pro Display","San Francisco","Inter",system-ui,sans-serif;--clock-color:rgba(255,255,255,.9);--ampm-color:rgba(179,179,179,.9);--date-color:rgba(179,179,179,.9);--custom-text-color:rgba(179,179,179,.9);--clock-shadow-color:rgba(255,255,255,.2);--clock-filter:drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 4px var(--clock-shadow-color))}
+:root{--ease-out:cubic-bezier(.23,1,.32,1);--ease-in-out:cubic-bezier(.77,0,.175,1);--clock-size:clamp(4rem,15vw,20vw);--clock-weight:200;--bg-color:#000;--clock-font:-apple-system,BlinkMacSystemFont,"SF Pro Display","San Francisco","Inter",system-ui,sans-serif;--clock-color:rgba(255,255,255,.9);--ampm-color:rgba(179,179,179,.9);--date-color:rgba(179,179,179,.9);--custom-text-color:rgba(179,179,179,.9);--clock-shadow-color:rgba(255,255,255,.2);--clock-filter:drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 4px var(--clock-shadow-color));--digit-filter:none}
 body.no-transitions *{transition:none !important;animation:none !important}
 body.is-dragging .clock-layer,body.is-dragging .clock-layer *{transition:none !important}
 html,body{margin:0;padding:0;width:100%;height:100dvh;background-color:var(--bg-color);overflow:hidden;overscroll-behavior:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","San Francisco","Inter",system-ui,sans-serif;color:#fff;transition:opacity 800ms var(--ease-out)}
@@ -40,6 +40,7 @@ body .clock-layer.exiting{transition:opacity 2s linear,transform 2s linear;opaci
 #clock span{position:relative;display:inline-grid;place-items:center;vertical-align:bottom;clip-path:inset(0 -40px 0 -40px);height:1em;line-height:1;text-shadow:none}
 .digit-old,.digit-new{grid-area:1 / 1;position:relative !important;width:100%}
 .digit-new{opacity:0}
+#clock>:not(.ampm-group) .digit-old,#clock>:not(.ampm-group) .digit-new{filter:var(--digit-filter,none)}
 .date-display{font-size:calc(var(--clock-size) * .22);font-weight:var(--clock-weight);color:var(--date-color);letter-spacing:.02em;text-shadow:0 2px 12px rgba(0,0,0,.3);overflow:hidden;transition:max-height 300ms var(--ease-out),margin 300ms var(--ease-out);max-height:2em;order:1;margin-top:.25em;margin-bottom:0;font-family:var(--clock-font);will-change:transform;transform:translateZ(0)}
 .date-display.is-above{order:-1;margin-top:0;margin-bottom:.25em}
 .date-display.is-hidden{max-height:0;margin-top:0;margin-bottom:0}
@@ -89,8 +90,8 @@ body.is-fullscreen .settings-panel.active{opacity:1;transform:scale(1)}
 .settings-row.col-layout .segmented-control{align-self:stretch;width:auto;flex:none;height:32px}
 .settings-row.col-layout .segment-btn{padding:0 4px;font-size:13px}
 .anchor-row{padding-top:10px;padding-bottom:10px}
-.anchor-grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:4px;width:54px;height:54px}
-.anchor-btn{padding:0;border:none;border-radius:4px;background:rgba(255,255,255,.14);cursor:pointer;transition:background 150ms,transform 100ms}
+.anchor-grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:4px;width:54px;height:54px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.anchor-btn{padding:0;border:none;border-radius:4px;background:rgba(255,255,255,.14);cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:background 150ms,transform 100ms}
 .anchor-btn:active{transform:scale(.88)}
 .anchor-btn.active{background:#fff}
 .anchor-btn[data-value="4"].active{background:#FF9F0A}
@@ -150,6 +151,18 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
 </head>
 <body class="no-transitions">
 <div id="app-container">
+  <svg width="0" height="0" style="position:absolute;pointer-events:none" aria-hidden="true">
+    <defs>
+      <filter id="hollow-fx" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="1.4" id="hollow-blur" result="b"/>
+        <feComponentTransfer in="b" result="outer"><feFuncA type="linear" slope="9" intercept="-1.35"/></feComponentTransfer>
+        <feComponentTransfer in="b" result="inner"><feFuncA type="linear" slope="9" intercept="-6.3"/></feComponentTransfer>
+        <feComposite in="outer" in2="inner" operator="out" result="ring"/>
+        <feFlood id="hollow-flood" flood-color="#ffffff" flood-opacity="1" result="col"/>
+        <feComposite in="col" in2="ring" operator="in"/>
+      </filter>
+    </defs>
+  </svg>
   <div class="background-layer" id="bg-layer"><canvas id="gl-canvas" class="gl-canvas"></canvas></div>
   <div class="clock-layer" id="clock-layer">
     <div id="clock-wrapper" style="display:flex; flex-direction:column; align-items:center;">
@@ -178,7 +191,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.2.12 | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.2.13 | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
 function initPWA() {
   const metaCap = document.createElement('meta'); metaCap.name = 'apple-mobile-web-app-capable'; metaCap.content = 'yes';
@@ -522,8 +535,11 @@ class ClockController {
     [this.dateElement, this.customTextElement].forEach(el => el.classList.toggle('is-above', datePosition === 1));
     this.timer = null;
     this.running = false;
-    this.dateFormatter = null;
-    this.currentLang = null;
+    this.fmtCache = {
+      zhW: new Intl.DateTimeFormat('zh-TW', { weekday: 'long' }),
+      enM: new Intl.DateTimeFormat('en-US', { month: 'long' }),
+      enW: new Intl.DateTimeFormat('en-US', { weekday: 'long' })
+    };
     this.ANIM_OPT = { duration: 300, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' };
     this.ANIM_REGISTRY = {
       1: {
@@ -552,17 +568,23 @@ class ClockController {
     this.store.subscribe((key, val) => this.handleStateChange(key, val));
   }
   blank() { return { tens: "", units: "", min: "", sec: "", ampm: "" }; }
-  getDateFormatter(lang, y, m, d, w) {
-    const loc = lang === 'zh' ? 'zh-TW' : 'en-US', key = `${loc}-${y}-${m}-${d}-${w}`;
-    if (this.currentLang !== key || !this.dateFormatter) {
-      this.currentLang = key; const opts = {};
-      if (y) opts.year = 'numeric'; if (m) opts.month = 'long'; if (d) opts.day = 'numeric'; if (w) opts.weekday = 'long';
-      this.dateFormatter = Object.keys(opts).length ? new Intl.DateTimeFormat(loc, opts) : null;
+  formatDate(now, lang, y, m, d, w) {
+    if (!y && !m && !d && !w) return "";
+    if (lang === 'zh') {
+      const datePart = `${y ? now.getFullYear() + '年' : ''}${m ? (now.getMonth() + 1) + '月' : ''}${d ? now.getDate() + '日' : ''}`;
+      const weekPart = w ? this.fmtCache.zhW.format(now) : '';
+      return [datePart, weekPart].filter(Boolean).join(' ');
     }
-    return this.dateFormatter;
+    const wStr = w ? this.fmtCache.enW.format(now) : '';
+    const mStr = m ? this.fmtCache.enM.format(now) : '';
+    const dStr = d ? String(now.getDate()) : '';
+    const yStr = y ? String(now.getFullYear()) : '';
+    const md = [mStr, dStr].filter(Boolean).join(' ');
+    const datePart = (m && !d && y) ? `${mStr} ${yStr}` : [md, yStr].filter(Boolean).join(', ');
+    return [wStr, datePart].filter(Boolean).join(', ');
   }
   resetDOM(oldEl, newEl, span, c) {
-    oldEl.textContent = c; oldEl.style.transform = 'none'; oldEl.style.filter = 'none'; oldEl.style.opacity = '1';
+    oldEl.textContent = c; oldEl.style.transform = ''; oldEl.style.filter = ''; oldEl.style.opacity = '1';
     newEl.style.opacity = '0'; span.style.perspective = 'none';
   }
   handleStateChange(key, val) {
@@ -610,7 +632,8 @@ class ClockController {
       if (!oldStr || container.children.length !== newStr.length) {
         container.innerHTML = newStr.split('').map(c => `<span><div class="digit-old">${c}</div><div class="digit-new">${c}</div></span>`).join('');
       } else {
-        const { clockAnimMode } = this.store.getState();
+        const { clockAnimMode, material } = this.store.getState();
+        const pfx = (material === 1 && container !== this.ampmCont) ? 'url(#hollow-fx) ' : '';
         for (let i = 0; i < newStr.length; i++) {
           if (newStr[i] !== oldStr[i]) {
             const span = container.children[i], oldEl = qs(span, '.digit-old'), newEl = qs(span, '.digit-new');
@@ -621,8 +644,9 @@ class ClockController {
               const def = this.ANIM_REGISTRY[animMode];
               if (def) {
                 if (def.setup) def.setup(oldEl, newEl, span);
-                oldEl.animate(def.old, def.opts);
-                newEl.animate(def.new, def.opts).onfinish = () => this.resetDOM(oldEl, newEl, span, newStr[i]);
+                const mapFrames = frames => pfx ? frames.map(f => f.filter ? { ...f, filter: pfx + f.filter } : f) : frames;
+                oldEl.animate(mapFrames(def.old), def.opts);
+                newEl.animate(mapFrames(def.new), def.opts).onfinish = () => this.resetDOM(oldEl, newEl, span, newStr[i]);
               } else { oldEl.textContent = newStr[i]; }
             }
           }
@@ -651,7 +675,7 @@ class ClockController {
     lt.min = this.diffDOM(this.minCont, minStr, lt.min);
     lt.sec = this.diffDOM(this.secCont, secStr, lt.sec);
     lt.ampm = this.diffDOM(this.ampmCont, ampmStr, lt.ampm);
-    const fmt = this.getDateFormatter(lang, showY, showM, showD, showW), dateStr = fmt ? fmt.format(now) : "";
+    const dateStr = this.formatDate(now, lang, showY, showM, showD, showW);
     if (de.textContent !== dateStr) {
       if (de.textContent === "") de.textContent = dateStr;
       else de.animate([{ opacity: 1, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(4px)' }], { duration: 150, easing: 'ease-out' }).onfinish = () => {
@@ -868,7 +892,7 @@ class UIManager {
     }
   }
   applyVisualVars(full = false) {
-    const { fontStyle, nightMode, textColor, ampmColor, dateColor, customTextColor, material, clockOpacity: op } = this.store.getState();
+    const { fontStyle, nightMode, textColor, ampmColor, dateColor, customTextColor, material, clockOpacity: op, size } = this.store.getState();
     const root = document.documentElement, sp = (k, v) => root.style.setProperty(k, v);
     const rgba = (hex, a) => `rgba(${UIManager.hexToRgb(hex).map(x => Math.round(x * 255)).join(', ')}, ${a})`;
     const nightCol = `rgba(110, 63, 32, ${op})`;
@@ -879,10 +903,17 @@ class UIManager {
     sp('--clock-shadow-color', nightMode ? 'transparent' : `rgba(255, 255, 255, ${0.2 * op})`);
     const [r, g, b] = nightMode ? [217, 119, 54] : UIManager.hexToRgb(textColor).map(x => Math.round(x * 255));
     const cColor = `rgba(${r}, ${g}, ${b}, ${op})`;
-    let fill = cColor, stroke = '0', blend = 'normal', filter = 'drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 4px var(--clock-shadow-color))';
+    let fill = cColor, stroke = '0', blend = 'normal', digitFilter = 'none', filter = 'drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 4px var(--clock-shadow-color))';
     if (material === 1) {
-      fill = 'transparent';
-      stroke = `max(1px, 0.02em) ${cColor}`;
+      fill = `rgb(${r}, ${g}, ${b})`;
+      stroke = '0';
+      digitFilter = 'url(#hollow-fx)';
+      const hb = $('hollow-blur'), hf = $('hollow-flood');
+      if (hb) hb.setAttribute('stdDeviation', Math.max(1.0, size * 0.095).toFixed(2));
+      if (hf) {
+        hf.setAttribute('flood-color', `rgb(${r}, ${g}, ${b})`);
+        hf.setAttribute('flood-opacity', String(op));
+      }
     } else if (material === 2) {
       const [rc, gc, bc] = [r, g, b].map(c => Math.round(c + (255 - c) * 0.38));
       fill = `rgba(${rc}, ${gc}, ${bc}, ${op})`;
@@ -894,6 +925,7 @@ class UIManager {
     sp('--clock-fill', fill);
     sp('--clock-stroke', stroke);
     sp('--clock-blend', blend);
+    sp('--digit-filter', digitFilter);
     sp('--clock-filter', filter);
     const clk = $('clock');
     if (!full && clk) {
@@ -926,7 +958,7 @@ class UIManager {
           inAnim.onfinish = inAnim.oncancel = () => { if (this.typoAnim === inAnim) this.typoAnim = null; };
         };
       } else this.applyVisualVars(false);
-    } else if (full || skipAnim || ['nightMode', 'textColor', 'ampmColor', 'dateColor', 'customTextColor', 'clockOpacity'].includes(changedKey)) {
+    } else if (full || skipAnim || ['nightMode', 'textColor', 'ampmColor', 'dateColor', 'customTextColor', 'clockOpacity', 'size'].includes(changedKey)) {
       this.applyVisualVars(full);
     }
     if (full || changedKey === 'anchor') { const ax = anchor % 3, ay = Math.floor(anchor / 3), F = ['flex-start', 'center', 'flex-end'], O = ['4vmin', '50%', 'calc(100% - 4vmin)']; sp('--pos-x', F[ax]); sp('--pos-y', F[ay]); sp('--ox', O[ax]); sp('--oy', O[ay]); qsa(document, '.anchor-btn').forEach((b, i) => b.classList.toggle('active', i === anchor)); }
@@ -1055,22 +1087,25 @@ class UIManager {
     }
   }
   bindEvents() {
-    let lastHap = 0, anchorHold = null, holdFired = false;
+    let lastHap = 0, anchorHold = null, holdFired = false, anchorX = 0, anchorY = 0;
     const clearAnchorHold = () => { if (anchorHold) { clearTimeout(anchorHold); anchorHold = null; } };
     on(document, 'pointerdown', e => {
       const btn = e.target.closest('.anchor-btn');
       if (btn) {
         clearAnchorHold(); holdFired = false;
+        anchorX = e.clientX; anchorY = e.clientY;
         anchorHold = setTimeout(() => {
           holdFired = true; anchorHold = null; haptic([30, 50]);
           this.store.setState('offsetX', 0); this.store.setState('offsetY', 0);
           if (this.store.getState().anchor !== +btn.dataset.value) this.store.setState('anchor', +btn.dataset.value);
-        }, 600);
+        }, 500);
       } else if (e.button === 0 && !e.target.closest('button, .settings-panel, .swatch-wrapper, input, .anchor-grid, .tc-group')) { this.touchStartX = e.clientX; this.touchStartY = e.clientY; this.exitApp(true); }
     }, { passive: true });
     ['pointerup', 'pointercancel'].forEach(t => on(document, t, () => { clearAnchorHold(); this.exitApp(false); }, { passive: true }));
-    on(document, 'pointerout', e => { if (e.target.closest && e.target.closest('.anchor-grid')) clearAnchorHold(); }, { passive: true });
-    on(document, 'pointermove', e => { const state = this.store.getState(); if (state.isHolding && this.touchStartX !== null && (Math.abs(e.clientX - this.touchStartX) > 15 || Math.abs(e.clientY - this.touchStartY) > 15)) this.exitApp(false); }, { passive: true });
+    on(document, 'pointermove', e => { if (anchorHold && (Math.abs(e.clientX - anchorX) > 12 || Math.abs(e.clientY - anchorY) > 12)) clearAnchorHold(); const state = this.store.getState(); if (state.isHolding && this.touchStartX !== null && (Math.abs(e.clientX - this.touchStartX) > 15 || Math.abs(e.clientY - this.touchStartY) > 15)) this.exitApp(false); }, { passive: true });
+    on(document, 'contextmenu', e => {
+      if (e.target.closest('.anchor-grid, .icon-btn') || this.store.getState().isHolding) e.preventDefault();
+    });
     on(document, 'input', e => {
       if (e.target.type === 'range') { document.body.classList.add('is-dragging'); const t = e.target, v = t.value, isEdge = v === t.min || v === t.max, now = Date.now(); if (isEdge || now - lastHap > 40) { haptic(isEdge ? 20 : 5); lastHap = now; } }
       const entry = Object.entries(UIManager.UI_BINDINGS).find(([, b]) => b.id === e.target.id);
