@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#000000" />
   <title>Ambient Fluid Aurora - WebGL Pro</title>
   <style>
-:root{--ease-out:cubic-bezier(.23,1,.32,1);--ease-in-out:cubic-bezier(.77,0,.175,1);--clock-size:clamp(4rem,15vw,20vw);--clock-weight:200;--bg-color:#000;--clock-font:-apple-system,BlinkMacSystemFont,"SF Pro Display","San Francisco","Inter",system-ui,sans-serif;--clock-color:rgba(255,255,255,.9);--ampm-color:rgba(179,179,179,.9);--date-color:rgba(179,179,179,.9);--custom-text-color:rgba(179,179,179,.9);--clock-shadow-color:rgba(255,255,255,.2);--clock-filter:drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 4px var(--clock-shadow-color));--digit-filter:none}
+:root{--ease-out:cubic-bezier(.23,1,.32,1);--ease-in-out:cubic-bezier(.77,0,.175,1);--clock-size:clamp(4rem,15vw,20vw);--clock-weight:200;--bg-color:#000;--clock-font:-apple-system,BlinkMacSystemFont,"SF Pro Display","San Francisco","Inter",system-ui,sans-serif;--clock-color:rgba(255,255,255,.9);--ampm-color:rgba(179,179,179,.9);--date-color:rgba(179,179,179,.9);--custom-text-color:rgba(179,179,179,.9);--clock-shadow-color:rgba(255,255,255,.2);--clock-filter:drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 4px var(--clock-shadow-color));--digit-filter:none;--glass-press:1}
 body.no-transitions *{transition:none !important;animation:none !important}
 body.is-dragging .clock-layer,body.is-dragging .clock-layer *{transition:none !important}
 html,body{margin:0;padding:0;width:100%;height:100dvh;background-color:var(--bg-color);overflow:hidden;overscroll-behavior:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","San Francisco","Inter",system-ui,sans-serif;color:#fff;transition:opacity 800ms var(--ease-out)}
@@ -22,7 +22,7 @@ body .background-layer.exiting{transition:transform 2s linear;transform:scale(1.
 body.is-idle .clock-layer{opacity:.35;--idle-scale:.96;transition:opacity 1500ms var(--ease-in-out),transform 1500ms var(--ease-in-out)}
 body .clock-layer.exiting{transition:opacity 2s linear,transform 2s linear;opacity:.1;--idle-scale:.9}
 .clock-layer.is-flipping{transition:none !important}
-#clock{margin:0;font-variant-numeric:tabular-nums;white-space:nowrap;overflow-wrap:normal;font-size:var(--clock-size);font-weight:var(--clock-weight);color:var(--clock-fill,var(--clock-color));letter-spacing:0;display:flex;flex-direction:row;justify-content:center;align-items:center;filter:var(--clock-filter);position:relative;z-index:2;overflow:visible;transition:gap 300ms var(--ease-out);font-family:var(--clock-font);will-change:transform,filter,opacity;transform:translateZ(0)}
+#clock{margin:0;font-variant-numeric:tabular-nums;white-space:nowrap;overflow-wrap:normal;font-size:var(--clock-size);font-weight:var(--clock-weight);color:var(--clock-fill,var(--clock-color));letter-spacing:0;display:flex;flex-direction:row;justify-content:center;align-items:center;filter:var(--clock-filter);position:relative;z-index:2;overflow:visible;transition:gap 300ms var(--ease-out);font-family:var(--clock-font);will-change:transform,filter,opacity;transform:translateZ(0) scale(var(--glass-press,1))}
 .clock-module{-webkit-text-stroke:var(--clock-stroke,0);min-width:0;min-height:0;overflow:visible;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;transition:max-width 300ms var(--ease-out),max-height 300ms var(--ease-out),opacity 300ms var(--ease-out),transform 300ms var(--ease-out),margin 300ms var(--ease-out)}
 .clock-module.is-hidden{max-width:0 !important;opacity:0 !important;margin-left:var(--hide-ml,0) !important;transform:scale(.8) translateX(var(--hide-tx,0px)) !important;pointer-events:none}
 .tens-group{max-width:1.5em}
@@ -162,41 +162,44 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
         <feComposite in="col" in2="ring" operator="in"/>
       </filter>
       <filter id="glass-fx" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-        <feGaussianBlur in="SourceAlpha" stdDeviation="0.9" id="glass-rim-blur" result="rb"/>
-        <feComponentTransfer in="rb" result="rOut"><feFuncA type="linear" slope="10" intercept="-1.4"/></feComponentTransfer>
-        <feComponentTransfer in="rb" result="rIn"><feFuncA type="linear" slope="10" intercept="-6.2"/></feComponentTransfer>
-        <feComposite in="rOut" in2="rIn" operator="out" result="rimRing"/>
-        <feGaussianBlur in="SourceAlpha" stdDeviation="3.2" id="glass-bevel-blur" result="bb"/>
-        <feComponentTransfer in="bb" result="bInner"><feFuncA type="linear" slope="2.4" intercept="-1.15"/></feComponentTransfer>
-        <feComposite in="SourceAlpha" in2="bInner" operator="out" result="bevelMask"/>
-        <feOffset in="SourceAlpha" dx="1.1" dy="1.3" id="glass-crest-off" result="sOff"/>
-        <feComposite in="SourceAlpha" in2="sOff" operator="out" result="crestMask"/>
-        <feOffset in="bInner" dx="-1.4" dy="-1.6" id="glass-caustic-off" result="cOff"/>
+        <feGaussianBlur in="SourceAlpha" stdDeviation="2.2" id="glass-bevel-blur" result="bBlur"/>
+        <feComposite in="SourceAlpha" in2="bBlur" operator="out" result="bevelMask"/>
+        <feOffset in="bBlur" dx="-1.5" dy="-1.6" id="glass-caustic-off" result="cOff"/>
         <feComposite in="SourceAlpha" in2="cOff" operator="out" result="causticRaw"/>
-        <feComposite in="causticRaw" in2="bInner" operator="in" result="causticMask"/>
-        <feOffset in="rimRing" dx="-0.85" dy="-0.65" id="glass-prism-c-off" result="pcOff"/>
-        <feFlood id="glass-prism-c-flood" flood-color="#5ce1ff" flood-opacity="0.34" result="pcCol"/>
-        <feComposite in="pcCol" in2="pcOff" operator="in" result="prismCool"/>
-        <feOffset in="rimRing" dx="0.85" dy="0.65" id="glass-prism-w-off" result="pwOff"/>
-        <feFlood id="glass-prism-w-flood" flood-color="#ff85d0" flood-opacity="0.3" result="pwCol"/>
-        <feComposite in="pwCol" in2="pwOff" operator="in" result="prismWarm"/>
-        <feFlood id="glass-body-flood" flood-color="#ffffff" flood-opacity="0.16" result="bodyCol"/>
+        <feComposite in="causticRaw" in2="SourceAlpha" operator="in" result="causticMask"/>
+        <feGaussianBlur in="SourceAlpha" stdDeviation="0.35" id="glass-crest-blur" result="cBase"/>
+        <feOffset in="cBase" dx="-0.65" dy="-0.7" id="glass-whisper-off" result="wOff"/>
+        <feComposite in="SourceAlpha" in2="wOff" operator="out" result="whisperMask"/>
+        <feOffset in="cBase" dx="0.95" dy="1.05" id="glass-crest-off" result="sOff"/>
+        <feComposite in="SourceAlpha" in2="sOff" operator="out" result="crestRaw"/>
+        <feComponentTransfer in="crestRaw" result="crestMask"><feFuncA type="linear" slope="1.85" intercept="-0.08"/></feComponentTransfer>
+        <feOffset in="crestMask" dx="0.6" dy="-0.6" id="glass-apex-off" result="aOff"/>
+        <feComposite in="crestMask" in2="aOff" operator="in" result="apexMask"/>
+        <feOffset in="apexMask" dx="-0.55" dy="0.35" id="glass-prism-c-off" result="pcOff"/>
+        <feComposite in="pcOff" in2="SourceAlpha" operator="in" result="pcIn"/>
+        <feFlood id="glass-prism-c-flood" flood-color="#38e8ff" flood-opacity="0.38" result="pcCol"/>
+        <feComposite in="pcCol" in2="pcIn" operator="in" result="prismCool"/>
+        <feOffset in="apexMask" dx="0.55" dy="-0.35" id="glass-prism-w-off" result="pwOff"/>
+        <feComposite in="pwOff" in2="SourceAlpha" operator="in" result="pwIn"/>
+        <feFlood id="glass-prism-w-flood" flood-color="#ff6ee0" flood-opacity="0.34" result="pwCol"/>
+        <feComposite in="pwCol" in2="pwIn" operator="in" result="prismWarm"/>
+        <feFlood id="glass-body-flood" flood-color="#ffffff" flood-opacity="0.04" result="bodyCol"/>
         <feComposite in="bodyCol" in2="SourceAlpha" operator="in" result="glassBody"/>
-        <feFlood id="glass-bevel-flood" flood-color="#ffffff" flood-opacity="0.36" result="bevelCol"/>
+        <feFlood id="glass-bevel-flood" flood-color="#ffffff" flood-opacity="0.18" result="bevelCol"/>
         <feComposite in="bevelCol" in2="bevelMask" operator="in" result="glassBevel"/>
-        <feFlood id="glass-caustic-flood" flood-color="#ffffff" flood-opacity="0.45" result="causticCol"/>
+        <feFlood id="glass-caustic-flood" flood-color="#ffffff" flood-opacity="0.36" result="causticCol"/>
         <feComposite in="causticCol" in2="causticMask" operator="in" result="glassCaustic"/>
-        <feFlood id="glass-rim-flood" flood-color="#ffffff" flood-opacity="0.88" result="rimCol"/>
-        <feComposite in="rimCol" in2="rimRing" operator="in" result="glassRim"/>
-        <feFlood id="glass-crest-flood" flood-color="#ffffff" flood-opacity="0.96" result="crestCol"/>
+        <feFlood id="glass-whisper-flood" flood-color="#ffffff" flood-opacity="0.28" result="whisperCol"/>
+        <feComposite in="whisperCol" in2="whisperMask" operator="in" result="glassWhisper"/>
+        <feFlood id="glass-crest-flood" flood-color="#ffffff" flood-opacity="0.95" result="crestCol"/>
         <feComposite in="crestCol" in2="crestMask" operator="in" result="glassCrest"/>
         <feMerge>
           <feMergeNode in="glassBody"/>
           <feMergeNode in="glassBevel"/>
           <feMergeNode in="glassCaustic"/>
+          <feMergeNode in="glassWhisper"/>
           <feMergeNode in="prismCool"/>
           <feMergeNode in="prismWarm"/>
-          <feMergeNode in="glassRim"/>
           <feMergeNode in="glassCrest"/>
         </feMerge>
       </filter>
@@ -230,7 +233,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.2.15 | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.2.16 | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
 function initPWA() {
   const metaCap = document.createElement('meta'); metaCap.name = 'apple-mobile-web-app-capable'; metaCap.content = 'yes';
@@ -864,6 +867,22 @@ class UIManager {
     this.tgTarget = null;
     this.tgDragged = false;
     this.typoAnim = null;
+    this.lx = 0.65;
+    this.ly = 0.75;
+    this.ptrX = -0.65;
+    this.ptrY = -0.75;
+    this.ptrActiveUntil = 0;
+    this.gyroX = 0;
+    this.gyroY = 0;
+    this.hasGyro = false;
+    this.gyroAsked = false;
+    this.gyroPending = false;
+    this.glassPress = 0;
+    this.glassRaf = null;
+    this.lastGlassTick = 0;
+    this.lastGlassApply = 0;
+    this.glassEls = null;
+    this.tickGlassBound = this.tickGlass.bind(this);
     this.store.subscribe((prop, val) => {
       if (Store.TRANSIENT_KEYS.has(prop)) return;
       let skipAnim = false;
@@ -878,6 +897,23 @@ class UIManager {
     [['btn-lowpower', 24, '', `<rect x="2" y="7" width="16" height="10" rx="3" ry="3"/> <line x1="22" y1="11" x2="22" y2="13"/> <rect class="battery-level" x="4" y="9" width="12" height="6" rx="1" fill="currentColor" stroke="none"/>`],
     ['btn-settings', 20, '', `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>`],
     ['btn-fullscreen', 20, 'fs-icon', `<path class="fs-top-left" d="M8 3H5a2 2 0 0 0-2 2v3"/><path class="fs-top-right" d="M16 3h3a2 2 0 0 1 2 2v3"/><path class="fs-bottom-left" d="M8 21H5a2 2 0 0 1-2-2v-3"/><path class="fs-bottom-right" d="M16 21h3a2 2 0 0 0 2-2v-3"/>`]].forEach(([id, size, cls, paths]) => $(id).innerHTML = UIManager.renderIcon(paths, cls, size));
+    this.glassEls = {
+      bevelBlur: $('glass-bevel-blur'),
+      causticOff: $('glass-caustic-off'),
+      crestBlur: $('glass-crest-blur'),
+      whisperOff: $('glass-whisper-off'),
+      crestOff: $('glass-crest-off'),
+      apexOff: $('glass-apex-off'),
+      prismCOff: $('glass-prism-c-off'),
+      prismWOff: $('glass-prism-w-off'),
+      prismCFlood: $('glass-prism-c-flood'),
+      prismWFlood: $('glass-prism-w-flood'),
+      bodyFlood: $('glass-body-flood'),
+      bevelFlood: $('glass-bevel-flood'),
+      causticFlood: $('glass-caustic-flood'),
+      whisperFlood: $('glass-whisper-flood'),
+      crestFlood: $('glass-crest-flood')
+    };
     this.renderPanel();
     this.syncUI(true);
     this.bindEvents();
@@ -970,37 +1006,32 @@ class UIManager {
       filter = `drop-shadow(0 0 2px rgba(255, 255, 255, ${(0.65 * op).toFixed(2)})) drop-shadow(0 0 6px rgba(${r}, ${g}, ${b}, ${(0.95 * op).toFixed(2)})) drop-shadow(0 0 16px rgba(${r}, ${g}, ${b}, ${(0.75 * op).toFixed(2)})) drop-shadow(0 0 34px rgba(${r}, ${g}, ${b}, ${(0.45 * op).toFixed(2)}))`;
     } else if (material === 3) {
       const maxC = Math.max(colorTarget[0], colorTarget[1], colorTarget[2], 0.01);
-      const [ar, ag, ab] = nightMode ? [217, 119, 54] : colorTarget.map(v => Math.round(clamp((v / maxC) * 185 + 70, 0, 255)));
-      const [gr, gg, gb] = nightMode ? [217, 119, 54] : [Math.round(r * 0.55 + ar * 0.45), Math.round(g * 0.55 + ag * 0.45), Math.round(b * 0.55 + ab * 0.45)];
-      const [sr, sg, sb] = nightMode ? [242, 168, 110] : [gr, gg, gb].map(c => Math.round(c + (255 - c) * 0.72));
-      const [cr, cg, cb] = nightMode ? [255, 200, 150] : [r, g, b].map(c => Math.round(c + (255 - c) * 0.88));
-      const reduceTrans = window.matchMedia?.('(prefers-reduced-transparency: reduce)').matches;
+      const [ar, ag, ab] = nightMode ? [217, 119, 54] : colorTarget.map(v => Math.round(clamp((v / maxC) * 195 + 60, 0, 255)));
+      const [gr, gg, gb] = nightMode ? [217, 119, 54] : [Math.round(r * 0.45 + ar * 0.55), Math.round(g * 0.45 + ag * 0.55), Math.round(b * 0.45 + ab * 0.55)];
+      const [sr, sg, sb] = nightMode ? [242, 168, 110] : [gr, gg, gb].map(c => Math.round(c + (255 - c) * 0.65));
+      const [cr, cg, cb] = nightMode ? [255, 210, 165] : [r, g, b].map(c => Math.round(c + (255 - c) * 0.92));
       fill = `rgb(${gr}, ${gg}, ${gb})`;
       stroke = '0';
       digitFilter = 'url(#glass-fx)';
-      filter = `drop-shadow(0 10px 20px rgba(0, 0, 0, ${(0.38 * op).toFixed(2)})) drop-shadow(0 2px 5px rgba(0, 0, 0, ${(0.28 * op).toFixed(2)})) drop-shadow(0 0 12px rgba(${gr}, ${gg}, ${gb}, ${(0.26 * op).toFixed(2)}))`;
-      const setAttr = (id, k, v) => { const el = $(id); if (el) el.setAttribute(k, v); };
-      const setFlood = (id, col, a) => { setAttr(id, 'flood-color', col); setAttr(id, 'flood-opacity', (a * op).toFixed(3)); };
-      setAttr('glass-rim-blur', 'stdDeviation', Math.max(0.75, size * 0.055).toFixed(2));
-      setAttr('glass-bevel-blur', 'stdDeviation', Math.max(1.8, size * 0.22).toFixed(2));
-      const crestOff = Math.max(0.8, size * 0.075).toFixed(2);
-      setAttr('glass-crest-off', 'dx', crestOff);
-      setAttr('glass-crest-off', 'dy', (crestOff * 1.15).toFixed(2));
-      const caustOff = (-Math.max(1.0, size * 0.095)).toFixed(2);
-      setAttr('glass-caustic-off', 'dx', caustOff);
-      setAttr('glass-caustic-off', 'dy', (caustOff * 1.15).toFixed(2));
-      const pOff = Math.max(0.55, size * 0.055).toFixed(2);
-      setAttr('glass-prism-c-off', 'dx', (-pOff));
-      setAttr('glass-prism-c-off', 'dy', (-pOff * 0.75).toFixed(2));
-      setAttr('glass-prism-w-off', 'dx', pOff);
-      setAttr('glass-prism-w-off', 'dy', (pOff * 0.75).toFixed(2));
-      setFlood('glass-body-flood', `rgb(${gr}, ${gg}, ${gb})`, reduceTrans ? 0.38 : 0.16);
-      setFlood('glass-bevel-flood', `rgb(${gr}, ${gg}, ${gb})`, reduceTrans ? 0.52 : 0.36);
-      setFlood('glass-caustic-flood', `rgb(${sr}, ${sg}, ${sb})`, 0.46);
-      setFlood('glass-rim-flood', `rgb(${sr}, ${sg}, ${sb})`, 0.88);
-      setFlood('glass-crest-flood', `rgb(${cr}, ${cg}, ${cb})`, 0.96);
-      setFlood('glass-prism-c-flood', '#5ce1ff', nightMode ? 0 : 0.34);
-      setFlood('glass-prism-w-flood', '#ff85d0', nightMode ? 0 : 0.30);
+      filter = `drop-shadow(0 6px 14px rgba(0, 0, 0, ${(0.24 * op).toFixed(2)})) drop-shadow(0 0 10px rgba(${ar}, ${ag}, ${ab}, ${(0.2 * op).toFixed(2)}))`;
+      const ge = this.glassEls;
+      if (ge && ge.bodyFlood) {
+        const setFlood = (el, col, a) => { el.setAttribute('flood-color', col); el.setAttribute('flood-opacity', (a * op).toFixed(3)); };
+        const reduceTrans = window.matchMedia?.('(prefers-reduced-transparency: reduce)').matches;
+        setFlood(ge.bodyFlood, `rgb(${ar}, ${ag}, ${ab})`, reduceTrans ? 0.28 : 0.04 + this.glassPress * 0.06);
+        setFlood(ge.bevelFlood, `rgb(${gr}, ${gg}, ${gb})`, reduceTrans ? 0.36 : 0.17 + this.glassPress * 0.08);
+        setFlood(ge.causticFlood, `rgb(${sr}, ${sg}, ${sb})`, 0.36 + this.glassPress * 0.16);
+        setFlood(ge.whisperFlood, `rgb(${ar}, ${ag}, ${ab})`, 0.28);
+        setFlood(ge.crestFlood, `rgb(${cr}, ${cg}, ${cb})`, 0.95);
+        setFlood(ge.prismCFlood, '#38e8ff', nightMode ? 0 : 0.38);
+        setFlood(ge.prismWFlood, '#ff6ee0', nightMode ? 0 : 0.34);
+      }
+      this.updateGlassVectors(true);
+      this.startGlassLoop();
+    }
+    if (material !== 3) {
+      this.stopGlassLoop();
+      sp('--glass-press', '1');
     }
     sp('--clock-color', cColor);
     sp('--clock-fill', fill);
@@ -1014,6 +1045,122 @@ class UIManager {
       clearTimeout(this.rp);
       this.rp = setTimeout(() => clk.style.opacity = '', 50);
     }
+  }
+  tryRequestGyro() {
+    if (this.gyroAsked || this.gyroPending) return;
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      this.gyroPending = true;
+      DeviceOrientationEvent.requestPermission().then(res => {
+        this.gyroAsked = true;
+        if (res === 'granted') on(window, 'deviceorientation', e => this.handleGyro(e), { passive: true });
+      }).catch(() => {}).finally(() => { this.gyroPending = false; });
+    } else {
+      this.gyroAsked = true;
+    }
+  }
+  handleGyro(e) {
+    if (e.gamma === null || e.beta === null || this.store.getState().material !== 3) return;
+    this.hasGyro = true;
+    this.gyroX = clamp(e.gamma / 35, -1, 1);
+    this.gyroY = clamp((e.beta - 45) / 35, -1, 1);
+  }
+  startGlassLoop() {
+    if (this.glassRaf || document.hidden || this.store.getState().material !== 3) return;
+    this.lastGlassTick = performance.now();
+    this.glassRaf = requestAnimationFrame(this.tickGlassBound);
+  }
+  stopGlassLoop() {
+    if (this.glassRaf) {
+      cancelAnimationFrame(this.glassRaf);
+      this.glassRaf = null;
+    }
+  }
+  updateGlassVectors(force = false) {
+    const g = this.glassEls;
+    if (!g || !g.crestOff) return;
+    const { size, clockOpacity: op, nightMode } = this.store.getState();
+    const p = this.glassPress;
+    const comp = 1 - p * 0.38;
+    let lx = this.lx, ly = this.ly;
+    const lm = Math.hypot(lx, ly);
+    if (lm < 0.42) {
+      lx = lm > 0.002 ? lx * 0.42 / lm : 0.297;
+      ly = lm > 0.002 ? ly * 0.42 / lm : 0.297;
+    }
+    const cScale = Math.max(0.65, size * 0.062) * comp;
+    const cx = (lx * cScale).toFixed(2), cy = (ly * cScale).toFixed(2);
+    if (!force && this._lastCx === cx && this._lastCy === cy && Math.abs((this._lastP || 0) - p) < 0.004) return;
+    this._lastCx = cx; this._lastCy = cy; this._lastP = p;
+    g.crestOff.setAttribute('dx', cx);
+    g.crestOff.setAttribute('dy', cy);
+    g.crestBlur.setAttribute('stdDeviation', Math.max(0.28, size * 0.022).toFixed(2));
+    g.whisperOff.setAttribute('dx', (-lx * cScale * 0.62).toFixed(2));
+    g.whisperOff.setAttribute('dy', (-ly * cScale * 0.62).toFixed(2));
+    const bStd = (Math.max(1.3, size * 0.14) * (1 - p * 0.28)).toFixed(2);
+    g.bevelBlur.setAttribute('stdDeviation', bStd);
+    const mScale = Math.max(0.95, size * 0.095) * comp;
+    g.causticOff.setAttribute('dx', (-lx * mScale).toFixed(2));
+    g.causticOff.setAttribute('dy', (-ly * mScale).toFixed(2));
+    g.apexOff.setAttribute('dx', (-ly * cScale * 0.65).toFixed(2));
+    g.apexOff.setAttribute('dy', (lx * cScale * 0.65).toFixed(2));
+    const pScale = Math.max(0.42, size * 0.038) * comp;
+    g.prismCOff.setAttribute('dx', (-lx * pScale + ly * pScale * 0.5).toFixed(2));
+    g.prismCOff.setAttribute('dy', (-ly * pScale - lx * pScale * 0.5).toFixed(2));
+    g.prismWOff.setAttribute('dx', (lx * pScale - ly * pScale * 0.5).toFixed(2));
+    g.prismWOff.setAttribute('dy', (ly * pScale + lx * pScale * 0.5).toFixed(2));
+    const reduceTrans = window.matchMedia?.('(prefers-reduced-transparency: reduce)').matches;
+    if (!reduceTrans) {
+      g.bodyFlood.setAttribute('flood-opacity', ((0.04 + p * 0.06) * op).toFixed(3));
+      g.bevelFlood.setAttribute('flood-opacity', ((0.17 + p * 0.08) * op).toFixed(3));
+      g.causticFlood.setAttribute('flood-opacity', ((0.36 + p * 0.16) * op).toFixed(3));
+    }
+    if (!nightMode) {
+      g.prismCFlood.setAttribute('flood-opacity', ((0.38 + p * 0.12) * op).toFixed(3));
+      g.prismWFlood.setAttribute('flood-opacity', ((0.34 + p * 0.12) * op).toFixed(3));
+    }
+    document.documentElement.style.setProperty('--glass-press', (1 - p * 0.032).toFixed(4));
+  }
+  tickGlass(now) {
+    this.glassRaf = null;
+    const { material, isHolding, speed, lowPower } = this.store.getState();
+    if (material !== 3 || document.hidden) return;
+    const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const dt = clamp(now - this.lastGlassTick, 1, 100);
+    this.lastGlassTick = now;
+    const pTarget = isHolding ? 1 : 0;
+    const kP = 1 - Math.pow(1 - (isHolding ? 0.08 : 0.26), dt / 16.666);
+    this.glassPress += (pTarget - this.glassPress) * kP;
+    if (Math.abs(pTarget - this.glassPress) < 0.001) this.glassPress = pTarget;
+    if (calm) {
+      this.lx = 0.65; this.ly = 0.75;
+      this.updateGlassVectors(false);
+      if (this.glassPress !== pTarget) this.glassRaf = requestAnimationFrame(this.tickGlassBound);
+      return;
+    }
+    const t = now * 0.00045 * clamp(speed, 0.2, 2.5);
+    const driftX = Math.cos(t) * 0.58 + Math.sin(t * 0.47) * 0.22 + 0.18;
+    const driftY = Math.sin(t * 0.73) * 0.58 + 0.22;
+    const ambX = this.hasGyro ? clamp(driftX * 0.35 + (-this.gyroX) * 0.85, -1.15, 1.15) : driftX;
+    const ambY = this.hasGyro ? clamp(driftY * 0.35 + (-this.gyroY) * 0.85, -1.15, 1.15) : driftY;
+    const pWeight = clamp((this.ptrActiveUntil - now) / 1200, 0, 1);
+    let tx = ambX * (1 - pWeight) + (-this.ptrX * 1.05) * pWeight;
+    let ty = ambY * (1 - pWeight) + (-this.ptrY * 1.05) * pWeight;
+    const mag = Math.hypot(tx, ty);
+    if (mag < 0.42) {
+      const s = 0.42 / (mag || 0.001);
+      tx = mag < 0.01 ? 0.3 : tx * s;
+      ty = mag < 0.01 ? 0.3 : ty * s;
+    }
+    const kL = 1 - Math.pow(1 - (pWeight > 0 ? 0.16 : 0.06), dt / 16.666);
+    this.lx += (tx - this.lx) * kL;
+    this.ly += (ty - this.ly) * kL;
+    const isInteractive = pWeight > 0 || isHolding || this.glassPress > 0.002;
+    const minInterval = isInteractive ? 14 : (lowPower ? 55 : 36);
+    if (now - this.lastGlassApply >= minInterval) {
+      this.lastGlassApply = now;
+      this.updateGlassVectors(false);
+    }
+    this.glassRaf = requestAnimationFrame(this.tickGlassBound);
   }
   syncUI(skipAnim = false, changedKey = null) {
     const state = this.store.getState(), { lowPower, colorTarget, anchor, offsetX, offsetY } = state;
@@ -1147,6 +1294,7 @@ class UIManager {
       clearTimeout(this.holdTimeout);
       this.holdTimeout = null;
     }
+    if (this.store.getState().material === 3) this.startGlassLoop();
   }
   async requestWakeLock() {
     if (this.wakeLock || this.wakeLockPending) return;
@@ -1171,6 +1319,12 @@ class UIManager {
     let lastHap = 0, anchorHold = null, holdFired = false, anchorX = 0, anchorY = 0;
     const clearAnchorHold = () => { if (anchorHold) { clearTimeout(anchorHold); anchorHold = null; } };
     on(document, 'pointerdown', e => {
+      if (this.store.getState().material === 3) {
+        this.ptrX = clamp((e.clientX / Math.max(1, window.innerWidth) - 0.5) * 2, -1, 1);
+        this.ptrY = clamp((e.clientY / Math.max(1, window.innerHeight) - 0.5) * 2, -1, 1);
+        this.ptrActiveUntil = performance.now() + 1800;
+        this.tryRequestGyro();
+      }
       const btn = e.target.closest('.anchor-btn');
       if (btn) {
         clearAnchorHold(); holdFired = false;
@@ -1183,7 +1337,16 @@ class UIManager {
       } else if (e.button === 0 && !e.target.closest('button, .settings-panel, .swatch-wrapper, input, .anchor-grid, .tc-group')) { this.touchStartX = e.clientX; this.touchStartY = e.clientY; this.exitApp(true); }
     }, { passive: true });
     ['pointerup', 'pointercancel'].forEach(t => on(document, t, () => { clearAnchorHold(); this.exitApp(false); }, { passive: true }));
-    on(document, 'pointermove', e => { if (anchorHold && (Math.abs(e.clientX - anchorX) > 12 || Math.abs(e.clientY - anchorY) > 12)) clearAnchorHold(); const state = this.store.getState(); if (state.isHolding && this.touchStartX !== null && (Math.abs(e.clientX - this.touchStartX) > 15 || Math.abs(e.clientY - this.touchStartY) > 15)) this.exitApp(false); }, { passive: true });
+    on(document, 'pointermove', e => { if (anchorHold && (Math.abs(e.clientX - anchorX) > 12 || Math.abs(e.clientY - anchorY) > 12)) clearAnchorHold(); const state = this.store.getState(); if (state.isHolding && this.touchStartX !== null && (Math.abs(e.clientX - this.touchStartX) > 15 || Math.abs(e.clientY - this.touchStartY) > 15)) this.exitApp(false);
+      if (state.material === 3) {
+        this.ptrX = clamp((e.clientX / Math.max(1, window.innerWidth) - 0.5) * 2, -1, 1);
+        this.ptrY = clamp((e.clientY / Math.max(1, window.innerHeight) - 0.5) * 2, -1, 1);
+        this.ptrActiveUntil = performance.now() + 1800;
+      }
+    }, { passive: true });
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission !== 'function') {
+      on(window, 'deviceorientation', e => this.handleGyro(e), { passive: true });
+    }
     on(document, 'contextmenu', e => {
       if (e.target.closest('.anchor-grid, .icon-btn') || this.store.getState().isHolding) e.preventDefault();
     });
@@ -1215,6 +1378,7 @@ class UIManager {
       else if (mtgBtn) { haptic(10); const p = mtgBtn.dataset.prop; this.store.setState(p, !this.store.getState()[p]); }
       else if (anchorBtn) { if (!holdFired && !anchorBtn.classList.contains('active')) { haptic(10); this.store.setState('anchor', +anchorBtn.dataset.value); } holdFired = false; }
       else if (segBtn && !segBtn.classList.contains('active')) {
+        if (segBtn.closest('.segmented-control').dataset.prop === 'material' && +segBtn.dataset.value === 3) this.tryRequestGyro();
         haptic(10); this.store.setState(segBtn.closest('.segmented-control').dataset.prop, isNaN(segBtn.dataset.value) ? segBtn.dataset.value : parseInt(segBtn.dataset.value));
       } else if (swatch) { haptic(10); this.store.setState('colorTarget', swatch.dataset.rgb.split(',').map(Number)); }
       else if (e.target.closest('#btn-lowpower')) {
@@ -1252,11 +1416,13 @@ clockController.start();
 on(document, 'visibilitychange', () => {
   if (document.hidden) {
     uiManager.releaseWakeLock();
+    uiManager.stopGlassLoop();
     glEngine.pause();
     clockController.pause();
     store.flush();
   } else {
     uiManager.requestWakeLock();
+    uiManager.startGlassLoop();
     glEngine.resume();
     clockController.resume();
   }
