@@ -30,6 +30,8 @@ body .clock-layer.exiting{transition:opacity 2s linear,transform 2s linear;opaci
 .seconds-group{max-width:3em;transform-origin:left center}
 .ampm-group{max-width:3em;margin-left:.5em;font-size:.25em;font-weight:500;letter-spacing:.05em;color:var(--ampm-color);-webkit-text-stroke:0;align-items:flex-end;padding-bottom:.5em}
 #clock.is-vertical{display:grid;grid-template-columns:1fr auto 1fr;grid-template-rows:auto 1fr auto;justify-items:center;align-items:center;gap:0}
+#clock-wrapper{display:flex;flex-direction:column;align-items:center}
+.hours-row{display:inline-flex;align-items:center}
 #clock.is-vertical .hours-row{grid-column:2;grid-row:1;line-height:.85;margin-bottom:-.05em;z-index:2}
 #clock.is-vertical .minutes-group{grid-column:2;grid-row:2/4;line-height:.85;z-index:2}
 #clock.is-vertical .seconds-group{grid-column:3;grid-row:2;justify-self:start;align-self:end;font-size:.35em;margin-left:.08em;margin-bottom:-.05em;transform:none}
@@ -100,7 +102,6 @@ body.is-fullscreen .settings-panel.active{opacity:1;transform:scale(1)}
 .slider-row:last-child{border-bottom:none}
 .slider-icon{width:16px;height:16px;fill:none;stroke:rgba(255,255,255,.5);stroke-width:2;flex-shrink:0}
 .slider-icon.max-icon{width:22px;height:22px}
-.slider-row .row-label{width:60px}
 .range-container{flex:1;display:flex;align-items:center;justify-content:center;margin:0 16px;height:44px}
 input[type=range]{-webkit-appearance:none;width:100%;background:transparent;margin:0;cursor:grab;height:36px;--val:50%}
 input[type=range]:focus{outline:none}
@@ -110,7 +111,7 @@ input[type=range]::-webkit-slider-thumb:active{cursor:grabbing;transform:scale(.
 .segmented-control{position:relative;display:flex;min-width:0;padding:2px;background:rgba(0,0,0,.25);border-radius:6px;box-sizing:border-box;box-shadow:inset 0 1px 2px rgba(0,0,0,.2)}
 .inline-seg{width:auto;max-width:none;flex:1 1 auto;margin-left:12px;height:28px}
 .segmented-highlight{position:absolute;top:2px;bottom:2px;left:0;background:rgba(255,255,255,.15);border-radius:4px;transition:transform 250ms var(--ease-out),width 250ms var(--ease-out);pointer-events:none;box-shadow:0 3px 8px rgba(0,0,0,.15),0 1px 2px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.1)}
-.segment-btn{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;border:none;background:transparent;color:rgba(255,255,255,.5);font-weight:500;z-index:1;cursor:pointer;transition:color 150ms var(--ease-out),transform 160ms var(--ease-out);margin:0;padding:0 8px;white-space:nowrap;display:flex;align-items:center;justify-content:center;font-size:12px}
+.segment-btn{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;border:none;background:transparent;color:rgba(255,255,255,.5);font-weight:500;z-index:1;cursor:pointer;transition:color 150ms var(--ease-out),transform 160ms var(--ease-out);margin:0;padding:0 8px;white-space:nowrap;font-size:12px}
 .segment-btn.active{color:#fff}
 .segment-btn:active{transform:scale(.95)}
 .mtg-control{position:relative;display:flex;flex:none;padding:2px;background:rgba(0,0,0,.25);border-radius:6px;gap:2px}
@@ -137,6 +138,7 @@ input[type=range]::-webkit-slider-thumb:active{cursor:grabbing;transform:scale(.
 .tc-input{opacity:0;position:absolute;inset:-4px;width:calc(100% + 8px);height:calc(100% + 8px);cursor:pointer;z-index:2;padding:0;border:none}
 @media (max-width:372px){.tc-chip{padding:0 4px;gap:3px}.tc-lbl{font-size:10px}}
 @media (max-width:340px){.tc-group{gap:2px}.tc-chip{padding:0 3px;gap:2px}.tc-dot{width:8px;height:8px}}
+.ct-input{width:100%;background:rgba(255,255,255,.1);border:none;color:#fff;border-radius:6px;padding:6px 12px;outline:none;font-family:inherit;font-size:14px;box-sizing:border-box}
 .toggle-switch{appearance:none;width:44px;height:26px;background:rgba(255,255,255,.15);border-radius:13px;position:relative;cursor:pointer;outline:none;transition:background 200ms var(--ease-out),transform 160ms var(--ease-out);margin:0;flex-shrink:0;box-shadow:inset 0 1px 2px rgba(0,0,0,.1)}
 .toggle-switch::after{content:'';position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.3);transition:transform 250ms var(--ease-out)}
 .toggle-switch:checked{background:#34c759}
@@ -174,8 +176,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
         <feComposite in="SourceAlpha" in2="msOff" operator="out" result="mS"/>
         <feComposite in="mW" in2="mE" operator="arithmetic" k1="0" k2="0" k3="0.65" k4="0" id="glass-caustic-x" result="caustX"/>
         <feComposite in="mN" in2="mS" operator="arithmetic" k1="0" k2="0" k3="0.75" k4="0" id="glass-caustic-y" result="caustY"/>
-        <feComposite in="caustX" in2="caustY" operator="arithmetic" k1="-0.28" k2="1" k3="1" k4="0" result="causticRaw"/>
-        <feComposite in="causticRaw" in2="SourceAlpha" operator="in" result="causticMask"/>
+        <feComposite in="caustX" in2="caustY" operator="arithmetic" k1="-0.28" k2="1" k3="1" k4="0" result="causticMask"/>
         <feGaussianBlur in="SourceAlpha" stdDeviation="0.35" id="glass-crest-blur" result="cBase"/>
         <feOffset in="cBase" dx="1" dy="0" id="glass-cw-off" result="cwOff"/>
         <feComposite in="SourceAlpha" in2="cwOff" operator="out" result="cW"/>
@@ -194,13 +195,13 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
         <feComposite in="whispX" in2="whispY" operator="arithmetic" k1="-0.25" k2="1" k3="1" k4="0" result="whisperMask"/>
         <feComposite in="cW" in2="cE" operator="arithmetic" k1="0" k2="0.85" k3="0" k4="0" id="glass-prism-c-x" result="pcX"/>
         <feComposite in="cN" in2="cS" operator="arithmetic" k1="0" k2="0" k3="0.52" k4="0" id="glass-prism-c-y" result="pcY"/>
-        <feComposite in="pcX" in2="pcY" operator="arithmetic" k1="1.6" k2="0.25" k3="0.25" k4="0" result="pcApex"/>
+        <feComposite in="pcX" in2="pcY" operator="arithmetic" k1="2.2" k2="0" k3="0" k4="0" result="pcApex"/>
         <feComposite in="pcApex" in2="crestRaw" operator="in" result="pcIn"/>
         <feFlood id="glass-prism-c-flood" flood-color="#38e8ff" flood-opacity="0.38" result="pcCol"/>
         <feComposite in="pcCol" in2="pcIn" operator="in" result="prismCool"/>
         <feComposite in="cW" in2="cE" operator="arithmetic" k1="0" k2="0" k3="0.52" k4="0" id="glass-prism-w-x" result="pwX"/>
         <feComposite in="cN" in2="cS" operator="arithmetic" k1="0" k2="0.85" k3="0" k4="0" id="glass-prism-w-y" result="pwY"/>
-        <feComposite in="pwX" in2="pwY" operator="arithmetic" k1="1.6" k2="0.25" k3="0.25" k4="0" result="pwApex"/>
+        <feComposite in="pwX" in2="pwY" operator="arithmetic" k1="2.2" k2="0" k3="0" k4="0" result="pwApex"/>
         <feComposite in="pwApex" in2="crestRaw" operator="in" result="pwIn"/>
         <feFlood id="glass-prism-w-flood" flood-color="#ff6ee0" flood-opacity="0.34" result="pwCol"/>
         <feComposite in="pwCol" in2="pwIn" operator="in" result="prismWarm"/>
@@ -228,9 +229,9 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
   </svg>
   <div class="background-layer" id="bg-layer"><canvas id="gl-canvas" class="gl-canvas"></canvas></div>
   <div class="clock-layer" id="clock-layer">
-    <div id="clock-wrapper" style="display:flex; flex-direction:column; align-items:center;">
+    <div id="clock-wrapper">
     <div id="clock">
-      <div class="hours-row" style="display:inline-flex; align-items:center;">
+      <div class="hours-row">
         <div class="tens-group clock-module" style="--hide-tx: 20px;"></div>
         <div class="units-group clock-module"></div>
       </div>
@@ -254,7 +255,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.2.17 | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.2.18 | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
 function initPWA() {
   const metaCap = document.createElement('meta'); metaCap.name = 'apple-mobile-web-app-capable'; metaCap.content = 'yes';
@@ -284,6 +285,7 @@ const qsa = (el, sel) => el.querySelectorAll(sel);
 const on = (el, evt, cb, opt) => el.addEventListener(evt, cb, opt);
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 const haptic = p => { try { navigator.vibrate?.(p) } catch(e){} };
+const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
 class Store {
   static TRANSIENT_KEYS = new Set(['isIdle', 'isHolding', 'isPanelOpen']);
   constructor(defaultState, storageKey = 'aurora_settings') {
@@ -297,7 +299,7 @@ class Store {
     return this.state;
   }
   setState(key, value) {
-    if (this.state[key] === value && key !== 'lang') return;
+    if (this.state[key] === value) return;
     this.state = Object.freeze({ ...this.state, [key]: value });
     this.scheduleSave(key);
     this.notify(key, value);
@@ -603,7 +605,7 @@ class ClockController {
       enM: new Intl.DateTimeFormat('en-US', { month: 'long' }),
       enW: new Intl.DateTimeFormat('en-US', { weekday: 'long' })
     };
-    this.ANIM_OPT = { duration: 300, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' };
+    this.ANIM_OPT = { duration: 300, easing: EASE_OUT };
     this.ANIM_REGISTRY = {
       1: {
         old: [{ opacity: 1, transform: 'scale(1)', filter: 'blur(0px)' }, { opacity: 0, transform: 'scale(0.84)', filter: 'blur(10px)' }],
@@ -621,8 +623,8 @@ class ClockController {
           { transform: 'translateY(-10%) scale(1.02)', opacity: 1, filter: 'blur(1.5px)', offset: 0.62 },
           { transform: 'translateY(0%) scale(1)', opacity: 1, filter: 'blur(0px)', offset: 1 }
         ],
-        oldOpts: { duration: 320, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
-        newOpts: { duration: 420, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }
+        oldOpts: { duration: 320, easing: EASE_OUT },
+        newOpts: { duration: 420, easing: EASE_OUT }
       },
       3: {
         old: [{ transform: 'rotateX(0deg)', filter: 'brightness(1) blur(0px)', opacity: 1 }, { transform: 'rotateX(90deg)', filter: 'brightness(0.4) blur(3px)', opacity: 0 }],
@@ -663,16 +665,16 @@ class ClockController {
     if (key === 'isPanelOpen') {
       this.updateEvasion();
     } else if (key === 'clockLayout') {
-      this.clockElement.animate([{ opacity: 1, filter: 'blur(0px)', transform: 'scale(1)' }, { opacity: 0, filter: 'blur(12px)', transform: 'scale(0.95)' }], { duration: 150, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }).onfinish = () => {
+      this.clockElement.animate([{ opacity: 1, filter: 'blur(0px)', transform: 'scale(1)' }, { opacity: 0, filter: 'blur(12px)', transform: 'scale(0.95)' }], { duration: 150, easing: EASE_OUT }).onfinish = () => {
         this.clockElement.classList.toggle('is-vertical', val === 1);
         this.updateEvasion();
-        this.clockElement.animate([{ opacity: 0, filter: 'blur(12px)', transform: 'scale(1.05)' }, { opacity: 1, filter: 'blur(0px)', transform: 'scale(1)' }], { duration: 280, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+        this.clockElement.animate([{ opacity: 0, filter: 'blur(12px)', transform: 'scale(1.05)' }, { opacity: 1, filter: 'blur(0px)', transform: 'scale(1)' }], { duration: 280, easing: EASE_OUT });
       };
     } else if (key === 'datePosition') {
-      [this.dateElement, this.customTextElement].forEach((el, i) => el.animate([{ opacity: 1, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(8px)' }], { duration: 140, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }).onfinish = () => {
+      [this.dateElement, this.customTextElement].forEach((el, i) => el.animate([{ opacity: 1, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(8px)' }], { duration: 140, easing: EASE_OUT }).onfinish = () => {
         el.classList.toggle('is-above', val === 1);
         if (i) this.updateEvasion();
-        el.animate([{ opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)' }], { duration: 240, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+        el.animate([{ opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)' }], { duration: 240, easing: EASE_OUT });
       });
     } else if (key === 'anchor') {
       const cw = this.clockWrapper, cl = this.container, first = cw.getBoundingClientRect();
@@ -684,7 +686,7 @@ class ClockController {
         void cw.offsetWidth;
         const last = cw.getBoundingClientRect(), rx = first.left - last.left, ry = first.top - last.top, dist = Math.sqrt(rx * rx + ry * ry), sc = cw.offsetWidth ? last.width / cw.offsetWidth : 1;
         if (dist > 5) {
-          const a = this.anchorAnim = cw.animate([{ transform: `translate(${rx / sc}px,${ry / sc}px)`, filter: `blur(${Math.min(12, dist * 0.05)}px)` }, { transform: 'translate(0px, 0px)', filter: 'blur(0px)' }], { duration: 400, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+          const a = this.anchorAnim = cw.animate([{ transform: `translate(${rx / sc}px,${ry / sc}px)`, filter: `blur(${Math.min(12, dist * 0.05)}px)` }, { transform: 'translate(0px, 0px)', filter: 'blur(0px)' }], { duration: 400, easing: EASE_OUT });
           a.onfinish = a.oncancel = () => { if (this.anchorAnim === a) cl.classList.remove('is-flipping'); };
         } else cl.classList.remove('is-flipping');
       });
@@ -750,9 +752,9 @@ class ClockController {
     const dateStr = this.formatDate(now, lang, showY, showM, showD, showW);
     if (de.textContent !== dateStr) {
       if (de.textContent === "") de.textContent = dateStr;
-      else de.animate([{ opacity: 1, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(4px)' }], { duration: 150, easing: 'ease-out' }).onfinish = () => {
+      else de.animate([{ opacity: 1, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(4px)' }], { duration: 150, easing: EASE_OUT }).onfinish = () => {
         de.textContent = dateStr;
-        de.animate([{ opacity: 0, filter: 'blur(4px)' }, { opacity: 1, filter: 'blur(0px)' }], { duration: 250, easing: 'ease-out' });
+        de.animate([{ opacity: 0, filter: 'blur(4px)' }, { opacity: 1, filter: 'blur(0px)' }], { duration: 250, easing: EASE_OUT });
       };
     }
     this.timer = setTimeout(this.tick.bind(this), 1000 - (Date.now() % 1000));
@@ -859,6 +861,7 @@ class UIManager {
       pixelShift: { id: 'ctrl-pixelshift', prop: 'checked' }, nightMode: { id: 'ctrl-nightmode', prop: 'checked' }
     };
   }
+  static BINDING_BY_ID = Object.assign(Object.create(null), Object.fromEntries(Object.entries(UIManager.UI_BINDINGS).map(([k, b]) => [b.id, [k, b]])));
   static hexToRgb(h) {
     return [parseInt(h.slice(1,3),16)/255, parseInt(h.slice(3,5),16)/255, parseInt(h.slice(5,7),16)/255];
   }
@@ -888,8 +891,11 @@ class UIManager {
     this.tgTarget = null;
     this.tgDragged = false;
     this.typoAnim = null;
-    this.lx = 0.65;
-    this.ly = 0.75;
+    this.lAngle = Math.atan2(0.75, 0.65);
+    this.lMag = Math.hypot(0.65, 0.75);
+    this.clockEl = $('clock');
+    this.clockWrapperEl = $('clock-wrapper');
+    this.btnLowpower = $('btn-lowpower');
     this.ptrX = -0.65;
     this.ptrY = -0.75;
     this.ptrActiveUntil = 0;
@@ -931,7 +937,8 @@ class UIManager {
       prismCFlood: $('glass-prism-c-flood'), prismWFlood: $('glass-prism-w-flood'),
       bodyFlood: $('glass-body-flood'), bevelFlood: $('glass-bevel-flood'),
       causticFlood: $('glass-caustic-flood'), whisperFlood: $('glass-whisper-flood'),
-      crestFlood: $('glass-crest-flood')
+      crestFlood: $('glass-crest-flood'),
+      hollowBlur: $('hollow-blur'), hollowFlood: $('hollow-flood')
     };
     this.renderPanel();
     this.syncUI(true);
@@ -943,18 +950,18 @@ class UIManager {
   }
   renderPanel() {
     const { lang } = this.store.getState(), d = UIManager.DICT[lang], I = this.activeTab;
-    const row = (label, ctrl) => `<div class="settings-row"><span class="row-label auto-w">${label}</span>${ctrl}</div>`;
+    const row = (label, ctrl) => `<div class="settings-row"><span class="row-label">${label}</span>${ctrl}</div>`;
     const tg = (id, label) => row(label, `<input type="checkbox" id="${id}" class="toggle-switch">`);
-    const seg = (label, prop, options, offset = 0) => { const isCol = options.length > 3; return `<div class="settings-row${isCol ? ' col-layout' : ''}"><span class="row-label auto-w">${label}</span><div class="segmented-control${isCol ? '' : ' inline-seg'}" data-prop="${prop}" role="radiogroup"><div class="segmented-highlight"></div>${options.map((t, i) => `<button class="segment-btn" data-value="${i + offset}">${t}</button>`).join('')}</div></div>`; };
-    const mtg = (label, opts) => `<div class="settings-row"><span class="row-label auto-w">${label}</span><div class="mtg-control">${opts.map(o => `<button class="mtg-btn" data-prop="${o.p}">${o.l}</button>`).join('')}</div></div>`;
+    const seg = (label, prop, options, offset = 0) => { const isCol = options.length > 3; return `<div class="settings-row${isCol ? ' col-layout' : ''}"><span class="row-label">${label}</span><div class="segmented-control${isCol ? '' : ' inline-seg'}" data-prop="${prop}" role="radiogroup"><div class="segmented-highlight"></div>${options.map((t, i) => `<button class="segment-btn" data-value="${i + offset}">${t}</button>`).join('')}</div></div>`; };
+    const mtg = (label, opts) => `<div class="settings-row"><span class="row-label">${label}</span><div class="mtg-control">${opts.map(o => `<button class="mtg-btn" data-prop="${o.p}">${o.l}</button>`).join('')}</div></div>`;
     const slider = (key, id) => { const s = UIManager.SLIDERS.find(s => s.key === key && (!id || s.id === id)); return `<div class="slider-row" aria-label="${d[key]}">${UIManager.renderIcon(s.svgMin, 'slider-icon min-icon')}<div class="range-container"><input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}"></div>${UIManager.renderIcon(s.svgMax, 'slider-icon max-icon')}</div>`; };
     const langRow = row(d.lang, `<div class="segmented-control inline-seg" data-prop="lang" role="radiogroup" style="max-width:120px"><div class="segmented-highlight"></div><button class="segment-btn ${lang === 'en' ? 'active' : ''}" data-value="en">EN</button><button class="segment-btn ${lang === 'zh' ? 'active' : ''}" data-value="zh">中</button></div>`);
     const theme = row(d.theme, `<div class="swatches-container">${UIManager.THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}<div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div></div>`);
     const tcKeys = ['textColor', 'ampmColor', 'dateColor', 'customTextColor'];
     const tcState = this.store.getState();
     const tcRow = row(d.tc, `<div class="tc-group">${tcKeys.map((k, idx) => `<label class="tc-chip"><span class="tc-dot" id="swatch-${k}" style="background:${tcState[k]}"></span><span class="tc-lbl">${d.tcItems[idx]}</span><input type="color" class="tc-input" id="ctrl-${k}" data-prop="${k}" value="${tcState[k]}" aria-label="${d.tc} ${d.tcItems[idx]}"></label>`).join('')}</div>`);
-    const anchorRow = `<div class="settings-row anchor-row"><span class="row-label auto-w">${d.anchor}</span><div class="anchor-grid" data-prop="anchor" role="radiogroup">${[...Array(9)].map((_, i) => `<button class="anchor-btn" data-value="${i}" role="radio"></button>`).join('')}</div></div>`;
-    const ctRow = `<div class="settings-row"><input type="text" id="ctrl-customtext" maxlength="30" placeholder="${d.ctph}" style="width:100%; background:rgba(255,255,255,0.1); border:none; color:#fff; border-radius:6px; padding:6px 12px; outline:none; font-family:inherit;"></div>`;
+    const anchorRow = `<div class="settings-row anchor-row"><span class="row-label">${d.anchor}</span><div class="anchor-grid" data-prop="anchor" role="radiogroup">${[...Array(9)].map((_, i) => `<button class="anchor-btn" data-value="${i}" role="radio"></button>`).join('')}</div></div>`;
+    const ctRow = `<div class="settings-row"><input type="text" id="ctrl-customtext" class="ct-input" maxlength="30" placeholder="${d.ctph}"></div>`;
     const tabs = [
       [[seg(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono']), tcRow, seg(d.mat, 'material', d.mats)], [slider('size'), slider('weight'), slider('opacity')], [tg('ctrl-24hr', d.time), tg('ctrl-leadingzero', d.lz), tg('ctrl-seconds', d.sec), seg(d.tick, 'clockAnimMode', d.ticks)], [tg('ctrl-date', d.date), mtg(d.df, [{l:d.dY,p:'showY'}, {l:d.dM,p:'showM'}, {l:d.dD,p:'showD'}, {l:d.dW,p:'showW'}]), seg(d.layout, 'clockLayout', d.layouts), seg(d.datePos, 'datePosition', d.datePositions)], [tg('ctrl-showcustom', d.sct), ctRow], [anchorRow, slider('offset', 'ctrl-offx'), slider('offset', 'ctrl-offy')]],
       [[seg(d.mode, 'mode', d.modes, 1), theme], [slider('speed')]],
@@ -1011,7 +1018,7 @@ class UIManager {
       fill = `rgb(${r}, ${g}, ${b})`;
       stroke = '0';
       digitFilter = 'url(#hollow-fx)';
-      const hb = $('hollow-blur'), hf = $('hollow-flood');
+      const hb = this.glassEls && this.glassEls.hollowBlur, hf = this.glassEls && this.glassEls.hollowFlood;
       if (hb) hb.setAttribute('stdDeviation', Math.max(1.0, size * 0.095).toFixed(2));
       if (hf) {
         hf.setAttribute('flood-color', `rgb(${r}, ${g}, ${b})`);
@@ -1069,7 +1076,7 @@ class UIManager {
     sp('--clock-blend', blend);
     sp('--digit-filter', digitFilter);
     sp('--clock-filter', filter);
-    const clk = $('clock');
+    const clk = this.clockEl;
     if (!full && clk) {
       clk.style.opacity = 0.99;
       clearTimeout(this.rp);
@@ -1111,10 +1118,8 @@ class UIManager {
     const { clockOpacity: op, nightMode } = this.store.getState();
     const p = this.glassPress;
     const comp = 1 - p * 0.35;
-    let lx = this.lx, ly = this.ly;
-    const lm = Math.hypot(lx, ly) || 1;
-    const nx = lx / lm, ny = ly / lm;
-    const strength = clamp(lm, 0.55, 1.15) * comp;
+    const nx = Math.cos(this.lAngle), ny = Math.sin(this.lAngle);
+    const strength = clamp(this.lMag, 0.55, 1.15) * comp;
     const ux = nx * strength, uy = ny * strength;
     const kx = ux.toFixed(3), ky = uy.toFixed(3), kp = p.toFixed(3);
     if (!force && this._lastKx === kx && this._lastKy === ky && this._lastKp === kp) return;
@@ -1127,8 +1132,9 @@ class UIManager {
     setK(g.crestY, uy + 0.08, -uy + 0.08);
     setK(g.whisperX, -ux * 0.62, ux * 0.62);
     setK(g.whisperY, -uy * 0.62, uy * 0.62);
-    setK(g.causticX, -ux * 0.95, ux * 0.95);
-    setK(g.causticY, -uy * 0.95, uy * 0.95);
+    const cStr = 0.95 * (1 - p * 0.18);
+    setK(g.causticX, -ux * cStr, ux * cStr);
+    setK(g.causticY, -uy * cStr, uy * cStr);
     const cx = nx * 0.82 - ny * 0.57, cy = ny * 0.82 + nx * 0.57;
     const wx = nx * 0.82 + ny * 0.57, wy = ny * 0.82 - nx * 0.57;
     setK(g.prismCX, cx * strength, -cx * strength);
@@ -1152,7 +1158,7 @@ class UIManager {
   }
   tickGlass(now) {
     this.glassRaf = null;
-    const { material, isHolding, speed, lowPower } = this.store.getState();
+    const { material, isHolding, isIdle, speed, lowPower } = this.store.getState();
     if (material !== 3 || document.hidden) return;
     const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const dt = clamp(now - this.lastGlassTick, 1, 64);
@@ -1162,14 +1168,14 @@ class UIManager {
     this.glassPress += (pTarget - this.glassPress) * kP;
     if (Math.abs(pTarget - this.glassPress) < 0.001) this.glassPress = pTarget;
     if (calm) {
-      this.lx = 0.65; this.ly = 0.75;
+      this.lAngle = Math.atan2(0.75, 0.65); this.lMag = Math.hypot(0.65, 0.75);
       this.updateGlassVectors(false);
       if (this.glassPress !== pTarget) this.glassRaf = requestAnimationFrame(this.tickGlassBound);
       return;
     }
     const t = now * 0.0005 * clamp(speed, 0.2, 2.5);
-    const driftX = Math.cos(t) * 0.72 + Math.sin(t * 0.43) * 0.24;
-    const driftY = Math.sin(t * 0.71) * 0.72 + Math.cos(t * 0.37) * 0.24;
+    const driftX = Math.cos(t) * 0.64 + Math.sin(t * 0.43) * 0.22 + 0.16;
+    const driftY = Math.sin(t * 0.71) * 0.64 + Math.cos(t * 0.37) * 0.22 + 0.18;
     const ambX = this.hasGyro ? clamp(driftX * 0.35 + (-this.gyroX) * 0.85, -1.15, 1.15) : driftX;
     const ambY = this.hasGyro ? clamp(driftY * 0.35 + (-this.gyroY) * 0.85, -1.15, 1.15) : driftY;
     const ptrActive = now < this.ptrActiveUntil ? 1 : 0;
@@ -1177,19 +1183,20 @@ class UIManager {
     this.ptrW += (ptrActive - this.ptrW) * kW;
     if (this.ptrW < 0.001 && !ptrActive) this.ptrW = 0;
     const w = this.ptrW;
-    let tx = ambX * (1 - w) + (-this.ptrX * 1.05) * w;
-    let ty = ambY * (1 - w) + (-this.ptrY * 1.05) * w;
-    const mag = Math.hypot(tx, ty);
-    if (mag < 0.55) {
-      const s = 0.55 / (mag || 0.001);
-      tx = mag < 0.01 ? 0.39 : tx * s;
-      ty = mag < 0.01 ? 0.39 : ty * s;
-    }
-    const kL = 1 - Math.pow(1 - (w > 0.05 ? 0.22 : 0.08), dt / 16.666);
-    this.lx += (tx - this.lx) * kL;
-    this.ly += (ty - this.ly) * kL;
-    if (!lowPower || w > 0.01 || isHolding || this.glassPress > 0.002 || (now - (this._lastLpTick || 0) >= 32)) {
-      this._lastLpTick = now;
+    const tx = ambX * (1 - w) + (-this.ptrX * 1.05) * w;
+    const ty = ambY * (1 - w) + (-this.ptrY * 1.05) * w;
+    const rawMag = Math.hypot(tx, ty);
+    const tAngle = rawMag > 0.02 ? Math.atan2(ty, tx) : this.lAngle;
+    const tMag = clamp(rawMag, 0.62, 1.15);
+    const dAngle = Math.atan2(Math.sin(tAngle - this.lAngle), Math.cos(tAngle - this.lAngle));
+    const kL = 1 - Math.pow(1 - (w > 0.05 ? 0.20 : 0.07), dt / 16.666);
+    const maxStep = (w > 0.05 ? 0.10 : 0.045) * (dt / 16.666);
+    this.lAngle = Math.atan2(Math.sin(this.lAngle + clamp(dAngle * kL, -maxStep, maxStep)), Math.cos(this.lAngle + clamp(dAngle * kL, -maxStep, maxStep)));
+    this.lMag += (tMag - this.lMag) * kL;
+    const active = w > 0.01 || isHolding || this.glassPress > 0.002;
+    const minStep = active ? 14 : (isIdle ? 80 : lowPower ? 55 : 32);
+    if (now - (this._lastGlassDom || 0) >= minStep) {
+      this._lastGlassDom = now;
       this.updateGlassVectors(false);
     }
     this.glassRaf = requestAnimationFrame(this.tickGlassBound);
@@ -1199,10 +1206,10 @@ class UIManager {
     const root = document.documentElement, sp = (k, v) => root.style.setProperty(k, v);
     const full = changedKey === null;
     if (!full && !skipAnim && (changedKey === 'material' || changedKey === 'fontStyle')) {
-      const targetEl = changedKey === 'fontStyle' ? $('clock-wrapper') : $('clock');
+      const targetEl = changedKey === 'fontStyle' ? this.clockWrapperEl : this.clockEl;
       if (this.typoAnim) { this.typoAnim.cancel(); this.typoAnim = null; }
       if (targetEl) {
-        const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches, ease = 'cubic-bezier(0.23, 1, 0.32, 1)';
+        const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches, ease = EASE_OUT;
         const outAnim = this.typoAnim = targetEl.animate(
           calm ? [{ opacity: 1 }, { opacity: 0 }] : [{ opacity: 1, filter: 'blur(0px)', transform: 'scale(1)' }, { opacity: 0, filter: 'blur(10px)', transform: 'scale(0.96)' }],
           { duration: 120, easing: ease }
@@ -1234,7 +1241,7 @@ class UIManager {
     });
     if (full || changedKey === 'pixelShift') this.runPixelShift();
     if (full || changedKey === 'lowPower') {
-      const btnLowpower = $('btn-lowpower');
+      const btnLowpower = this.btnLowpower;
       if (btnLowpower) btnLowpower.classList.toggle('is-active', lowPower);
     }
     const bindings = UIManager.UI_BINDINGS;
@@ -1350,13 +1357,16 @@ class UIManager {
   bindEvents() {
     let lastHap = 0, anchorHold = null, holdFired = false, anchorX = 0, anchorY = 0;
     const clearAnchorHold = () => { if (anchorHold) { clearTimeout(anchorHold); anchorHold = null; } };
+    const trackGlassPtr = e => {
+      this.ptrX = clamp((e.clientX / Math.max(1, window.innerWidth) - 0.5) * 2, -1, 1);
+      this.ptrY = clamp((e.clientY / Math.max(1, window.innerHeight) - 0.5) * 2, -1, 1);
+      this.ptrActiveUntil = performance.now() + 900;
+    };
     on(document, 'pointerdown', e => {
-      if (this.store.getState().material === 3) {
-        this.ptrX = clamp((e.clientX / Math.max(1, window.innerWidth) - 0.5) * 2, -1, 1);
-        this.ptrY = clamp((e.clientY / Math.max(1, window.innerHeight) - 0.5) * 2, -1, 1);
-        this.ptrActiveUntil = performance.now() + 900;
-        this.tryRequestGyro();
-      }
+      if (this.store.getState().material === 3) { trackGlassPtr(e); this.tryRequestGyro(); }
+      if (e.target.type === 'range') document.body.classList.add('is-dragging');
+      const tg = e.target.closest('.toggle-switch');
+      if (tg) { this.tgStart = e.clientX; this.tgTarget = tg; this.tgDragged = false; }
       const btn = e.target.closest('.anchor-btn');
       if (btn) {
         clearAnchorHold(); holdFired = false;
@@ -1368,14 +1378,28 @@ class UIManager {
         }, 500);
       } else if (e.button === 0 && !e.target.closest('button, .settings-panel, .swatch-wrapper, input, .anchor-grid, .tc-group')) { this.touchStartX = e.clientX; this.touchStartY = e.clientY; this.exitApp(true); }
     }, { passive: true });
-    ['pointerup', 'pointercancel'].forEach(t => on(document, t, () => { clearAnchorHold(); this.exitApp(false); }, { passive: true }));
-    on(document, 'pointermove', e => { if (anchorHold && (Math.abs(e.clientX - anchorX) > 12 || Math.abs(e.clientY - anchorY) > 12)) clearAnchorHold(); const state = this.store.getState(); if (state.isHolding && this.touchStartX !== null && (Math.abs(e.clientX - this.touchStartX) > 15 || Math.abs(e.clientY - this.touchStartY) > 15)) this.exitApp(false);
-      if (state.material === 3) {
-        this.ptrX = clamp((e.clientX / Math.max(1, window.innerWidth) - 0.5) * 2, -1, 1);
-        this.ptrY = clamp((e.clientY / Math.max(1, window.innerHeight) - 0.5) * 2, -1, 1);
-        this.ptrActiveUntil = performance.now() + 900;
+    on(document, 'pointermove', e => {
+      if (anchorHold && (Math.abs(e.clientX - anchorX) > 12 || Math.abs(e.clientY - anchorY) > 12)) clearAnchorHold();
+      const state = this.store.getState();
+      if (state.isHolding && this.touchStartX !== null && (Math.abs(e.clientX - this.touchStartX) > 15 || Math.abs(e.clientY - this.touchStartY) > 15)) this.exitApp(false);
+      if (state.material === 3) trackGlassPtr(e);
+      if (this.tgTarget && this.tgStart !== null) {
+        const dx = e.clientX - this.tgStart;
+        if (Math.abs(dx) > 8) {
+          this.tgDragged = true;
+          const checkedState = dx > 0;
+          if (this.tgTarget.checked !== checkedState) { this.tgTarget.checked = checkedState; this.tgTarget.dispatchEvent(new Event('change', { bubbles: true })); }
+        }
       }
     }, { passive: true });
+    const endPointer = () => {
+      clearAnchorHold();
+      this.exitApp(false);
+      document.body.classList.remove('is-dragging');
+      this.tgStart = null;
+      setTimeout(() => this.tgTarget = null, 0);
+    };
+    ['pointerup', 'pointercancel'].forEach(t => on(document, t, endPointer, { passive: true }));
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission !== 'function') {
       on(window, 'deviceorientation', e => this.handleGyro(e), { passive: true });
     }
@@ -1384,23 +1408,15 @@ class UIManager {
     });
     on(document, 'input', e => {
       if (e.target.type === 'range') { document.body.classList.add('is-dragging'); const t = e.target, v = t.value, isEdge = v === t.min || v === t.max, now = Date.now(); if (isEdge || now - lastHap > 40) { haptic(isEdge ? 20 : 5); lastHap = now; } }
-      const entry = Object.entries(UIManager.UI_BINDINGS).find(([, b]) => b.id === e.target.id);
+      const entry = UIManager.BINDING_BY_ID[e.target.id];
       if (entry && e.target.type !== 'checkbox') { this.store.setState(entry[0], e.target.type === 'text' ? e.target.value : parseFloat(e.target.value)); }
       else if (e.target.classList.contains('tc-input')) this.store.setState(e.target.dataset.prop, e.target.value);
       else if (e.target.id === 'custom-color-input') { this.store.setState('colorTarget', UIManager.hexToRgb(e.target.value)); }
     });
     on(document, 'change', e => {
       if (e.target.classList.contains('tc-input')) haptic(10);
-      if (e.target.type === 'checkbox') { haptic(10); const entry = Object.entries(UIManager.UI_BINDINGS).find(([, b]) => b.id === e.target.id); if (entry) this.store.setState(entry[0], e.target.checked); }
+      if (e.target.type === 'checkbox') { haptic(10); const entry = UIManager.BINDING_BY_ID[e.target.id]; if (entry) this.store.setState(entry[0], e.target.checked); }
     });
-    on(document, 'pointerdown', e => {
-      if (e.target.type === 'range') document.body.classList.add('is-dragging');
-      const t = e.target.closest('.toggle-switch'); if (t) { this.tgStart = e.clientX; this.tgTarget = t; this.tgDragged = false; }
-    });
-    on(document, 'pointermove', e => { if (this.tgTarget && this.tgStart !== null) { const dx = e.clientX - this.tgStart; if (Math.abs(dx) > 8) { this.tgDragged = true; const checkedState = dx > 0; if (this.tgTarget.checked !== checkedState) { this.tgTarget.checked = checkedState; this.tgTarget.dispatchEvent(new Event('change', { bubbles: true })); } } } });
-    const endDrag = () => { document.body.classList.remove('is-dragging'); this.tgStart = null; setTimeout(() => this.tgTarget = null, 0); };
-    on(document, 'pointerup', endDrag, { passive: true });
-    on(document, 'pointercancel', endDrag, { passive: true });
     on(document, 'click', e => { if (e.target.closest('.toggle-switch') && this.tgDragged) { e.preventDefault(); e.stopPropagation(); } }, { capture: true });
     on(document, 'click', e => {
       const state = this.store.getState();
