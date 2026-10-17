@@ -164,23 +164,44 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
       <filter id="glass-fx" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
         <feGaussianBlur in="SourceAlpha" stdDeviation="2.2" id="glass-bevel-blur" result="bBlur"/>
         <feComposite in="SourceAlpha" in2="bBlur" operator="out" result="bevelMask"/>
-        <feOffset in="bBlur" dx="-1.5" dy="-1.6" id="glass-caustic-off" result="cOff"/>
-        <feComposite in="SourceAlpha" in2="cOff" operator="out" result="causticRaw"/>
+        <feOffset in="bBlur" dx="2" dy="0" id="glass-mw-off" result="mwOff"/>
+        <feComposite in="SourceAlpha" in2="mwOff" operator="out" result="mW"/>
+        <feOffset in="bBlur" dx="-2" dy="0" id="glass-me-off" result="meOff"/>
+        <feComposite in="SourceAlpha" in2="meOff" operator="out" result="mE"/>
+        <feOffset in="bBlur" dx="0" dy="2" id="glass-mn-off" result="mnOff"/>
+        <feComposite in="SourceAlpha" in2="mnOff" operator="out" result="mN"/>
+        <feOffset in="bBlur" dx="0" dy="-2" id="glass-ms-off" result="msOff"/>
+        <feComposite in="SourceAlpha" in2="msOff" operator="out" result="mS"/>
+        <feComposite in="mW" in2="mE" operator="arithmetic" k1="0" k2="0" k3="0.65" k4="0" id="glass-caustic-x" result="caustX"/>
+        <feComposite in="mN" in2="mS" operator="arithmetic" k1="0" k2="0" k3="0.75" k4="0" id="glass-caustic-y" result="caustY"/>
+        <feComposite in="caustX" in2="caustY" operator="arithmetic" k1="-0.28" k2="1" k3="1" k4="0" result="causticRaw"/>
         <feComposite in="causticRaw" in2="SourceAlpha" operator="in" result="causticMask"/>
         <feGaussianBlur in="SourceAlpha" stdDeviation="0.35" id="glass-crest-blur" result="cBase"/>
-        <feOffset in="cBase" dx="-0.65" dy="-0.7" id="glass-whisper-off" result="wOff"/>
-        <feComposite in="SourceAlpha" in2="wOff" operator="out" result="whisperMask"/>
-        <feOffset in="cBase" dx="0.95" dy="1.05" id="glass-crest-off" result="sOff"/>
-        <feComposite in="SourceAlpha" in2="sOff" operator="out" result="crestRaw"/>
+        <feOffset in="cBase" dx="1" dy="0" id="glass-cw-off" result="cwOff"/>
+        <feComposite in="SourceAlpha" in2="cwOff" operator="out" result="cW"/>
+        <feOffset in="cBase" dx="-1" dy="0" id="glass-ce-off" result="ceOff"/>
+        <feComposite in="SourceAlpha" in2="ceOff" operator="out" result="cE"/>
+        <feOffset in="cBase" dx="0" dy="1" id="glass-cn-off" result="cnOff"/>
+        <feComposite in="SourceAlpha" in2="cnOff" operator="out" result="cN"/>
+        <feOffset in="cBase" dx="0" dy="-1" id="glass-cs-off" result="csOff"/>
+        <feComposite in="SourceAlpha" in2="csOff" operator="out" result="cS"/>
+        <feComposite in="cW" in2="cE" operator="arithmetic" k1="0" k2="0.65" k3="0" k4="0" id="glass-crest-x" result="crestX"/>
+        <feComposite in="cN" in2="cS" operator="arithmetic" k1="0" k2="0.75" k3="0" k4="0" id="glass-crest-y" result="crestY"/>
+        <feComposite in="crestX" in2="crestY" operator="arithmetic" k1="-0.32" k2="1" k3="1" k4="0" result="crestRaw"/>
         <feComponentTransfer in="crestRaw" result="crestMask"><feFuncA type="linear" slope="1.85" intercept="-0.08"/></feComponentTransfer>
-        <feOffset in="crestMask" dx="0.6" dy="-0.6" id="glass-apex-off" result="aOff"/>
-        <feComposite in="crestMask" in2="aOff" operator="in" result="apexMask"/>
-        <feOffset in="apexMask" dx="-0.55" dy="0.35" id="glass-prism-c-off" result="pcOff"/>
-        <feComposite in="pcOff" in2="SourceAlpha" operator="in" result="pcIn"/>
+        <feComposite in="cW" in2="cE" operator="arithmetic" k1="0" k2="0" k3="0.4" k4="0" id="glass-whisper-x" result="whispX"/>
+        <feComposite in="cN" in2="cS" operator="arithmetic" k1="0" k2="0" k3="0.46" k4="0" id="glass-whisper-y" result="whispY"/>
+        <feComposite in="whispX" in2="whispY" operator="arithmetic" k1="-0.25" k2="1" k3="1" k4="0" result="whisperMask"/>
+        <feComposite in="cW" in2="cE" operator="arithmetic" k1="0" k2="0.85" k3="0" k4="0" id="glass-prism-c-x" result="pcX"/>
+        <feComposite in="cN" in2="cS" operator="arithmetic" k1="0" k2="0" k3="0.52" k4="0" id="glass-prism-c-y" result="pcY"/>
+        <feComposite in="pcX" in2="pcY" operator="arithmetic" k1="1.6" k2="0.25" k3="0.25" k4="0" result="pcApex"/>
+        <feComposite in="pcApex" in2="crestRaw" operator="in" result="pcIn"/>
         <feFlood id="glass-prism-c-flood" flood-color="#38e8ff" flood-opacity="0.38" result="pcCol"/>
         <feComposite in="pcCol" in2="pcIn" operator="in" result="prismCool"/>
-        <feOffset in="apexMask" dx="0.55" dy="-0.35" id="glass-prism-w-off" result="pwOff"/>
-        <feComposite in="pwOff" in2="SourceAlpha" operator="in" result="pwIn"/>
+        <feComposite in="cW" in2="cE" operator="arithmetic" k1="0" k2="0" k3="0.52" k4="0" id="glass-prism-w-x" result="pwX"/>
+        <feComposite in="cN" in2="cS" operator="arithmetic" k1="0" k2="0.85" k3="0" k4="0" id="glass-prism-w-y" result="pwY"/>
+        <feComposite in="pwX" in2="pwY" operator="arithmetic" k1="1.6" k2="0.25" k3="0.25" k4="0" result="pwApex"/>
+        <feComposite in="pwApex" in2="crestRaw" operator="in" result="pwIn"/>
         <feFlood id="glass-prism-w-flood" flood-color="#ff6ee0" flood-opacity="0.34" result="pwCol"/>
         <feComposite in="pwCol" in2="pwIn" operator="in" result="prismWarm"/>
         <feFlood id="glass-body-flood" flood-color="#ffffff" flood-opacity="0.04" result="bodyCol"/>
@@ -233,7 +254,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
     <button class="icon-btn btn-fullscreen" id="btn-fullscreen" aria-label="Toggle Fullscreen"></button>
   </div>
 </div>
-  <script>// Ambient Aurora v2.2.16 | Store / WebGLEngine / ClockController / UIManager
+  <script>// Ambient Aurora v2.2.17 | Store / WebGLEngine / ClockController / UIManager
 (function boot() {
 function initPWA() {
   const metaCap = document.createElement('meta'); metaCap.name = 'apple-mobile-web-app-capable'; metaCap.content = 'yes';
@@ -872,6 +893,7 @@ class UIManager {
     this.ptrX = -0.65;
     this.ptrY = -0.75;
     this.ptrActiveUntil = 0;
+    this.ptrW = 0;
     this.gyroX = 0;
     this.gyroY = 0;
     this.hasGyro = false;
@@ -880,7 +902,6 @@ class UIManager {
     this.glassPress = 0;
     this.glassRaf = null;
     this.lastGlassTick = 0;
-    this.lastGlassApply = 0;
     this.glassEls = null;
     this.tickGlassBound = this.tickGlass.bind(this);
     this.store.subscribe((prop, val) => {
@@ -899,19 +920,17 @@ class UIManager {
     ['btn-fullscreen', 20, 'fs-icon', `<path class="fs-top-left" d="M8 3H5a2 2 0 0 0-2 2v3"/><path class="fs-top-right" d="M16 3h3a2 2 0 0 1 2 2v3"/><path class="fs-bottom-left" d="M8 21H5a2 2 0 0 1-2-2v-3"/><path class="fs-bottom-right" d="M16 21h3a2 2 0 0 0 2-2v-3"/>`]].forEach(([id, size, cls, paths]) => $(id).innerHTML = UIManager.renderIcon(paths, cls, size));
     this.glassEls = {
       bevelBlur: $('glass-bevel-blur'),
-      causticOff: $('glass-caustic-off'),
       crestBlur: $('glass-crest-blur'),
-      whisperOff: $('glass-whisper-off'),
-      crestOff: $('glass-crest-off'),
-      apexOff: $('glass-apex-off'),
-      prismCOff: $('glass-prism-c-off'),
-      prismWOff: $('glass-prism-w-off'),
-      prismCFlood: $('glass-prism-c-flood'),
-      prismWFlood: $('glass-prism-w-flood'),
-      bodyFlood: $('glass-body-flood'),
-      bevelFlood: $('glass-bevel-flood'),
-      causticFlood: $('glass-caustic-flood'),
-      whisperFlood: $('glass-whisper-flood'),
+      mwOff: $('glass-mw-off'), meOff: $('glass-me-off'), mnOff: $('glass-mn-off'), msOff: $('glass-ms-off'),
+      cwOff: $('glass-cw-off'), ceOff: $('glass-ce-off'), cnOff: $('glass-cn-off'), csOff: $('glass-cs-off'),
+      causticX: $('glass-caustic-x'), causticY: $('glass-caustic-y'),
+      crestX: $('glass-crest-x'), crestY: $('glass-crest-y'),
+      whisperX: $('glass-whisper-x'), whisperY: $('glass-whisper-y'),
+      prismCX: $('glass-prism-c-x'), prismCY: $('glass-prism-c-y'),
+      prismWX: $('glass-prism-w-x'), prismWY: $('glass-prism-w-y'),
+      prismCFlood: $('glass-prism-c-flood'), prismWFlood: $('glass-prism-w-flood'),
+      bodyFlood: $('glass-body-flood'), bevelFlood: $('glass-bevel-flood'),
+      causticFlood: $('glass-caustic-flood'), whisperFlood: $('glass-whisper-flood'),
       crestFlood: $('glass-crest-flood')
     };
     this.renderPanel();
@@ -1025,6 +1044,17 @@ class UIManager {
         setFlood(ge.crestFlood, `rgb(${cr}, ${cg}, ${cb})`, 0.95);
         setFlood(ge.prismCFlood, '#38e8ff', nightMode ? 0 : 0.38);
         setFlood(ge.prismWFlood, '#ff6ee0', nightMode ? 0 : 0.34);
+        if (this._glassStaticSize !== size) {
+          this._glassStaticSize = size;
+          ge.bevelBlur.setAttribute('stdDeviation', Math.max(1.3, size * 0.14).toFixed(2));
+          ge.crestBlur.setAttribute('stdDeviation', Math.max(0.32, size * 0.024).toFixed(2));
+          const mDist = String(Math.max(1, Math.round(size * 0.12)));
+          ge.mwOff.setAttribute('dx', mDist); ge.meOff.setAttribute('dx', '-' + mDist);
+          ge.mnOff.setAttribute('dy', mDist); ge.msOff.setAttribute('dy', '-' + mDist);
+          const cDist = String(Math.max(1, Math.round(size * 0.068)));
+          ge.cwOff.setAttribute('dx', cDist); ge.ceOff.setAttribute('dx', '-' + cDist);
+          ge.cnOff.setAttribute('dy', cDist); ge.csOff.setAttribute('dy', '-' + cDist);
+        }
       }
       this.updateGlassVectors(true);
       this.startGlassLoop();
@@ -1077,55 +1107,55 @@ class UIManager {
   }
   updateGlassVectors(force = false) {
     const g = this.glassEls;
-    if (!g || !g.crestOff) return;
-    const { size, clockOpacity: op, nightMode } = this.store.getState();
+    if (!g || !g.crestX) return;
+    const { clockOpacity: op, nightMode } = this.store.getState();
     const p = this.glassPress;
-    const comp = 1 - p * 0.38;
+    const comp = 1 - p * 0.35;
     let lx = this.lx, ly = this.ly;
-    const lm = Math.hypot(lx, ly);
-    if (lm < 0.42) {
-      lx = lm > 0.002 ? lx * 0.42 / lm : 0.297;
-      ly = lm > 0.002 ? ly * 0.42 / lm : 0.297;
+    const lm = Math.hypot(lx, ly) || 1;
+    const nx = lx / lm, ny = ly / lm;
+    const strength = clamp(lm, 0.55, 1.15) * comp;
+    const ux = nx * strength, uy = ny * strength;
+    const kx = ux.toFixed(3), ky = uy.toFixed(3), kp = p.toFixed(3);
+    if (!force && this._lastKx === kx && this._lastKy === ky && this._lastKp === kp) return;
+    this._lastKx = kx; this._lastKy = ky; this._lastKp = kp;
+    const setK = (el, k2, k3) => {
+      el.setAttribute('k2', Math.max(0, k2).toFixed(3));
+      el.setAttribute('k3', Math.max(0, k3).toFixed(3));
+    };
+    setK(g.crestX, ux + 0.08, -ux + 0.08);
+    setK(g.crestY, uy + 0.08, -uy + 0.08);
+    setK(g.whisperX, -ux * 0.62, ux * 0.62);
+    setK(g.whisperY, -uy * 0.62, uy * 0.62);
+    setK(g.causticX, -ux * 0.95, ux * 0.95);
+    setK(g.causticY, -uy * 0.95, uy * 0.95);
+    const cx = nx * 0.82 - ny * 0.57, cy = ny * 0.82 + nx * 0.57;
+    const wx = nx * 0.82 + ny * 0.57, wy = ny * 0.82 - nx * 0.57;
+    setK(g.prismCX, cx * strength, -cx * strength);
+    setK(g.prismCY, -cy * strength, cy * strength);
+    setK(g.prismWX, -wx * strength, wx * strength);
+    setK(g.prismWY, wy * strength, -wy * strength);
+    if (force || Math.abs((this._lastOpP ?? -1) - p) > 0.002) {
+      this._lastOpP = p;
+      const reduceTrans = window.matchMedia?.('(prefers-reduced-transparency: reduce)').matches;
+      if (!reduceTrans) {
+        g.bodyFlood.setAttribute('flood-opacity', ((0.04 + p * 0.06) * op).toFixed(3));
+        g.bevelFlood.setAttribute('flood-opacity', ((0.17 + p * 0.08) * op).toFixed(3));
+        g.causticFlood.setAttribute('flood-opacity', ((0.36 + p * 0.16) * op).toFixed(3));
+      }
+      if (!nightMode) {
+        g.prismCFlood.setAttribute('flood-opacity', ((0.38 + p * 0.12) * op).toFixed(3));
+        g.prismWFlood.setAttribute('flood-opacity', ((0.34 + p * 0.12) * op).toFixed(3));
+      }
+      document.documentElement.style.setProperty('--glass-press', (1 - p * 0.032).toFixed(4));
     }
-    const cScale = Math.max(0.65, size * 0.062) * comp;
-    const cx = (lx * cScale).toFixed(2), cy = (ly * cScale).toFixed(2);
-    if (!force && this._lastCx === cx && this._lastCy === cy && Math.abs((this._lastP || 0) - p) < 0.004) return;
-    this._lastCx = cx; this._lastCy = cy; this._lastP = p;
-    g.crestOff.setAttribute('dx', cx);
-    g.crestOff.setAttribute('dy', cy);
-    g.crestBlur.setAttribute('stdDeviation', Math.max(0.28, size * 0.022).toFixed(2));
-    g.whisperOff.setAttribute('dx', (-lx * cScale * 0.62).toFixed(2));
-    g.whisperOff.setAttribute('dy', (-ly * cScale * 0.62).toFixed(2));
-    const bStd = (Math.max(1.3, size * 0.14) * (1 - p * 0.28)).toFixed(2);
-    g.bevelBlur.setAttribute('stdDeviation', bStd);
-    const mScale = Math.max(0.95, size * 0.095) * comp;
-    g.causticOff.setAttribute('dx', (-lx * mScale).toFixed(2));
-    g.causticOff.setAttribute('dy', (-ly * mScale).toFixed(2));
-    g.apexOff.setAttribute('dx', (-ly * cScale * 0.65).toFixed(2));
-    g.apexOff.setAttribute('dy', (lx * cScale * 0.65).toFixed(2));
-    const pScale = Math.max(0.42, size * 0.038) * comp;
-    g.prismCOff.setAttribute('dx', (-lx * pScale + ly * pScale * 0.5).toFixed(2));
-    g.prismCOff.setAttribute('dy', (-ly * pScale - lx * pScale * 0.5).toFixed(2));
-    g.prismWOff.setAttribute('dx', (lx * pScale - ly * pScale * 0.5).toFixed(2));
-    g.prismWOff.setAttribute('dy', (ly * pScale + lx * pScale * 0.5).toFixed(2));
-    const reduceTrans = window.matchMedia?.('(prefers-reduced-transparency: reduce)').matches;
-    if (!reduceTrans) {
-      g.bodyFlood.setAttribute('flood-opacity', ((0.04 + p * 0.06) * op).toFixed(3));
-      g.bevelFlood.setAttribute('flood-opacity', ((0.17 + p * 0.08) * op).toFixed(3));
-      g.causticFlood.setAttribute('flood-opacity', ((0.36 + p * 0.16) * op).toFixed(3));
-    }
-    if (!nightMode) {
-      g.prismCFlood.setAttribute('flood-opacity', ((0.38 + p * 0.12) * op).toFixed(3));
-      g.prismWFlood.setAttribute('flood-opacity', ((0.34 + p * 0.12) * op).toFixed(3));
-    }
-    document.documentElement.style.setProperty('--glass-press', (1 - p * 0.032).toFixed(4));
   }
   tickGlass(now) {
     this.glassRaf = null;
     const { material, isHolding, speed, lowPower } = this.store.getState();
     if (material !== 3 || document.hidden) return;
     const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const dt = clamp(now - this.lastGlassTick, 1, 100);
+    const dt = clamp(now - this.lastGlassTick, 1, 64);
     this.lastGlassTick = now;
     const pTarget = isHolding ? 1 : 0;
     const kP = 1 - Math.pow(1 - (isHolding ? 0.08 : 0.26), dt / 16.666);
@@ -1137,27 +1167,29 @@ class UIManager {
       if (this.glassPress !== pTarget) this.glassRaf = requestAnimationFrame(this.tickGlassBound);
       return;
     }
-    const t = now * 0.00045 * clamp(speed, 0.2, 2.5);
-    const driftX = Math.cos(t) * 0.58 + Math.sin(t * 0.47) * 0.22 + 0.18;
-    const driftY = Math.sin(t * 0.73) * 0.58 + 0.22;
+    const t = now * 0.0005 * clamp(speed, 0.2, 2.5);
+    const driftX = Math.cos(t) * 0.72 + Math.sin(t * 0.43) * 0.24;
+    const driftY = Math.sin(t * 0.71) * 0.72 + Math.cos(t * 0.37) * 0.24;
     const ambX = this.hasGyro ? clamp(driftX * 0.35 + (-this.gyroX) * 0.85, -1.15, 1.15) : driftX;
     const ambY = this.hasGyro ? clamp(driftY * 0.35 + (-this.gyroY) * 0.85, -1.15, 1.15) : driftY;
-    const pWeight = clamp((this.ptrActiveUntil - now) / 1200, 0, 1);
-    let tx = ambX * (1 - pWeight) + (-this.ptrX * 1.05) * pWeight;
-    let ty = ambY * (1 - pWeight) + (-this.ptrY * 1.05) * pWeight;
+    const ptrActive = now < this.ptrActiveUntil ? 1 : 0;
+    const kW = 1 - Math.pow(1 - (ptrActive ? 0.18 : 0.045), dt / 16.666);
+    this.ptrW += (ptrActive - this.ptrW) * kW;
+    if (this.ptrW < 0.001 && !ptrActive) this.ptrW = 0;
+    const w = this.ptrW;
+    let tx = ambX * (1 - w) + (-this.ptrX * 1.05) * w;
+    let ty = ambY * (1 - w) + (-this.ptrY * 1.05) * w;
     const mag = Math.hypot(tx, ty);
-    if (mag < 0.42) {
-      const s = 0.42 / (mag || 0.001);
-      tx = mag < 0.01 ? 0.3 : tx * s;
-      ty = mag < 0.01 ? 0.3 : ty * s;
+    if (mag < 0.55) {
+      const s = 0.55 / (mag || 0.001);
+      tx = mag < 0.01 ? 0.39 : tx * s;
+      ty = mag < 0.01 ? 0.39 : ty * s;
     }
-    const kL = 1 - Math.pow(1 - (pWeight > 0 ? 0.16 : 0.06), dt / 16.666);
+    const kL = 1 - Math.pow(1 - (w > 0.05 ? 0.22 : 0.08), dt / 16.666);
     this.lx += (tx - this.lx) * kL;
     this.ly += (ty - this.ly) * kL;
-    const isInteractive = pWeight > 0 || isHolding || this.glassPress > 0.002;
-    const minInterval = isInteractive ? 14 : (lowPower ? 55 : 36);
-    if (now - this.lastGlassApply >= minInterval) {
-      this.lastGlassApply = now;
+    if (!lowPower || w > 0.01 || isHolding || this.glassPress > 0.002 || (now - (this._lastLpTick || 0) >= 32)) {
+      this._lastLpTick = now;
       this.updateGlassVectors(false);
     }
     this.glassRaf = requestAnimationFrame(this.tickGlassBound);
@@ -1322,7 +1354,7 @@ class UIManager {
       if (this.store.getState().material === 3) {
         this.ptrX = clamp((e.clientX / Math.max(1, window.innerWidth) - 0.5) * 2, -1, 1);
         this.ptrY = clamp((e.clientY / Math.max(1, window.innerHeight) - 0.5) * 2, -1, 1);
-        this.ptrActiveUntil = performance.now() + 1800;
+        this.ptrActiveUntil = performance.now() + 900;
         this.tryRequestGyro();
       }
       const btn = e.target.closest('.anchor-btn');
@@ -1341,7 +1373,7 @@ class UIManager {
       if (state.material === 3) {
         this.ptrX = clamp((e.clientX / Math.max(1, window.innerWidth) - 0.5) * 2, -1, 1);
         this.ptrY = clamp((e.clientY / Math.max(1, window.innerHeight) - 0.5) * 2, -1, 1);
-        this.ptrActiveUntil = performance.now() + 1800;
+        this.ptrActiveUntil = performance.now() + 900;
       }
     }, { passive: true });
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission !== 'function') {
