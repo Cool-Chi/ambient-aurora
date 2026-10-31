@@ -42,7 +42,7 @@ const createColorPicker = ui => {
   el.setAttribute('aria-hidden', 'true');
   el.inert = true;
   el.innerHTML = `<div class="cp-head"><span class="cp-preview"></span><input type="text" class="cp-hex" maxlength="7" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="Hex"><button type="button" class="cp-close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div class="cp-sv-pad"><div class="cp-sv-thumb"></div></div><div class="cp-hue-track"><div class="cp-hue-thumb"></div></div><div class="cp-presets">${CP_PRESETS.map(c => `<button type="button" class="cp-preset" data-hex="${c}" aria-label="${c.toUpperCase()}" style="--c:${c}"></button>`).join('')}</div>`;
-  ui.panel.appendChild(el);
+  ui.panel.parentElement.appendChild(el);
   const hexIn = qs(el, '.cp-hex'), pad = qs(el, '.cp-sv-pad'), svThumb = qs(el, '.cp-sv-thumb'), track = qs(el, '.cp-hue-track'), hueThumb = qs(el, '.cp-hue-thumb');
   const presetBtns = Array.from(qsa(el, '.cp-preset'));
   let isOpen = false, prop = null, anchorEl = null, h = 0, s = 0, v = 1, hex = '#000000', lastEmit = '', raf = null, dirty = false;
@@ -82,19 +82,20 @@ const createColorPicker = ui => {
     if (!raf) raf = requestAnimationFrame(() => { raf = null; if (dirty) emit(); });
   };
   const place = () => {
-    const panel = ui.panel, pr = panel.getBoundingClientRect(), pw = panel.clientWidth, ph = panel.clientHeight, W = el.offsetWidth, H = el.offsetHeight, m = 8;
+    const panel = ui.panel, hr = panel.parentElement.getBoundingClientRect(), pr = panel.getBoundingClientRect(), W = el.offsetWidth, H = el.offsetHeight, m = 8;
+    const pl = pr.left - hr.left, pt = pr.top - hr.top, pw = pr.width, ph = pr.height;
     let x, y;
     if (window.matchMedia('(max-width: 600px)').matches || !anchorEl) {
-      x = (pw - W) / 2;
-      y = ph - H - 12;
+      x = pl + (pw - W) / 2;
+      y = pt + ph - H - 12;
     } else {
       const tr = anchorEl.getBoundingClientRect();
-      x = tr.left - pr.left + tr.width / 2 - W / 2;
-      y = tr.bottom - pr.top + 8;
-      if (y + H > ph - m) y = tr.top - pr.top - H - 8;
+      x = tr.left - hr.left + tr.width / 2 - W / 2;
+      y = tr.bottom - hr.top + 8;
+      if (y + H > pt + ph - m) y = tr.top - hr.top - H - 8;
     }
-    el.style.left = `${Math.round(clamp(x, m, Math.max(m, pw - W - m)))}px`;
-    el.style.top = `${Math.round(clamp(y, m, Math.max(m, ph - H - m)))}px`;
+    el.style.left = `${Math.round(clamp(x, pl + m, Math.max(pl + m, pl + pw - W - m)))}px`;
+    el.style.top = `${Math.round(clamp(y, pt + m, Math.max(pt + m, pt + ph - H - m)))}px`;
   };
   const bindDrag = (node, update) => {
     let pid = null, rect = null;
@@ -136,7 +137,9 @@ const createColorPicker = ui => {
   });
   on(hexIn, 'blur', () => { hexIn.value = hex.toUpperCase(); });
   on(hexIn, 'keydown', e => { if (e.key === 'Enter') hexIn.blur(); });
+  on(el, 'pointerdown', e => e.stopPropagation());
   on(el, 'click', e => {
+    e.stopPropagation();
     const b = e.target.closest('.cp-preset');
     if (b) { haptic(10); setFromHex(b.dataset.hex); emit(); return; }
     if (e.target.closest('.cp-close')) { haptic(10); api.close(); }
@@ -314,7 +317,6 @@ class UIManager {
     ];
     if (this._cp) this._cp.close();
     this.panel.innerHTML = `<div class="tab-header" role="tablist">${d.tabs.map((t, i) => `<button class="tab-nav-btn${i === I ? ' active' : ''}" data-tab="${i}" role="tab">${t}</button>`).join('')}</div><div class="tab-panes">${tabs.map((blocks, i) => `<div class="tab-pane${i === I ? ' active' : ''}">${blocks.map(b => `<div class="settings-block">${b.join('')}</div>`).join('')}</div>`).join('')}</div>`;
-    if (this._cp) this.panel.appendChild(this._cp.el);
   }
   setTab(i) {
     if (this._cp) this._cp.close();
