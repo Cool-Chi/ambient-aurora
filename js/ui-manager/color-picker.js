@@ -38,11 +38,11 @@ const createColorPicker = ui => {
   el.setAttribute('aria-label', 'Color picker');
   el.setAttribute('aria-hidden', 'true');
   el.inert = true;
-  el.innerHTML = `<div class="cp-head"><span class="cp-preview"></span><input type="text" class="cp-hex" maxlength="7" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="Hex"><button type="button" class="cp-close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div class="cp-sv-pad"><div class="cp-sv-thumb"></div></div><div class="cp-hue-track"><div class="cp-hue-thumb"></div></div><div class="cp-presets">${CP_PRESETS.map(c => `<button type="button" class="cp-preset" data-hex="${c}" aria-label="${c.toUpperCase()}" style="--c:${c}"></button>`).join('')}</div>`;
+  el.innerHTML = `<div class="cp-head"><span class="cp-preview"></span><input type="text" class="cp-hex" maxlength="7" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" enterkeyhint="done" aria-label="Hex color"><button type="button" class="cp-close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div class="cp-sv-pad" role="slider" tabindex="0" aria-label="Saturation and brightness" aria-valuemin="0" aria-valuemax="100"><div class="cp-sv-thumb"></div></div><div class="cp-hue-track" role="slider" tabindex="0" aria-label="Hue" aria-valuemin="0" aria-valuemax="360"><div class="cp-hue-thumb"></div></div><div class="cp-presets">${CP_PRESETS.map(c => `<button type="button" class="cp-preset" data-hex="${c}" aria-label="${c.toUpperCase()}" aria-pressed="false" style="--c:${c}"></button>`).join('')}</div>`;
   ui.panel.parentElement.appendChild(el);
   const hexIn = qs(el, '.cp-hex'), pad = qs(el, '.cp-sv-pad'), svThumb = qs(el, '.cp-sv-thumb'), track = qs(el, '.cp-hue-track'), hueThumb = qs(el, '.cp-hue-thumb');
   const presetBtns = Array.from(qsa(el, '.cp-preset'));
-  let isOpen = false, prop = null, anchorEl = null, h = 0, s = 0, v = 1, hex = '#000000', lastEmit = '', raf = null, dirty = false;
+  let isOpen = false, prop = null, anchorEl = null, lastTrigger = null, h = 0, s = 0, v = 1, hex = '#000000', lastEmit = '', raf = null, dirty = false;
   const readHex = p => {
     const st = ui.store.getState();
     if (p === 'colorTarget') { const c = st.colorTarget; return AA.UIManager.rgbToHex(c[0], c[1], c[2]); }
@@ -56,8 +56,15 @@ const createColorPicker = ui => {
     svThumb.style.left = `${s * 100}%`;
     svThumb.style.top = `${(1 - v) * 100}%`;
     hueThumb.style.left = `${h / 360 * 100}%`;
+    pad.setAttribute('aria-valuenow', String(Math.round(s * 100)));
+    pad.setAttribute('aria-valuetext', `Saturation ${Math.round(s * 100)}%, Brightness ${Math.round(v * 100)}%`);
+    track.setAttribute('aria-valuenow', String(Math.round(h)));
     if (document.activeElement !== hexIn) hexIn.value = hex.toUpperCase();
-    presetBtns.forEach(b => b.classList.toggle('is-active', b.dataset.hex === hex));
+    presetBtns.forEach(b => {
+      const act = b.dataset.hex === hex;
+      b.classList.toggle('is-active', act);
+      b.setAttribute('aria-pressed', act ? 'true' : 'false');
+    });
   };
   const setFromHex = p => {
     const [nh, ns, nv] = rgbToHsv(...AA.UIManager.hexToRgb(p));
@@ -81,23 +88,29 @@ const createColorPicker = ui => {
   const place = () => {
     const panel = ui.panel, hr = panel.parentElement.getBoundingClientRect(), pr = panel.getBoundingClientRect(), W = el.offsetWidth, H = el.offsetHeight, m = 8;
     const pl = pr.left - hr.left, pt = pr.top - hr.top, pw = pr.width, ph = pr.height;
+    const narrow = window.matchMedia('(max-width: 600px)').matches || !anchorEl;
+    const tr = narrow ? null : anchorEl.getBoundingClientRect();
     let x, y;
-    if (window.matchMedia('(max-width: 600px)').matches || !anchorEl) {
+    if (narrow) {
       x = pl + (pw - W) / 2;
       y = pt + ph - H - 12;
     } else {
-      const tr = anchorEl.getBoundingClientRect();
       x = tr.left - hr.left + tr.width / 2 - W / 2;
       y = tr.bottom - hr.top + 8;
       if (y + H > pt + ph - m) y = tr.top - hr.top - H - 8;
     }
-    el.style.left = `${Math.round(clamp(x, pl + m, Math.max(pl + m, pl + pw - W - m)))}px`;
-    el.style.top = `${Math.round(clamp(y, pt + m, Math.max(pt + m, pt + ph - H - m)))}px`;
+    const fx = Math.round(clamp(x, pl + m, Math.max(pl + m, pl + pw - W - m)));
+    const fy = Math.round(clamp(y, pt + m, Math.max(pt + m, pt + ph - H - m)));
+    el.style.left = `${fx}px`;
+    el.style.top = `${fy}px`;
+    if (narrow) el.style.transformOrigin = '';
+    else el.style.transformOrigin = `${clamp(tr.left + tr.width / 2 - hr.left - fx, 0, W)}px ${clamp(tr.top + tr.height / 2 - hr.top - fy, 0, H)}px`;
   };
   const bindDrag = (node, update) => {
     let pid = null, rect = null;
     on(node, 'pointerdown', e => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (pid !== null) return;
       pid = e.pointerId;
       rect = node.getBoundingClientRect();
       try { node.setPointerCapture(pid); } catch (err) {}
@@ -117,7 +130,8 @@ const createColorPicker = ui => {
       try { node.releasePointerCapture(e.pointerId); } catch (err) {}
       if (dirty) emit();
     };
-    ['pointerup', 'pointercancel'].forEach(t => on(node, t, end));
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => on(node, t, end));
+    on(node, 'contextmenu', e => e.preventDefault());
   };
   bindDrag(pad, (e, r) => {
     s = clamp((e.clientX - r.left) / (r.width || 1), 0, 1);
@@ -127,6 +141,30 @@ const createColorPicker = ui => {
   bindDrag(track, (e, r) => {
     h = clamp((e.clientX - r.left) / (r.width || 1), 0, 1) * 360;
     paint();
+  });
+  on(pad, 'keydown', e => {
+    const st = e.shiftKey ? 0.1 : 0.01;
+    if (e.key === 'ArrowLeft') s = clamp(s - st, 0, 1);
+    else if (e.key === 'ArrowRight') s = clamp(s + st, 0, 1);
+    else if (e.key === 'ArrowUp') v = clamp(v + st, 0, 1);
+    else if (e.key === 'ArrowDown') v = clamp(v - st, 0, 1);
+    else return;
+    e.preventDefault();
+    paint();
+    emit();
+  });
+  on(track, 'keydown', e => {
+    const st = e.shiftKey ? 10 : 1;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') h = clamp(h - st, 0, 360);
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') h = clamp(h + st, 0, 360);
+    else if (e.key === 'PageDown') h = clamp(h - 30, 0, 360);
+    else if (e.key === 'PageUp') h = clamp(h + 30, 0, 360);
+    else if (e.key === 'Home') h = 0;
+    else if (e.key === 'End') h = 360;
+    else return;
+    e.preventDefault();
+    paint();
+    emit();
   });
   on(hexIn, 'input', () => {
     const p = parseHex(hexIn.value);
@@ -141,13 +179,21 @@ const createColorPicker = ui => {
     if (b) { haptic(10); setFromHex(b.dataset.hex); emit(); return; }
     if (e.target.closest('.cp-close')) { haptic(10); api.close(); }
   });
+  const setExpanded = (node, flag) => {
+    if (!node || !node.setAttribute) return;
+    node.setAttribute('aria-haspopup', 'dialog');
+    node.setAttribute('aria-expanded', flag ? 'true' : 'false');
+  };
   const api = {
     el,
     isOpen: () => isOpen,
-    open(p, trigger) {
+    open(p, trigger, viaKeyboard) {
       if (!CP_TARGETS.includes(p)) return;
       if (isOpen && dirty) emit();
+      if (lastTrigger && lastTrigger !== trigger) setExpanded(lastTrigger, false);
       prop = p;
+      lastTrigger = trigger || null;
+      setExpanded(lastTrigger, true);
       anchorEl = trigger ? (trigger.closest('.tc-chip, .swatch-wrapper') || trigger) : null;
       const cur = readHex(p);
       lastEmit = cur;
@@ -160,10 +206,11 @@ const createColorPicker = ui => {
         el.setAttribute('aria-hidden', 'false');
         el.classList.add('is-open');
       }
+      if (viaKeyboard) { hexIn.focus({ preventScroll: true }); hexIn.select(); }
     },
-    toggle(p, trigger) {
+    toggle(p, trigger, viaKeyboard) {
       if (isOpen && prop === p) api.close();
-      else api.open(p, trigger);
+      else api.open(p, trigger, viaKeyboard);
     },
     close() {
       if (dirty) emit();
@@ -171,10 +218,14 @@ const createColorPicker = ui => {
       isOpen = false;
       prop = null;
       anchorEl = null;
+      const hadFocus = el.contains(document.activeElement);
       if (document.activeElement === hexIn) hexIn.blur();
       el.classList.remove('is-open');
       el.inert = true;
       el.setAttribute('aria-hidden', 'true');
+      setExpanded(lastTrigger, false);
+      if (hadFocus && lastTrigger && lastTrigger.isConnected) lastTrigger.focus({ preventScroll: true });
+      lastTrigger = null;
     },
     reposition() {
       if (isOpen) place();

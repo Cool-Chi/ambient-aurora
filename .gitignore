@@ -22,3 +22,5 @@ Thumbs.db
 orig.html
 diff.patch
 dist/
+
+*.sh

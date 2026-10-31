@@ -111,18 +111,18 @@ class UIManager {
   }
   renderPanel() {
     const { lang } = this.store.getState(), d = UIManager.DICT[lang], I = this.activeTab;
-    const row = (label, ctrl) => `<div class="settings-row"><span class="row-label">${label}</span>${ctrl}</div>`;
+    const row = (label, ctrl) => `<div class="settings-row"><span class="row-label" title="${label}">${label}</span>${ctrl}</div>`;
     const tg = (id, label) => row(label, `<input type="checkbox" id="${id}" class="toggle-switch">`);
-    const seg = (label, prop, options, offset = 0) => { const isCol = options.length > 3; return `<div class="settings-row${isCol ? ' col-layout' : ''}"><span class="row-label">${label}</span><div class="segmented-control${isCol ? '' : ' inline-seg'}" data-prop="${prop}" role="radiogroup"><div class="segmented-highlight"></div>${options.map((t, i) => `<button class="segment-btn" data-value="${i + offset}">${t}</button>`).join('')}</div></div>`; };
-    const mtg = (label, opts) => `<div class="settings-row"><span class="row-label">${label}</span><div class="mtg-control">${opts.map(o => `<button class="mtg-btn" data-prop="${o.p}">${o.l}</button>`).join('')}</div></div>`;
+    const seg = (label, prop, options, offset = 0) => { const isCol = options.length > 3; return `<div class="settings-row${isCol ? ' col-layout' : ''}"><span class="row-label" title="${label}">${label}</span><div class="segmented-control${isCol ? '' : ' inline-seg'}" data-prop="${prop}" role="radiogroup" aria-label="${label}"><div class="segmented-highlight"></div>${options.map((t, i) => `<button class="segment-btn" role="radio" aria-checked="false" data-value="${i + offset}">${t}</button>`).join('')}</div></div>`; };
+    const mtg = (label, opts) => `<div class="settings-row"><span class="row-label" title="${label}">${label}</span><div class="mtg-control">${opts.map(o => `<button class="mtg-btn" aria-pressed="false" data-prop="${o.p}">${o.l}</button>`).join('')}</div></div>`;
     const slider = (key, id) => { const s = UIManager.SLIDERS.find(s => s.key === key && (!id || s.id === id)); return `<div class="slider-row" aria-label="${d[key]}">${UIManager.renderIcon(s.svgMin, 'slider-icon min-icon')}<div class="range-container"><input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}"></div>${UIManager.renderIcon(s.svgMax, 'slider-icon max-icon')}</div>`; };
-    const langRow = row(d.lang, `<div class="segmented-control inline-seg" data-prop="lang" role="radiogroup" style="max-width:120px"><div class="segmented-highlight"></div><button class="segment-btn ${lang === 'en' ? 'active' : ''}" data-value="en">EN</button><button class="segment-btn ${lang === 'zh' ? 'active' : ''}" data-value="zh">中</button></div>`);
+    const langRow = row(d.lang, `<div class="segmented-control inline-seg" data-prop="lang" role="radiogroup" aria-label="${d.lang}" style="max-width:120px"><div class="segmented-highlight"></div><button class="segment-btn ${lang === 'en' ? 'active' : ''}" role="radio" aria-checked="${lang === 'en'}" data-value="en">EN</button><button class="segment-btn ${lang === 'zh' ? 'active' : ''}" role="radio" aria-checked="${lang === 'zh'}" data-value="zh">中</button></div>`);
     const theme = row(d.theme, `<div class="swatches-container">${UIManager.THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}<div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div></div>`);
     const tcKeys = ['textColor', 'ampmColor', 'dateColor', 'customTextColor'];
     const tcState = this.store.getState();
     const tcRow = row(d.tc, `<div class="tc-group">${tcKeys.map((k, idx) => `<label class="tc-chip"><span class="tc-dot" id="swatch-${k}" style="background:${tcState[k]}"></span><span class="tc-lbl">${d.tcItems[idx]}</span><input type="color" class="tc-input" id="ctrl-${k}" data-prop="${k}" value="${tcState[k]}" aria-label="${d.tc} ${d.tcItems[idx]}"></label>`).join('')}</div>`);
-    const anchorRow = `<div class="settings-row anchor-row"><span class="row-label">${d.anchor}</span><div class="anchor-grid" data-prop="anchor" role="radiogroup">${[...Array(9)].map((_, i) => `<button class="anchor-btn" data-value="${i}" role="radio"></button>`).join('')}</div></div>`;
-    const ctRow = `<div class="settings-row"><input type="text" id="ctrl-customtext" class="ct-input" maxlength="30" placeholder="${d.ctph}"></div>`;
+    const anchorRow = `<div class="settings-row anchor-row"><span class="row-label" title="${d.anchor}">${d.anchor}</span><div class="anchor-grid" data-prop="anchor" role="radiogroup" aria-label="${d.anchor}">${[...Array(9)].map((_, i) => `<button class="anchor-btn" data-value="${i}" role="radio" aria-checked="false" aria-label="${d.anchor} ${i + 1}"></button>`).join('')}</div></div>`;
+    const ctRow = `<div class="settings-row"><input type="text" id="ctrl-customtext" class="ct-input" maxlength="30" placeholder="${d.ctph}" enterkeyhint="done" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="${d.sct}"></div>`;
     const tabs = [
       [[seg(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono']), tcRow, seg(d.mat, 'material', d.mats)], [slider('size'), slider('weight'), slider('opacity')], [tg('ctrl-24hr', d.time), tg('ctrl-leadingzero', d.lz), tg('ctrl-seconds', d.sec), seg(d.tick, 'clockAnimMode', d.ticks)], [tg('ctrl-date', d.date), mtg(d.df, [{l:d.dY,p:'showY'}, {l:d.dM,p:'showM'}, {l:d.dD,p:'showD'}, {l:d.dW,p:'showW'}]), seg(d.layout, 'clockLayout', d.layouts), seg(d.datePos, 'datePosition', d.datePositions)], [tg('ctrl-showcustom', d.sct), ctRow], [anchorRow, slider('offset', 'ctrl-offx'), slider('offset', 'ctrl-offy')]],
       [[seg(d.mode, 'mode', d.modes, 1), theme], [slider('speed')]],
@@ -151,7 +151,7 @@ class UIManager {
   updateSegmentHighlight(container, val, skipAnim = false) {
     const btn = Array.from(qsa(container, '.segment-btn')).find(b => isNaN(b.dataset.value) ? b.dataset.value === val : Number(b.dataset.value) === Number(val));
     if (btn) {
-      qsa(container, '.segment-btn').forEach(b => b.classList.toggle('active', b === btn));
+      qsa(container, '.segment-btn').forEach(b => { const act = b === btn; b.classList.toggle('active', act); b.setAttribute('aria-checked', act ? 'true' : 'false'); });
       const highlight = qs(container, '.segmented-highlight');
       if (skipAnim) highlight.style.transition = 'none';
       highlight.style.width = `${btn.offsetWidth}px`; highlight.style.transform = `translateX(${btn.offsetLeft}px)`;
@@ -186,8 +186,8 @@ class UIManager {
     } else if (full || skipAnim || ['nightMode', 'textColor', 'ampmColor', 'dateColor', 'customTextColor', 'clockOpacity', 'size', 'colorTarget'].includes(changedKey)) {
       this.applyVisualVars(full);
     }
-    if (full || changedKey === 'anchor') { const ax = anchor % 3, ay = Math.floor(anchor / 3), F = ['flex-start', 'center', 'flex-end'], O = ['4vmin', '50%', 'calc(100% - 4vmin)']; sp('--pos-x', F[ax]); sp('--pos-y', F[ay]); sp('--ox', O[ax]); sp('--oy', O[ay]); qsa(document, '.anchor-btn').forEach((b, i) => b.classList.toggle('active', i === anchor)); }
-    if (full || ['showY', 'showM', 'showD', 'showW'].includes(changedKey)) qsa(document, '.mtg-btn').forEach(b => b.classList.toggle('active', state[b.dataset.prop]));
+    if (full || changedKey === 'anchor') { const ax = anchor % 3, ay = Math.floor(anchor / 3), F = ['flex-start', 'center', 'flex-end'], O = ['4vmin', '50%', 'calc(100% - 4vmin)']; sp('--pos-x', F[ax]); sp('--pos-y', F[ay]); sp('--ox', O[ax]); sp('--oy', O[ay]); qsa(document, '.anchor-btn').forEach((b, i) => { b.classList.toggle('active', i === anchor); b.setAttribute('aria-checked', i === anchor ? 'true' : 'false'); }); }
+    if (full || ['showY', 'showM', 'showD', 'showW'].includes(changedKey)) qsa(document, '.mtg-btn').forEach(b => { const act = !!state[b.dataset.prop]; b.classList.toggle('active', act); b.setAttribute('aria-pressed', act ? 'true' : 'false'); });
     if (full || changedKey === 'offsetX') sp('--off-x', `${offsetX}vw`);
     if (full || changedKey === 'offsetY') sp('--off-y', `${offsetY}vh`);
     ['textColor', 'ampmColor', 'dateColor', 'customTextColor'].forEach(k => {
@@ -301,7 +301,7 @@ class UIManager {
       const isBg = t.id === 'custom-color-input', isTc = !!(t.classList && t.classList.contains('tc-input'));
       if (!isBg && !isTc) return;
       e.preventDefault();
-      cp.toggle(isBg ? 'colorTarget' : t.dataset.prop, t);
+      cp.toggle(isBg ? 'colorTarget' : t.dataset.prop, t, e.detail === 0);
     }, { capture: true });
     on(document, 'pointerdown', e => {
       if (!cp.isOpen()) return;
