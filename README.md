@@ -12,7 +12,8 @@
 | `js/store.js` | `window.AA` 初始化、`Store`、`AA.util`、`AA.CONST` |
 | `js/webgl-engine.js` | `WebGLEngine` |
 | `js/clock-controller.js` | `ClockController` |
-| `js/ui-manager.js` | `UIManager` |
+| `js/ui-manager/color-picker.js` | 色彩選擇器元件(`AA.createColorPicker`) |
+| `js/ui-manager/ui-fx.js` | 視覺變數、玻璃光影、閒置/喚醒/退出、防烙印(`AA.UI_FX`) |
 | `js/main.js` | 預設狀態、`initPWA`、啟動序列 |
 
 ## 載入規則
