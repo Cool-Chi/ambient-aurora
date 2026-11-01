@@ -23,7 +23,8 @@ const UI_BINDINGS = {
   weight: { id: 'ctrl-weight', prop: 'value', cssVar: '--clock-weight' }, speed: { id: 'ctrl-speed', prop: 'value' }, bgBrightness: { id: 'ctrl-bg-brightness', prop: 'value' }, clockOpacity: { id: 'ctrl-opacity', prop: 'value' }, showCustomText: { id: 'ctrl-showcustom', prop: 'checked' }, customText: { id: 'ctrl-customtext', prop: 'value' }, offsetX: { id: 'ctrl-offx', prop: 'value' }, offsetY: { id: 'ctrl-offy', prop: 'value' },
   is24Hour: { id: 'ctrl-24hr', prop: 'checked' }, leadingZero: { id: 'ctrl-leadingzero', prop: 'checked' },
   showSeconds: { id: 'ctrl-seconds', prop: 'checked' }, showDate: { id: 'ctrl-date', prop: 'checked' },
-  pixelShift: { id: 'ctrl-pixelshift', prop: 'checked' }, nightMode: { id: 'ctrl-nightmode', prop: 'checked' }, showFps: { id: 'ctrl-fps', prop: 'checked' }
+  pixelShift: { id: 'ctrl-pixelshift', prop: 'checked' }, nightMode: { id: 'ctrl-nightmode', prop: 'checked' }, showFps: { id: 'ctrl-fps', prop: 'checked' },
+  dimOnIdle: { id: 'ctrl-dimidle', prop: 'checked' }
 };
 const BINDING_BY_ID = Object.assign(Object.create(null), Object.fromEntries(Object.entries(UI_BINDINGS).map(([k, b]) => [b.id, [k, b]])));
 AA.UI_CONFIG = { FONTS, THEMES, SLIDERS, UI_BINDINGS, BINDING_BY_ID };

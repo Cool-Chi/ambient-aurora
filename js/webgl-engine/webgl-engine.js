@@ -7,6 +7,7 @@ class WebGLEngine {
     this.store = store;
     this.glReady = false;
     this.uniforms = {};
+    this.uVignetteLoc = null;
     this.running = false;
     this.rafId = null;
     const state = this.store.getState();
@@ -16,6 +17,7 @@ class WebGLEngine {
     this.currentWeights[state.mode - 1] = 1.0;
     this.targetWeights[state.mode - 1] = 1.0;
     this.currentBrightness = 1.0;
+    this.currentVignette = state.vignette === 2 ? 0.75 : state.vignette === 1 ? 0.4 : 0.0;
     this.globalTime = 0;
     this.lastTime = performance.now();
     this.renderBound = this.render.bind(this);
@@ -64,6 +66,7 @@ class WebGLEngine {
         this.gl.enableVertexAttribArray(pos);
         this.gl.vertexAttribPointer(pos, 2, this.gl.FLOAT, false, 0, 0);
         ['u_resolution', 'u_time', 'u_color', 'u_weights', 'u_brightness'].forEach(n => this.uniforms[n] = this.gl.getUniformLocation(program, n));
+        this.uVignetteLoc = this.gl.getUniformLocation(program, 'u_vignette');
         this.glReady = true;
         this.hideFallback();
         this.resize();
@@ -129,6 +132,7 @@ class WebGLEngine {
     this.gl.uniform1fv(this.uniforms.u_weights, this.currentWeights);
     const wf = this.wrapFade;
     this.gl.uniform1f(this.uniforms.u_brightness, this.currentBrightness * (wf * wf * (3 - 2 * wf)));
+    this.gl.uniform1f(this.uVignetteLoc, this.currentVignette);
     this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
   }
   pause() {
@@ -148,7 +152,7 @@ class WebGLEngine {
   render(timestamp) {
     if (!this.running) return;
     this.rafId = requestAnimationFrame(this.renderBound);
-    const { isIdle, lowPower, speed, nightMode, colorTarget, isHolding, bgBrightness = 1 } = this.store.getState();
+    const { isIdle, lowPower, speed, nightMode, colorTarget, isHolding, bgBrightness = 1, dimOnIdle = true, vignette = 1 } = this.store.getState();
     const minInterval = isIdle ? 50 : lowPower ? 41.6 : 16.6;
     if (timestamp < this.frameClock + minInterval - 2) return;
     this.frameClock += minInterval;
@@ -168,7 +172,9 @@ class WebGLEngine {
     const target = nightMode ? [0.16, 0.08, 0.0] : colorTarget;
     for (let i = 0; i < 3; i++) this.colorLive[i] += (target[i] - this.colorLive[i]) * k;
     for (let i = 0; i < 5; i++) this.currentWeights[i] += (this.targetWeights[i] - this.currentWeights[i]) * k;
-    this.currentBrightness += ((isHolding ? 1.5 : isIdle ? bgBrightness * 0.65 : bgBrightness) - this.currentBrightness) * k;
+    this.currentBrightness += ((isHolding ? 1.5 : (isIdle && dimOnIdle) ? bgBrightness * 0.65 : bgBrightness) - this.currentBrightness) * k;
+    const targetVignette = vignette === 2 ? 0.75 : vignette === 1 ? 0.4 : 0.0;
+    this.currentVignette += (targetVignette - this.currentVignette) * k;
     this.draw();
   }
   start() {
