@@ -24,3 +24,5 @@ diff.patch
 dist/
 
 *.sh
+*.ps1
+*.py

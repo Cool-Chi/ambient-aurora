@@ -50,6 +50,9 @@ class UIManager {
     this.tgStart = null;
     this.tgTarget = null;
     this.tgDragged = false;
+    this.segTarget = null;
+    this.segProp = null;
+    this.segDragged = false;
     this.typoAnim = null;
     this.lAngle = Math.atan2(0.75, 0.65);
     this.lMag = Math.hypot(0.65, 0.75);
@@ -235,6 +238,29 @@ class UIManager {
     let lastHap = 0, anchorHold = null, holdFired = false, anchorX = 0, anchorY = 0;
     const cp = this._cp = AA.createColorPicker(this);
     const clearAnchorHold = () => { if (anchorHold) { clearTimeout(anchorHold); anchorHold = null; } };
+    const segValue = b => isNaN(b.dataset.value) ? b.dataset.value : parseInt(b.dataset.value);
+    const applySeg = (prop, b) => {
+      if (prop === 'material' && +b.dataset.value === 3) this.tryRequestGyro();
+      haptic(10); this.store.setState(prop, segValue(b));
+    };
+    const resetSeg = () => { this.segTarget = null; this.segProp = null; };
+    const scrubSeg = e => {
+      if (e.pointerType === 'mouse' && e.buttons === 0) { resetSeg(); return; }
+      if (!this.segTarget.isConnected) {
+        this.segTarget = this.panel && this.panel.querySelector(`.segmented-control[data-prop="${this.segProp}"]`);
+        if (!this.segTarget) { resetSeg(); return; }
+      }
+      const btns = this.segTarget.querySelectorAll('.segment-btn');
+      if (!btns.length) return;
+      const x = e.clientX, last = btns[btns.length - 1];
+      let hit = null;
+      if (x < btns[0].getBoundingClientRect().left) hit = btns[0];
+      else if (x > last.getBoundingClientRect().right) hit = last;
+      else for (const b of btns) { const r = b.getBoundingClientRect(); if (x >= r.left && x <= r.right) { hit = b; break; } }
+      if (!hit || segValue(hit) === this.store.getState()[this.segProp]) return;
+      this.segDragged = true;
+      applySeg(this.segProp, hit);
+    };
     const trackGlassPtr = e => {
       this.ptrX = clamp((e.clientX / Math.max(1, window.innerWidth) - 0.5) * 2, -1, 1);
       this.ptrY = clamp((e.clientY / Math.max(1, window.innerHeight) - 0.5) * 2, -1, 1);
@@ -243,6 +269,8 @@ class UIManager {
     on(document, 'pointerdown', e => {
       if (this.store.getState().material === 3) { trackGlassPtr(e); this.tryRequestGyro(); }
       if (e.target.type === 'range') document.body.classList.add('is-dragging');
+      const sg = e.target.closest('.segmented-control');
+      if (sg && e.button === 0) { this.segTarget = sg; this.segProp = sg.dataset.prop; this.segDragged = false; }
       const tg = e.target.closest('.toggle-switch');
       if (tg) { this.tgStart = e.clientX; this.tgTarget = tg; this.tgDragged = false; }
       const btn = e.target.closest('.anchor-btn');
@@ -261,6 +289,7 @@ class UIManager {
       const state = this.store.getState();
       if (state.isHolding && this.touchStartX !== null && Math.hypot(e.clientX - this.touchStartX, e.clientY - this.touchStartY) > 10) this.exitApp(false);
       if (state.material === 3) trackGlassPtr(e);
+      if (this.segTarget) scrubSeg(e);
       if (this.tgTarget && this.tgStart !== null) {
         const dx = e.clientX - this.tgStart;
         if (Math.abs(dx) > 8) {
@@ -274,6 +303,7 @@ class UIManager {
       clearAnchorHold();
       this.exitApp(false);
       document.body.classList.remove('is-dragging');
+      resetSeg();
       this.tgStart = null;
       setTimeout(() => this.tgTarget = null, 0);
     };
@@ -295,7 +325,7 @@ class UIManager {
       if (e.target.classList.contains('tc-input')) haptic(10);
       if (e.target.type === 'checkbox') { haptic(10); const entry = UIManager.BINDING_BY_ID[e.target.id]; if (entry) this.store.setState(entry[0], e.target.checked); }
     });
-    on(document, 'click', e => { if (e.target.closest('.toggle-switch') && this.tgDragged) { e.preventDefault(); e.stopPropagation(); } }, { capture: true });
+    on(document, 'click', e => { if ((e.target.closest('.toggle-switch') && this.tgDragged) || (this.segDragged && e.target.closest('.segmented-control'))) { e.preventDefault(); e.stopPropagation(); } }, { capture: true });
     on(document, 'click', e => {
       const t = e.target;
       const isBg = t.id === 'custom-color-input', isTc = !!(t.classList && t.classList.contains('tc-input'));
@@ -310,7 +340,7 @@ class UIManager {
       cp.close();
     }, { passive: true });
     on(document, 'keydown', e => { if (e.key === 'Escape' && cp.isOpen()) cp.close(); });
-    this.store.subscribe((key, val) => { if (key === 'isPanelOpen' && !val) cp.close(); });
+    this.store.subscribe((key, val) => { if (key === 'isPanelOpen' && !val) { cp.close(); resetSeg(); } });
     on(window, 'resize', () => cp.reposition());
     on(document, 'click', e => {
       const state = this.store.getState();
@@ -320,8 +350,7 @@ class UIManager {
       else if (mtgBtn) { haptic(10); const p = mtgBtn.dataset.prop; this.store.setState(p, !this.store.getState()[p]); }
       else if (anchorBtn) { if (!holdFired && !anchorBtn.classList.contains('active')) { haptic(10); this.store.setState('anchor', +anchorBtn.dataset.value); } holdFired = false; }
       else if (segBtn && !segBtn.classList.contains('active')) {
-        if (segBtn.closest('.segmented-control').dataset.prop === 'material' && +segBtn.dataset.value === 3) this.tryRequestGyro();
-        haptic(10); this.store.setState(segBtn.closest('.segmented-control').dataset.prop, isNaN(segBtn.dataset.value) ? segBtn.dataset.value : parseInt(segBtn.dataset.value));
+        applySeg(segBtn.closest('.segmented-control').dataset.prop, segBtn);
       } else if (swatch) { haptic(10); this.store.setState('colorTarget', swatch.dataset.rgb.split(',').map(Number)); }
       else if (e.target.closest('#btn-lowpower')) {
         const newState = !state.lowPower; this.store.setState('lowPower', newState); this.showHUD(newState ? UIManager.DICT[state.lang].lpOn : UIManager.DICT[state.lang].lpOff);
