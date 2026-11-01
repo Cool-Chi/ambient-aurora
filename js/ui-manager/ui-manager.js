@@ -259,7 +259,7 @@ class UIManager {
     on(document, 'pointermove', e => {
       if (anchorHold && (Math.abs(e.clientX - anchorX) > 12 || Math.abs(e.clientY - anchorY) > 12)) clearAnchorHold();
       const state = this.store.getState();
-      if (state.isHolding && this.touchStartX !== null && (Math.abs(e.clientX - this.touchStartX) > 15 || Math.abs(e.clientY - this.touchStartY) > 15)) this.exitApp(false);
+      if (state.isHolding && this.touchStartX !== null && Math.hypot(e.clientX - this.touchStartX, e.clientY - this.touchStartY) > 10) this.exitApp(false);
       if (state.material === 3) trackGlassPtr(e);
       if (this.tgTarget && this.tgStart !== null) {
         const dx = e.clientX - this.tgStart;
