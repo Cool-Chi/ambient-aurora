@@ -74,6 +74,13 @@ class UIManager {
     this.glassEls = null;
     this._kCache = {};
     this.tickGlassBound = this.tickGlass.bind(this);
+    this.fpsRaf = null;
+    this.fpsFrames = 0;
+    this.fpsLast = 0;
+    this.fpsBadge = null;
+    this.fpsDot = null;
+    this.fpsText = null;
+    this.fpsTickBound = this.fpsTick.bind(this);
     this.store.subscribe((prop, val) => {
       if (Store.TRANSIENT_KEYS.has(prop)) return;
       let skipAnim = false;
@@ -104,6 +111,22 @@ class UIManager {
       crestFlood: $('glass-crest-flood'),
       hollowBlur: $('hollow-blur'), hollowFlood: $('hollow-flood')
     };
+    const host = this.appContainer || document.body;
+    if (!$('fps-badge')) {
+      const fb = document.createElement('div');
+      fb.id = 'fps-badge'; fb.className = 'fps-badge'; fb.setAttribute('aria-hidden', 'true');
+      fb.innerHTML = '<span class="fps-dot"></span><span class="fps-text">-- FPS</span>';
+      host.appendChild(fb);
+    }
+    this.fpsBadge = $('fps-badge');
+    this.fpsDot = qs(this.fpsBadge, '.fps-dot');
+    this.fpsText = qs(this.fpsBadge, '.fps-text');
+    if (/flat/i.test(AA.VERSION || '') && !$('version-badge')) {
+      const vb = document.createElement('div');
+      vb.id = 'version-badge'; vb.className = 'version-badge'; vb.setAttribute('aria-hidden', 'true');
+      vb.textContent = AA.VERSION;
+      host.appendChild(vb);
+    }
     this.renderPanel();
     this.syncUI(true);
     this.bindEvents();
@@ -112,11 +135,39 @@ class UIManager {
     this.requestWakeLock();
     window.dispatchEvent(new Event('resize'));
   }
+  syncFps(on) {
+    if (on) {
+      if (this.fpsRaf === null) {
+        if (this.fpsText) this.fpsText.textContent = '-- FPS';
+        if (this.fpsDot) this.fpsDot.style.background = '';
+        this.fpsFrames = 0;
+        this.fpsLast = performance.now();
+        this.fpsRaf = requestAnimationFrame(this.fpsTickBound);
+      }
+      if (this.fpsBadge) this.fpsBadge.classList.add('is-visible');
+    } else {
+      if (this.fpsRaf !== null) { cancelAnimationFrame(this.fpsRaf); this.fpsRaf = null; }
+      if (this.fpsBadge) this.fpsBadge.classList.remove('is-visible');
+    }
+  }
+  fpsTick() {
+    this.fpsRaf = requestAnimationFrame(this.fpsTickBound);
+    this.fpsFrames++;
+    const now = performance.now(), dt = now - this.fpsLast;
+    if (dt < 500) return;
+    if (dt <= 2000) {
+      const fps = Math.round(this.fpsFrames * 1000 / dt);
+      this.fpsText.textContent = `${fps} FPS`;
+      this.fpsDot.style.background = fps >= 50 ? '#30d158' : fps >= 30 ? '#ffd60a' : '#ff453a';
+    }
+    this.fpsFrames = 0;
+    this.fpsLast = now;
+  }
   renderPanel() {
     const { lang } = this.store.getState(), d = UIManager.DICT[lang], I = this.activeTab;
     const row = (label, ctrl) => `<div class="settings-row"><span class="row-label" title="${label}">${label}</span>${ctrl}</div>`;
     const tg = (id, label) => row(label, `<input type="checkbox" id="${id}" class="toggle-switch">`);
-    const seg = (label, prop, options, offset = 0) => { const isCol = options.length > 3; return `<div class="settings-row${isCol ? ' col-layout' : ''}"><span class="row-label" title="${label}">${label}</span><div class="segmented-control${isCol ? '' : ' inline-seg'}" data-prop="${prop}" role="radiogroup" aria-label="${label}"><div class="segmented-highlight"></div>${options.map((t, i) => `<button class="segment-btn" role="radio" aria-checked="false" data-value="${i + offset}">${t}</button>`).join('')}</div></div>`; };
+    const seg = (label, prop, options, offset = 0, values = null) => { const isCol = options.length > 3; return `<div class="settings-row${isCol ? ' col-layout' : ''}"><span class="row-label" title="${label}">${label}</span><div class="segmented-control${isCol ? '' : ' inline-seg'}" data-prop="${prop}" role="radiogroup" aria-label="${label}"><div class="segmented-highlight"></div>${options.map((t, i) => `<button class="segment-btn" role="radio" aria-checked="false" data-value="${values ? values[i] : i + offset}">${t}</button>`).join('')}</div></div>`; };
     const mtg = (label, opts) => `<div class="settings-row"><span class="row-label" title="${label}">${label}</span><div class="mtg-control">${opts.map(o => `<button class="mtg-btn" aria-pressed="false" data-prop="${o.p}">${o.l}</button>`).join('')}</div></div>`;
     const slider = (key, id) => { const s = UIManager.SLIDERS.find(s => s.key === key && (!id || s.id === id)); return `<div class="slider-row" aria-label="${d[key]}">${UIManager.renderIcon(s.svgMin, 'slider-icon min-icon')}<div class="range-container"><input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}"></div>${UIManager.renderIcon(s.svgMax, 'slider-icon max-icon')}</div>`; };
     const langRow = row(d.lang, `<div class="segmented-control inline-seg" data-prop="lang" role="radiogroup" aria-label="${d.lang}" style="max-width:120px"><div class="segmented-highlight"></div><button class="segment-btn ${lang === 'en' ? 'active' : ''}" role="radio" aria-checked="${lang === 'en'}" data-value="en">EN</button><button class="segment-btn ${lang === 'zh' ? 'active' : ''}" role="radio" aria-checked="${lang === 'zh'}" data-value="zh">中</button></div>`);
@@ -128,8 +179,8 @@ class UIManager {
     const ctRow = `<div class="settings-row"><input type="text" id="ctrl-customtext" class="ct-input" maxlength="30" placeholder="${d.ctph}" enterkeyhint="done" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="${d.sct}"></div>`;
     const tabs = [
       [[seg(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono']), tcRow, seg(d.mat, 'material', d.mats)], [slider('size'), slider('weight'), slider('opacity')], [tg('ctrl-24hr', d.time), tg('ctrl-leadingzero', d.lz), tg('ctrl-seconds', d.sec), seg(d.tick, 'clockAnimMode', d.ticks)], [tg('ctrl-date', d.date), mtg(d.df, [{l:d.dY,p:'showY'}, {l:d.dM,p:'showM'}, {l:d.dD,p:'showD'}, {l:d.dW,p:'showW'}]), seg(d.layout, 'clockLayout', d.layouts), seg(d.datePos, 'datePosition', d.datePositions)], [tg('ctrl-showcustom', d.sct), ctRow], [anchorRow, slider('offset', 'ctrl-offx'), slider('offset', 'ctrl-offy')]],
-      [[seg(d.mode, 'mode', d.modes, 1), theme], [slider('speed')]],
-      [[langRow, seg(d.idle, 'idleTimeout', d.idles)], [tg('ctrl-pixelshift', d.burn), tg('ctrl-nightmode', d.night)]]
+      [[seg(d.mode, 'mode', d.modes, 1), theme], [slider('speed'), seg(d.renderScale, 'renderScale', ['0.25x', '0.5x', '0.75x', '1.0x'], 0, [0.25, 0.5, 0.75, 1])]],
+      [[langRow, seg(d.idle, 'idleTimeout', d.idles)], [tg('ctrl-pixelshift', d.burn), tg('ctrl-nightmode', d.night), tg('ctrl-fps', d.showFps)]]
     ];
     if (this._cp) this._cp.close();
     this.panel.innerHTML = `<div class="tab-header" role="tablist">${d.tabs.map((t, i) => `<button class="tab-nav-btn${i === I ? ' active' : ''}" data-tab="${i}" role="tab">${t}</button>`).join('')}</div><div class="tab-panes">${tabs.map((blocks, i) => `<div class="tab-pane${i === I ? ' active' : ''}">${blocks.map(b => `<div class="settings-block">${b.join('')}</div>`).join('')}</div>`).join('')}</div>`;
@@ -201,6 +252,7 @@ class UIManager {
       }
     });
     if (full || changedKey === 'pixelShift') this.runPixelShift();
+    if (full || changedKey === 'showFps') this.syncFps(!!state.showFps);
     if (full || changedKey === 'lowPower') {
       const btnLowpower = this.btnLowpower;
       if (btnLowpower) btnLowpower.classList.toggle('is-active', lowPower);
@@ -238,7 +290,7 @@ class UIManager {
     let lastHap = 0, anchorHold = null, holdFired = false, anchorX = 0, anchorY = 0;
     const cp = this._cp = AA.createColorPicker(this);
     const clearAnchorHold = () => { if (anchorHold) { clearTimeout(anchorHold); anchorHold = null; } };
-    const segValue = b => isNaN(b.dataset.value) ? b.dataset.value : parseInt(b.dataset.value);
+    const segValue = b => isNaN(b.dataset.value) ? b.dataset.value : Number(b.dataset.value);
     const applySeg = (prop, b) => {
       if (prop === 'material' && +b.dataset.value === 3) this.tryRequestGyro();
       haptic(10); this.store.setState(prop, segValue(b));

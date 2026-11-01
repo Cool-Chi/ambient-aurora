@@ -96,7 +96,7 @@ class WebGLEngine {
     if (key === 'mode') {
       this.targetWeights.fill(0);
       this.targetWeights[val - 1] = 1.0;
-    } else if (key === 'lowPower') {
+    } else if (key === 'lowPower' || key === 'renderScale') {
       this.resize();
     } else if (key === 'colorTarget' || key === 'nightMode') {
       this.updateFallback();
@@ -104,12 +104,12 @@ class WebGLEngine {
   }
   resize() {
     if (!this.glReady || !this.gl || this.gl.isContextLost()) return;
-    const { lowPower } = this.store.getState();
+    const { lowPower, renderScale } = this.store.getState();
     const PIXEL_BUDGET = 2500000;
     const cssW = Math.max(1, window.innerWidth);
     const cssH = Math.max(1, window.innerHeight);
     const dpr = lowPower ? 0.75 : Math.min(window.devicePixelRatio || 1, 2);
-    const scale = Math.min(dpr, Math.sqrt(PIXEL_BUDGET / (cssW * cssH)));
+    const scale = Math.min(dpr, Math.sqrt(PIXEL_BUDGET / (cssW * cssH))) * clamp(Number(renderScale) || 1, 0.25, 1);
     const w = Math.max(1, Math.round(cssW * scale));
     const h = Math.max(1, Math.round(cssH * scale));
     if (this.canvas.width !== w || this.canvas.height !== h) {
