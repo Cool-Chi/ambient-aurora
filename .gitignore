@@ -17,3 +17,12 @@ Thumbs.db
 
 # Log files
 *.log
+
+# Local development artifacts
+orig.html
+diff.patch
+dist/
+
+*.sh
+*.ps1
+*.py
