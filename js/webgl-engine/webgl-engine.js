@@ -148,7 +148,7 @@ class WebGLEngine {
   render(timestamp) {
     if (!this.running) return;
     this.rafId = requestAnimationFrame(this.renderBound);
-    const { isIdle, lowPower, speed, nightMode, colorTarget, isHolding } = this.store.getState();
+    const { isIdle, lowPower, speed, nightMode, colorTarget, isHolding, bgBrightness = 1 } = this.store.getState();
     const minInterval = isIdle ? 50 : lowPower ? 41.6 : 16.6;
     if (timestamp < this.frameClock + minInterval - 2) return;
     this.frameClock += minInterval;
@@ -168,7 +168,7 @@ class WebGLEngine {
     const target = nightMode ? [0.16, 0.08, 0.0] : colorTarget;
     for (let i = 0; i < 3; i++) this.colorLive[i] += (target[i] - this.colorLive[i]) * k;
     for (let i = 0; i < 5; i++) this.currentWeights[i] += (this.targetWeights[i] - this.currentWeights[i]) * k;
-    this.currentBrightness += ((isHolding ? 1.5 : isIdle ? 0.65 : 1.0) - this.currentBrightness) * k;
+    this.currentBrightness += ((isHolding ? 1.5 : isIdle ? bgBrightness * 0.65 : bgBrightness) - this.currentBrightness) * k;
     this.draw();
   }
   start() {

@@ -2,7 +2,7 @@
 const DICT = {
   en: {
     lang: "Language", time: "24-Hour Time", sec: "Show Seconds", tick: "Tick Anim",
-    mode: "Mode", theme: "Theme", size: "Size", weight: "Weight", speed: "Speed",
+    mode: "Mode", theme: "Theme", size: "Size", weight: "Weight", speed: "Speed", bgBrightness: 'Brightness',
     lp: "Low Power Mode", idle: "Idle Timeout", burn: "Burn-in Protection", night: "Night Mode",
     font: "Font", lz: "Leading Zero", date: "Show Date", lpOn: "Low Power Mode: On", lpOff: "Low Power Mode: Off",
     modes: ['Silk', 'Glow', 'Dust', 'Liquid', 'Horizon'],
@@ -17,7 +17,7 @@ const DICT = {
   },
   zh: {
     lang: "語言", time: "24小時制", sec: "顯示秒數", tick: "跳秒動效",
-    mode: "背景模式", theme: "色彩主題", size: "時鐘尺寸", weight: "字體粗細", speed: "背景流速",
+    mode: "背景模式", theme: "色彩主題", size: "時鐘尺寸", weight: "字體粗細", speed: "背景流速", bgBrightness: '背景亮度',
     lp: "低功耗模式", idle: "閒置隱藏", burn: "OLED 防烙印", night: "夜間護眼",
     font: "字體風格", lz: "補零顯示", date: "顯示日期", lpOn: "低功耗模式：已開啟", lpOff: "低功耗模式：已關閉",
     modes: ['絲綢', '光暈', '星塵', '液態', '天沿'],

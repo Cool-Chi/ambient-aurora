@@ -179,7 +179,7 @@ class UIManager {
     const ctRow = `<div class="settings-row"><input type="text" id="ctrl-customtext" class="ct-input" maxlength="30" placeholder="${d.ctph}" enterkeyhint="done" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="${d.sct}"></div>`;
     const tabs = [
       [[seg(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono']), tcRow, seg(d.mat, 'material', d.mats)], [slider('size'), slider('weight'), slider('opacity')], [tg('ctrl-24hr', d.time), tg('ctrl-leadingzero', d.lz), tg('ctrl-seconds', d.sec), seg(d.tick, 'clockAnimMode', d.ticks)], [tg('ctrl-date', d.date), mtg(d.df, [{l:d.dY,p:'showY'}, {l:d.dM,p:'showM'}, {l:d.dD,p:'showD'}, {l:d.dW,p:'showW'}]), seg(d.layout, 'clockLayout', d.layouts), seg(d.datePos, 'datePosition', d.datePositions)], [tg('ctrl-showcustom', d.sct), ctRow], [anchorRow, slider('offset', 'ctrl-offx'), slider('offset', 'ctrl-offy')]],
-      [[seg(d.mode, 'mode', d.modes, 1), theme], [slider('speed'), seg(d.renderScale, 'renderScale', ['0.25x', '0.5x', '0.75x', '1.0x'], 0, [0.25, 0.5, 0.75, 1])]],
+      [[seg(d.mode, 'mode', d.modes, 1), theme], [slider('speed'), slider('bgBrightness', 'ctrl-bg-brightness'), seg(d.renderScale, 'renderScale', ['0.25x', '0.5x', '0.75x', '1.0x'], 0, [0.25, 0.5, 0.75, 1])]],
       [[langRow, seg(d.idle, 'idleTimeout', d.idles)], [tg('ctrl-pixelshift', d.burn), tg('ctrl-nightmode', d.night), tg('ctrl-fps', d.showFps)]]
     ];
     if (this._cp) this._cp.close();
