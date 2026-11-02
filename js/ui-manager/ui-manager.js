@@ -253,6 +253,7 @@ class UIManager {
     });
     if (full || changedKey === 'pixelShift') this.runPixelShift();
     if (full || changedKey === 'showFps') this.syncFps(!!state.showFps);
+    if (full || changedKey === 'dimOnIdle') document.body.classList.toggle('no-idle-dim', !state.dimOnIdle);
     if (full || changedKey === 'lowPower') {
       const btnLowpower = this.btnLowpower;
       if (btnLowpower) btnLowpower.classList.toggle('is-active', lowPower);
