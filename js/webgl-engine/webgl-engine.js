@@ -3,6 +3,7 @@ const { on, clamp } = AA.util;
 const { vsSource, fsSource } = AA.SHADERS;
 const SCALE_TIERS = [0.25, 0.5, 0.75, 1.0];
 const UNIFORM_NAMES = ['u_resolution', 'u_time', 'u_color', 'u_weights', 'u_brightness', 'u_time2', 'u_timeMix', 'u_vignette'];
+const DEEP_IDLE_MS = 300000;
 class WebGLEngine {
   constructor(canvas, store) {
     this.canvas = canvas;
@@ -36,6 +37,11 @@ class WebGLEngine {
     this.wrapProgress = 0;
     this.highSpeedFps = (state.speed > 1.0);
     this.lastMinInterval = 0;
+    this.idleStartTime = state.isIdle ? performance.now() : 0;
+    this.isDeepIdle = false;
+    this.prmMedia = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+    this.reducedMotion = !!(this.prmMedia && this.prmMedia.matches);
+    if (this.prmMedia) on(this.prmMedia, 'change', e => { this.reducedMotion = !!e.matches; });
     this.autoScale = 1.0;
     this.emaFrameDt = 33.3;
     this.overloadTime = 0;
@@ -144,7 +150,10 @@ class WebGLEngine {
     if (this.fallbackEl) this.fallbackEl.style.background = '';
   }
   handleStateChange(key, val) {
-    if (key === 'mode') {
+    if (key === 'isIdle') {
+      this.idleStartTime = val ? performance.now() : 0;
+      this.isDeepIdle = false;
+    } else if (key === 'mode') {
       this.targetWeights.fill(0);
       this.targetWeights[val - 1] = 1.0;
       this.autoIgnoreUntil = performance.now() + 2000;
@@ -226,10 +235,19 @@ class WebGLEngine {
     if (!this.running) return;
     this.rafId = requestAnimationFrame(this.renderBound);
     const { isIdle, lowPower, speed, nightMode, colorTarget, isHolding, bgBrightness = 1, dimOnIdle = true, vignette = 1, renderScale, isPanelOpen } = this.store.getState();
-    if (speed > 1.05) this.highSpeedFps = true;
-    else if (speed < 0.95) this.highSpeedFps = false;
+    if (!isIdle) {
+      this.idleStartTime = 0;
+      this.isDeepIdle = false;
+    } else {
+      if (this.idleStartTime === 0) this.idleStartTime = timestamp;
+      this.isDeepIdle = (timestamp - this.idleStartTime) >= (AA._deepIdleMs || DEEP_IDLE_MS);
+    }
+    const effectiveSpeed = speed * (this.reducedMotion ? 0.3 : 1);
+    if (effectiveSpeed > 1.05) this.highSpeedFps = true;
+    else if (effectiveSpeed < 0.95) this.highSpeedFps = false;
     const speedInterval = this.highSpeedFps ? 16.6 : 33.3;
-    const minInterval = Math.max(isIdle ? 50 : 0, (lowPower || isPanelOpen) ? 41.6 : 0, speedInterval);
+    const idleInterval = !isIdle ? 0 : (this.isDeepIdle ? 75 : 50);
+    const minInterval = Math.max(idleInterval, (lowPower || isPanelOpen) ? 41.6 : 0, speedInterval);
     if (this.lastMinInterval !== minInterval) {
       this.lastMinInterval = minInterval;
       this.frameClock = timestamp - minInterval;
@@ -244,7 +262,7 @@ class WebGLEngine {
     const dt = clamp(rawDt, 0, 100), k = 1 - Math.pow(1 - 0.033, dt / 16.666);
     this.lastTime = timestamp;
     if (!this.glReady) { AA._glFrames = (AA._glFrames || 0) + 1; return; }
-    const step = 0.01 * speed * (dt / 16.666);
+    const step = 0.01 * effectiveSpeed * (dt / 16.666);
     this.globalTime += step;
     if (!this.isWrapping && this.globalTime >= 3600) {
       this.isWrapping = true;
@@ -272,7 +290,7 @@ class WebGLEngine {
     if (wSum > 0) {
       for (let i = 0; i < 5; i++) this.currentWeights[i] /= wSum;
     }
-    this.currentBrightness += ((isHolding ? 1.5 : (isIdle && dimOnIdle) ? bgBrightness * 0.65 : bgBrightness) - this.currentBrightness) * k;
+    this.currentBrightness += ((isHolding ? 1.5 : (isIdle && dimOnIdle) ? bgBrightness * (this.isDeepIdle ? 0.45 : 0.65) : bgBrightness) - this.currentBrightness) * k;
     const targetVignette = vignette === 2 ? 0.75 : vignette === 1 ? 0.4 : 0.0;
     this.currentVignette += (targetVignette - this.currentVignette) * k;
     let activeModes = 0;
