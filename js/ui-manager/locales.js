@@ -13,7 +13,7 @@ const DICT = {
     tc: "Color", tcItems: ['Clock', 'AM', 'Date', 'Text'], mat: "Material", mats: ['Classic', 'Hollow', 'Glow', 'Glass'], sct: "Custom Text", ctph: "Enter text...", anchor: "Position", offset: "Offset X / Y",
     opacity: "Opacity", datePos: "Date Pos", datePositions: ['Below', 'Above'],
     df: "Format", dY: "Y", dM: "M", dD: "D", dW: "W",
-    renderScale: "Render Scale", auto: "Auto", showFps: "FPS Display",
+    renderScale: "Render Scale", auto: "Auto", showFps: "FPS Display", showScale: "Scale Display", showSliderVal: "Slider Value",
     idles: ['3s', '10s', 'Never']
   },
   zh: {
@@ -29,7 +29,7 @@ const DICT = {
     tc: "字體色彩", tcItems: ['時鐘', 'AM', '日期', '文字'], mat: "字體材質", mats: ['實色', '鏤空', '高光', '玻璃'], sct: "自定義文字", ctph: "輸入文字...", anchor: "空間位置", offset: "X / Y 軸偏移",
     opacity: "透明度", datePos: "日期位置", datePositions: ['下方', '上方'],
     df: "格式", dY: "年", dM: "月", dD: "日", dW: "週",
-    renderScale: "渲染倍率", auto: "自動", showFps: "幀率顯示",
+    renderScale: "渲染倍率", auto: "自動", showFps: "幀率顯示", showScale: "倍率顯示", showSliderVal: "拉條數值",
     idles: ['3秒', '10秒', '永不']
   }
 };

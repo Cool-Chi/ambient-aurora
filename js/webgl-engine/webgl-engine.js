@@ -14,6 +14,7 @@ class WebGLEngine {
     this.running = false;
     this.rafId = null;
     const state = this.store.getState();
+    AA._activeScale = state.renderScale === 0 ? 1 : state.renderScale;
     this.colorLive = [...state.colorTarget];
     this.currentWeights = [0, 0, 0, 0, 0];
     this.targetWeights = [0, 0, 0, 0, 0];
@@ -131,6 +132,7 @@ class WebGLEngine {
     const { lowPower, renderScale } = this.store.getState();
     const PIXEL_BUDGET = 2500000;
     const activeScale = renderScale === 0 ? this.autoScale : renderScale;
+    AA._activeScale = activeScale;
     const cssW = Math.max(1, window.innerWidth);
     const cssH = Math.max(1, window.innerHeight);
     const dpr = lowPower ? 0.75 : Math.min(window.devicePixelRatio || 1, 2);

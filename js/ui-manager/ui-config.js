@@ -24,6 +24,7 @@ const UI_BINDINGS = {
   is24Hour: { id: 'ctrl-24hr', prop: 'checked' }, leadingZero: { id: 'ctrl-leadingzero', prop: 'checked' },
   showSeconds: { id: 'ctrl-seconds', prop: 'checked' }, showDate: { id: 'ctrl-date', prop: 'checked' },
   pixelShift: { id: 'ctrl-pixelshift', prop: 'checked' }, nightMode: { id: 'ctrl-nightmode', prop: 'checked' }, showFps: { id: 'ctrl-fps', prop: 'checked' },
+  showScale: { id: 'ctrl-scale', prop: 'checked' }, showSliderVal: { id: 'ctrl-sliderval', prop: 'checked' },
   dimOnIdle: { id: 'ctrl-dimidle', prop: 'checked' }
 };
 const BINDING_BY_ID = Object.assign(Object.create(null), Object.fromEntries(Object.entries(UI_BINDINGS).map(([k, b]) => [b.id, [k, b]])));

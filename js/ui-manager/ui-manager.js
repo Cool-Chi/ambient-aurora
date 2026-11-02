@@ -5,6 +5,16 @@ const { Store, DICT } = AA;
 const { FONTS, THEMES, SLIDERS, UI_BINDINGS, BINDING_BY_ID } = AA.UI_CONFIG;
 const qsa = (el, sel) => el.querySelectorAll(sel);
 const haptic = p => { try { navigator.vibrate?.(p) } catch(e){} };
+const fmtSliderVal = (id, raw) => {
+  const v = Number(raw);
+  switch (id) {
+    case 'ctrl-size': case 'ctrl-weight': return String(Math.round(v));
+    case 'ctrl-speed': return v.toFixed(2) + 'x';
+    case 'ctrl-bg-brightness': case 'ctrl-opacity': return Math.round(v * 100) + '%';
+    case 'ctrl-offx': case 'ctrl-offy': return (v > 0 ? '+' : '') + Math.round(v);
+    default: return String(v);
+  }
+};
 class UIManager {
   static get DICT() {
     return DICT;
@@ -121,6 +131,16 @@ class UIManager {
     this.fpsBadge = $('fps-badge');
     this.fpsDot = qs(this.fpsBadge, '.fps-dot');
     this.fpsText = qs(this.fpsBadge, '.fps-text');
+    if (!$('scale-badge')) {
+      const sb = document.createElement('div');
+      sb.id = 'scale-badge'; sb.className = 'fps-badge scale-badge'; sb.setAttribute('aria-hidden', 'true');
+      sb.innerHTML = '<span class="fps-dot"></span><span class="fps-text">--</span>';
+      host.appendChild(sb);
+    }
+    this.scaleBadge = $('scale-badge');
+    this.scaleDot = qs(this.scaleBadge, '.fps-dot');
+    this.scaleText = qs(this.scaleBadge, '.fps-text');
+    this._scaleTxt = '';
     if (/flat/i.test(AA.VERSION || '') && !$('version-badge')) {
       const vb = document.createElement('div');
       vb.id = 'version-badge'; vb.className = 'version-badge'; vb.setAttribute('aria-hidden', 'true');
@@ -135,8 +155,18 @@ class UIManager {
     this.requestWakeLock();
     window.dispatchEvent(new Event('resize'));
   }
+  updateScaleText() {
+    if (!this.scaleText) return;
+    const { renderScale } = this.store.getState();
+    const fmt = s => { const n = Number(s) || 1; return (n === 1 ? '1.0' : String(n)) + 'x'; };
+    const text = renderScale === 0 ? `AUTO · ${fmt(AA._activeScale || 1)}` : fmt(renderScale);
+    if (this._scaleTxt !== text) { this._scaleTxt = text; this.scaleText.textContent = text; }
+    if (this.scaleDot) this.scaleDot.style.background = renderScale === 0 ? '#0a84ff' : '';
+  }
   syncFps(on) {
-    if (on) {
+    const { showScale } = this.store.getState();
+    const needLoop = !!on || !!showScale;
+    if (needLoop) {
       if (this.fpsRaf === null) {
         if (this.fpsText) this.fpsText.textContent = '-- FPS';
         if (this.fpsDot) this.fpsDot.style.background = '';
@@ -145,24 +175,28 @@ class UIManager {
         this.fpsLast = performance.now();
         this.fpsRaf = requestAnimationFrame(this.fpsTickBound);
       }
-      if (this.fpsBadge) this.fpsBadge.classList.add('is-visible');
-    } else {
-      if (this.fpsRaf !== null) { cancelAnimationFrame(this.fpsRaf); this.fpsRaf = null; }
-      if (this.fpsBadge) this.fpsBadge.classList.remove('is-visible');
+    } else if (this.fpsRaf !== null) {
+      cancelAnimationFrame(this.fpsRaf);
+      this.fpsRaf = null;
     }
+    if (this.fpsBadge) this.fpsBadge.classList.toggle('is-visible', !!on);
+    if (this.scaleBadge) this.scaleBadge.classList.toggle('is-visible', !!showScale);
+    if (showScale) this.updateScaleText();
   }
   fpsTick() {
     this.fpsRaf = requestAnimationFrame(this.fpsTickBound);
     const now = performance.now(), dt = now - this.fpsLast;
     if (dt < 500) return;
     const gf = AA._glFrames || 0;
-    if (dt <= 2000) {
+    const { showFps, showScale } = this.store.getState();
+    if (showFps && dt <= 2000) {
       const fps = Math.round((gf - (this._lastGlFrames || 0)) * 1000 / dt);
       this.fpsText.textContent = `${fps} FPS`;
       this.fpsDot.style.background = fps >= 50 ? '#30d158' : fps >= 30 ? '#ffd60a' : '#ff453a';
     }
     this._lastGlFrames = gf;
     this.fpsLast = now;
+    if (showScale) this.updateScaleText();
   }
   renderPanel() {
     const { lang } = this.store.getState(), d = UIManager.DICT[lang], I = this.activeTab;
@@ -170,7 +204,7 @@ class UIManager {
     const tg = (id, label) => row(label, `<input type="checkbox" id="${id}" class="toggle-switch">`);
     const seg = (label, prop, options, offset = 0, values = null) => { const isCol = options.length > 3; return `<div class="settings-row${isCol ? ' col-layout' : ''}"><span class="row-label" title="${label}">${label}</span><div class="segmented-control${isCol ? '' : ' inline-seg'}" data-prop="${prop}" role="radiogroup" aria-label="${label}"><div class="segmented-highlight"></div>${options.map((t, i) => `<button class="segment-btn" role="radio" aria-checked="false" data-value="${values ? values[i] : i + offset}">${t}</button>`).join('')}</div></div>`; };
     const mtg = (label, opts) => `<div class="settings-row"><span class="row-label" title="${label}">${label}</span><div class="mtg-control">${opts.map(o => `<button class="mtg-btn" aria-pressed="false" data-prop="${o.p}">${o.l}</button>`).join('')}</div></div>`;
-    const slider = (key, id) => { const s = UIManager.SLIDERS.find(s => s.key === key && (!id || s.id === id)); return `<div class="slider-row" aria-label="${d[key]}">${UIManager.renderIcon(s.svgMin, 'slider-icon min-icon')}<div class="range-container"><input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}"></div>${UIManager.renderIcon(s.svgMax, 'slider-icon max-icon')}</div>`; };
+    const slider = (key, id) => { const s = UIManager.SLIDERS.find(s => s.key === key && (!id || s.id === id)); return `<div class="slider-row" aria-label="${d[key]}">${UIManager.renderIcon(s.svgMin, 'slider-icon min-icon')}<div class="range-container slider-wrap"><input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}"><output class="slider-bubble" aria-hidden="true"></output></div>${UIManager.renderIcon(s.svgMax, 'slider-icon max-icon')}</div>`; };
     const langRow = row(d.lang, `<div class="segmented-control inline-seg" data-prop="lang" role="radiogroup" aria-label="${d.lang}" style="max-width:120px"><div class="segmented-highlight"></div><button class="segment-btn ${lang === 'en' ? 'active' : ''}" role="radio" aria-checked="${lang === 'en'}" data-value="en">EN</button><button class="segment-btn ${lang === 'zh' ? 'active' : ''}" role="radio" aria-checked="${lang === 'zh'}" data-value="zh">中</button></div>`);
     const theme = row(d.theme, `<div class="swatches-container">${UIManager.THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}<div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div></div>`);
     const tcKeys = ['textColor', 'ampmColor', 'dateColor', 'customTextColor'];
@@ -181,7 +215,7 @@ class UIManager {
     const tabs = [
       [[seg(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono']), tcRow, seg(d.mat, 'material', d.mats)], [slider('size'), slider('weight'), slider('opacity')], [tg('ctrl-24hr', d.time), tg('ctrl-leadingzero', d.lz), tg('ctrl-seconds', d.sec), seg(d.tick, 'clockAnimMode', d.ticks)], [tg('ctrl-date', d.date), mtg(d.df, [{l:d.dY,p:'showY'}, {l:d.dM,p:'showM'}, {l:d.dD,p:'showD'}, {l:d.dW,p:'showW'}]), seg(d.layout, 'clockLayout', d.layouts), seg(d.datePos, 'datePosition', d.datePositions)], [tg('ctrl-showcustom', d.sct), ctRow], [anchorRow, slider('offset', 'ctrl-offx'), slider('offset', 'ctrl-offy')]],
       [[seg(d.mode, 'mode', d.modes, 1), theme], [slider('speed'), slider('bgBrightness', 'ctrl-bg-brightness'), seg(d.vignette, 'vignette', d.vignettes), seg(d.renderScale, 'renderScale', [d.auto, '0.25x', '0.5x', '0.75x', '1.0x'], 0, [0, 0.25, 0.5, 0.75, 1])]],
-      [[langRow, seg(d.idle, 'idleTimeout', d.idles), tg('ctrl-dimidle', d.dimIdle)], [tg('ctrl-pixelshift', d.burn), tg('ctrl-nightmode', d.night), tg('ctrl-fps', d.showFps)]]
+      [[langRow, seg(d.idle, 'idleTimeout', d.idles), tg('ctrl-dimidle', d.dimIdle)], [tg('ctrl-pixelshift', d.burn), tg('ctrl-nightmode', d.night), tg('ctrl-fps', d.showFps), tg('ctrl-scale', d.showScale), tg('ctrl-sliderval', d.showSliderVal)]]
     ];
     if (this._cp) this._cp.close();
     this.panel.innerHTML = `<div class="tab-header" role="tablist">${d.tabs.map((t, i) => `<button class="tab-nav-btn${i === I ? ' active' : ''}" data-tab="${i}" role="tab">${t}</button>`).join('')}</div><div class="tab-panes">${tabs.map((blocks, i) => `<div class="tab-pane${i === I ? ' active' : ''}">${blocks.map(b => `<div class="settings-block">${b.join('')}</div>`).join('')}</div>`).join('')}</div>`;
@@ -195,7 +229,14 @@ class UIManager {
     qsa(this.panel, '.tab-pane').forEach((p, j) => { p.classList.toggle('active', j === i); if (j === i) qsa(p, '.segmented-control').forEach(c => this.updateSegmentHighlight(c, state[c.dataset.prop], true)); });
   }
   updateSliderFill(el) {
-    el.style.setProperty('--val', `${((el.value - (el.min || 0)) / ((el.max || 100) - (el.min || 0))) * 100}%`);
+    const p = (el.value - (el.min || 0)) / ((el.max || 100) - (el.min || 0));
+    el.style.setProperty('--val', `${p * 100}%`);
+    const w = el.parentElement;
+    if (w && w.classList.contains('slider-wrap')) {
+      w.style.setProperty('--p', p);
+      const b = qs(w, '.slider-bubble');
+      if (b) b.textContent = fmtSliderVal(el.id, el.value);
+    }
   }
   showHUD(text) {
     this.hudToast.textContent = text;
@@ -253,7 +294,7 @@ class UIManager {
       }
     });
     if (full || changedKey === 'pixelShift') this.runPixelShift();
-    if (full || changedKey === 'showFps') this.syncFps(!!state.showFps);
+    if (full || changedKey === 'showFps' || changedKey === 'showScale' || changedKey === 'renderScale') this.syncFps(!!state.showFps);
     if (full || changedKey === 'dimOnIdle') document.body.classList.toggle('no-idle-dim', !state.dimOnIdle);
     if (full || changedKey === 'lowPower') {
       const btnLowpower = this.btnLowpower;
@@ -290,6 +331,18 @@ class UIManager {
   }
   bindEvents() {
     let lastHap = 0, anchorHold = null, holdFired = false, anchorX = 0, anchorY = 0;
+    let slideEl = null, slideTimer = null, slideHeld = false;
+    const setSlide = (range, active) => { const w = range && range.parentElement; if (w && w.classList.contains('slider-wrap')) w.classList.toggle('is-sliding', active); };
+    const endSlide = () => { clearTimeout(slideTimer); slideHeld = false; if (slideEl) { setSlide(slideEl, false); slideEl = null; } };
+    const showSlide = (range, held) => {
+      if (!this.store.getState().showSliderVal) return;
+      if (slideEl && slideEl !== range) setSlide(slideEl, false);
+      slideEl = range;
+      if (held) slideHeld = true;
+      setSlide(range, true);
+      clearTimeout(slideTimer);
+      if (!slideHeld) slideTimer = setTimeout(endSlide, 400);
+    };
     const cp = this._cp = AA.createColorPicker(this);
     const clearAnchorHold = () => { if (anchorHold) { clearTimeout(anchorHold); anchorHold = null; } };
     const segValue = b => isNaN(b.dataset.value) ? b.dataset.value : Number(b.dataset.value);
@@ -322,7 +375,7 @@ class UIManager {
     };
     on(document, 'pointerdown', e => {
       if (this.store.getState().material === 3) { trackGlassPtr(e); this.tryRequestGyro(); }
-      if (e.target.type === 'range') document.body.classList.add('is-dragging');
+      if (e.target.type === 'range') { document.body.classList.add('is-dragging'); showSlide(e.target, true); }
       const sg = e.target.closest('.segmented-control');
       if (sg && e.button === 0) { this.segTarget = sg; this.segProp = sg.dataset.prop; this.segDragged = false; }
       const tg = e.target.closest('.toggle-switch');
@@ -357,6 +410,7 @@ class UIManager {
       clearAnchorHold();
       this.exitApp(false);
       document.body.classList.remove('is-dragging');
+      endSlide();
       resetSeg();
       this.tgStart = null;
       setTimeout(() => this.tgTarget = null, 0);
@@ -369,7 +423,7 @@ class UIManager {
       if (e.target.closest('.anchor-grid, .icon-btn') || this.store.getState().isHolding) e.preventDefault();
     });
     on(document, 'input', e => {
-      if (e.target.type === 'range') { document.body.classList.add('is-dragging'); const t = e.target, v = t.value, isEdge = v === t.min || v === t.max, now = Date.now(); if (isEdge || now - lastHap > 40) { haptic(isEdge ? 20 : 5); lastHap = now; } }
+      if (e.target.type === 'range') { document.body.classList.add('is-dragging'); showSlide(e.target, false); const t = e.target, v = t.value, isEdge = v === t.min || v === t.max, now = Date.now(); if (isEdge || now - lastHap > 40) { haptic(isEdge ? 20 : 5); lastHap = now; } }
       const entry = UIManager.BINDING_BY_ID[e.target.id];
       if (entry && e.target.type !== 'checkbox') { this.store.setState(entry[0], e.target.type === 'text' ? e.target.value : parseFloat(e.target.value)); }
       else if (e.target.classList.contains('tc-input')) this.store.setState(e.target.dataset.prop, e.target.value);
@@ -394,7 +448,7 @@ class UIManager {
       cp.close();
     }, { passive: true });
     on(document, 'keydown', e => { if (e.key === 'Escape' && cp.isOpen()) cp.close(); });
-    this.store.subscribe((key, val) => { if (key === 'isPanelOpen' && !val) { cp.close(); resetSeg(); } });
+    this.store.subscribe((key, val) => { if (key === 'isPanelOpen' && !val) { cp.close(); resetSeg(); endSlide(); } });
     on(window, 'resize', () => cp.reposition());
     on(document, 'click', e => {
       const state = this.store.getState();
@@ -427,7 +481,7 @@ class UIManager {
     on(document, 'fullscreenchange', () => window.dispatchEvent(new Event('resize')));
     ['mousemove', 'pointermove', 'touchstart', 'keydown'].forEach(evt => on(window, evt, () => this.wakeUp(), { passive: true }));
     on(document, 'keydown', e => { if (e.target.tagName !== 'INPUT' && (e.code === 'Space' || e.key === ' ')) { e.preventDefault(); if (!e.repeat) { this.touchStartX = null; this.exitApp(true); } } });
-    on(document, 'keyup', e => { if (e.code === 'Space' || e.key === ' ') this.exitApp(false); }); on(window, 'blur', () => this.exitApp(false));
+    on(document, 'keyup', e => { if (e.code === 'Space' || e.key === ' ') this.exitApp(false); }); on(window, 'blur', () => { this.exitApp(false); endSlide(); });
   }
 }
 Object.assign(UIManager.prototype, AA.UI_FX);
