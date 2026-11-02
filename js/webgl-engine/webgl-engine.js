@@ -22,8 +22,9 @@ class WebGLEngine {
     this.lastTime = performance.now();
     this.renderBound = this.render.bind(this);
     this.frameClock = performance.now();
-    this.timeWrapState = 0;
-    this.wrapFade = 1;
+    this.isWrapping = false;
+    this.wrapTime = 0;
+    this.wrapProgress = 0;
     this.fallbackEl = canvas.parentElement;
     this.fallbackActive = false;
     this.vsSource = vsSource;
@@ -65,7 +66,7 @@ class WebGLEngine {
         const pos = this.gl.getAttribLocation(program, 'position');
         this.gl.enableVertexAttribArray(pos);
         this.gl.vertexAttribPointer(pos, 2, this.gl.FLOAT, false, 0, 0);
-        ['u_resolution', 'u_time', 'u_color', 'u_weights', 'u_brightness'].forEach(n => this.uniforms[n] = this.gl.getUniformLocation(program, n));
+        ['u_resolution', 'u_time', 'u_color', 'u_weights', 'u_brightness', 'u_time2', 'u_timeMix'].forEach(n => this.uniforms[n] = this.gl.getUniformLocation(program, n));
         this.uVignetteLoc = this.gl.getUniformLocation(program, 'u_vignette');
         this.glReady = true;
         this.hideFallback();
@@ -128,10 +129,11 @@ class WebGLEngine {
   draw() {
     if (!this.glReady || !this.gl || this.gl.isContextLost()) return;
     this.gl.uniform1f(this.uniforms.u_time, this.globalTime);
+    this.gl.uniform1f(this.uniforms.u_time2, this.wrapTime);
+    this.gl.uniform1f(this.uniforms.u_timeMix, this.isWrapping ? this.wrapProgress : 0.0);
     this.gl.uniform3f(this.uniforms.u_color, this.colorLive[0], this.colorLive[1], this.colorLive[2]);
     this.gl.uniform1fv(this.uniforms.u_weights, this.currentWeights);
-    const wf = this.wrapFade;
-    this.gl.uniform1f(this.uniforms.u_brightness, this.currentBrightness * (wf * wf * (3 - 2 * wf)));
+    this.gl.uniform1f(this.uniforms.u_brightness, this.currentBrightness);
     this.gl.uniform1f(this.uVignetteLoc, this.currentVignette);
     this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
   }
@@ -160,14 +162,21 @@ class WebGLEngine {
     const dt = clamp(timestamp - this.lastTime, 0, 100), k = 1 - Math.pow(1 - 0.033, dt / 16.666);
     this.lastTime = timestamp;
     if (!this.glReady) return;
-    this.globalTime += 0.01 * speed * (dt / 16.666);
-    if (this.timeWrapState === 0 && this.globalTime > 10000.0) this.timeWrapState = 1;
-    if (this.timeWrapState === 1) {
-      this.wrapFade -= dt / 800;
-      if (this.wrapFade <= 0) { this.wrapFade = 0; this.globalTime = 0; this.timeWrapState = 2; }
-    } else if (this.timeWrapState === 2) {
-      this.wrapFade += dt / 800;
-      if (this.wrapFade >= 1) { this.wrapFade = 1; this.timeWrapState = 0; }
+    const step = 0.01 * speed * (dt / 16.666);
+    this.globalTime += step;
+    if (!this.isWrapping && this.globalTime >= 3600) {
+      this.isWrapping = true;
+      this.wrapTime = 0;
+      this.wrapProgress = 0;
+    }
+    if (this.isWrapping) {
+      this.wrapTime += step;
+      this.wrapProgress += dt / 6000;
+      if (this.wrapProgress >= 1.0) {
+        this.globalTime = this.wrapTime;
+        this.isWrapping = false;
+        this.wrapProgress = 0;
+      }
     }
     const target = nightMode ? [0.16, 0.08, 0.0] : colorTarget;
     for (let i = 0; i < 3; i++) this.colorLive[i] += (target[i] - this.colorLive[i]) * k;

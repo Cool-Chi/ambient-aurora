@@ -1,5 +1,5 @@
 window.AA = window.AA || {};
-// Ambient Aurora v3.6.1-flat | Store / WebGLEngine / ClockController / UIManager
+// Ambient Aurora v3.6.2-flat | Store / WebGLEngine / ClockController / UIManager
 (function (AA) {
 const $ = id => document.getElementById(id);
 const qs = (el, sel) => el.querySelector(sel);
@@ -96,6 +96,6 @@ class Store {
 }
 AA.util = { $, qs, on, clamp };
 AA.CONST = { EASE_OUT };
-AA.VERSION = 'v3.6.1-flat';
+AA.VERSION = 'v3.6.2-flat';
 AA.Store = Store;
 })(window.AA);
