@@ -2,6 +2,7 @@
 const { on, clamp } = AA.util;
 const { vsSource, fsSource } = AA.SHADERS;
 const SCALE_TIERS = [0.25, 0.5, 0.75, 1.0];
+const UNIFORM_NAMES = ['u_resolution', 'u_time', 'u_color', 'u_weights', 'u_brightness', 'u_time2', 'u_timeMix', 'u_vignette'];
 class WebGLEngine {
   constructor(canvas, store) {
     this.canvas = canvas;
@@ -11,6 +12,10 @@ class WebGLEngine {
     this.glReady = false;
     this.uniforms = {};
     this.uVignetteLoc = null;
+    this.programs = [];
+    this.programUniforms = [];
+    this.program = null;
+    this.activeProgIdx = -1;
     this.running = false;
     this.rafId = null;
     const state = this.store.getState();
@@ -41,7 +46,7 @@ class WebGLEngine {
     this.fallbackActive = false;
     this.vsSource = vsSource;
     this.fsSource = fsSource;
-    on(this.canvas, 'webglcontextlost', (e) => { e.preventDefault(); this.glReady = false; this.pause(); this.showFallback(); }, false);
+    on(this.canvas, 'webglcontextlost', (e) => { e.preventDefault(); this.glReady = false; this.activeProgIdx = -1; this.programs = []; this.programUniforms = []; this.pause(); this.showFallback(); }, false);
     on(this.canvas, 'webglcontextrestored', () => { this.initGL(); if (!document.hidden) this.resume(); }, false);
     this.initGL();
     this.store.subscribe((key, val) => this.handleStateChange(key, val));
@@ -58,36 +63,66 @@ class WebGLEngine {
     }
     return shader;
   }
+  buildProgram(vs, fsSrc) {
+    const gl = this.gl;
+    const fs = this.compileShader(gl, fsSrc, gl.FRAGMENT_SHADER);
+    if (!fs) return null;
+    const program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.bindAttribLocation(program, 0, 'position');
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      console.error(gl.getProgramInfoLog(program));
+      return null;
+    }
+    const uniforms = {};
+    UNIFORM_NAMES.forEach(n => uniforms[n] = gl.getUniformLocation(program, n));
+    return { program, uniforms };
+  }
   initGL() {
     this.gl = this.canvas.getContext('webgl', { antialias: false, alpha: false, depth: false, stencil: false, powerPreference: 'low-power' }) ||
               this.canvas.getContext('experimental-webgl', { antialias: false, alpha: false, depth: false, stencil: false, powerPreference: 'low-power' });
     this.glReady = false;
+    this.programs = [];
+    this.programUniforms = [];
+    this.activeProgIdx = -1;
     if (!this.gl) { this.showFallback(); return; }
-    const vs = this.compileShader(this.gl, this.vsSource, this.gl.VERTEX_SHADER);
-    const fs = this.compileShader(this.gl, this.fsSource, this.gl.FRAGMENT_SHADER);
-    if (vs && fs) {
-      const program = this.gl.createProgram();
-      this.gl.attachShader(program, vs);
-      this.gl.attachShader(program, fs);
-      this.gl.linkProgram(program);
-      if (this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
-        this.gl.useProgram(program);
-        const pb = this.gl.createBuffer();
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, pb);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), this.gl.STATIC_DRAW);
-        const pos = this.gl.getAttribLocation(program, 'position');
-        this.gl.enableVertexAttribArray(pos);
-        this.gl.vertexAttribPointer(pos, 2, this.gl.FLOAT, false, 0, 0);
-        ['u_resolution', 'u_time', 'u_color', 'u_weights', 'u_brightness', 'u_time2', 'u_timeMix'].forEach(n => this.uniforms[n] = this.gl.getUniformLocation(program, n));
-        this.uVignetteLoc = this.gl.getUniformLocation(program, 'u_vignette');
+    const gl = this.gl;
+    const vs = this.compileShader(gl, this.vsSource, gl.VERTEX_SHADER);
+    if (vs) {
+      const hdr = this.fsSource.indexOf('#endif\n');
+      const lowSrc = hdr >= 0
+        ? this.fsSource.slice(0, hdr + 7) + '#define FBM_OCTAVES 2\n#define LOW_POWER\n' + this.fsSource.slice(hdr + 7)
+        : '#define FBM_OCTAVES 2\n#define LOW_POWER\n' + this.fsSource;
+      const std = this.buildProgram(vs, this.fsSource);
+      const low = std ? this.buildProgram(vs, lowSrc) : null;
+      if (std) {
+        const pb = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, pb);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+        this.programs = [std.program, low ? low.program : null];
+        this.programUniforms = [std.uniforms, low ? low.uniforms : null];
         this.glReady = true;
         this.hideFallback();
         this.resize();
-      } else {
-        console.error(this.gl.getProgramInfoLog(program));
       }
     }
     if (!this.glReady) this.showFallback();
+  }
+  selectProgram() {
+    if (!this.gl || !this.programs.length) return;
+    let idx = this.store.getState().lowPower ? 1 : 0;
+    if (!this.programs[idx]) idx = 0;
+    if (this.activeProgIdx === idx) return;
+    this.activeProgIdx = idx;
+    this.program = this.programs[idx];
+    this.uniforms = this.programUniforms[idx];
+    this.uVignetteLoc = this.uniforms.u_vignette;
+    this.gl.useProgram(this.program);
+    this.gl.uniform2f(this.uniforms.u_resolution, this.gl.drawingBufferWidth || this.canvas.width, this.gl.drawingBufferHeight || this.canvas.height);
   }
   updateFallback() {
     if (!this.fallbackActive || !this.fallbackEl) return;
@@ -121,6 +156,11 @@ class WebGLEngine {
       this.autoCooldownUntil = 0;
       if (val === 0) this.autoScale = 1.0;
       this.resize();
+    } else if (key === 'isPanelOpen') {
+      this.overloadTime = 0;
+      this.stableTime = 0;
+      this.autoIgnoreUntil = performance.now() + 1000;
+      this.resize();
     } else if (key === 'lowPower') {
       this.resize();
     } else if (key === 'colorTarget' || key === 'nightMode') {
@@ -129,9 +169,11 @@ class WebGLEngine {
   }
   resize() {
     if (!this.glReady || !this.gl || this.gl.isContextLost()) return;
-    const { lowPower, renderScale } = this.store.getState();
+    this.selectProgram();
+    const { lowPower, renderScale, isPanelOpen } = this.store.getState();
     const PIXEL_BUDGET = 2500000;
-    const activeScale = renderScale === 0 ? this.autoScale : renderScale;
+    const baseScale = renderScale === 0 ? this.autoScale : renderScale;
+    const activeScale = isPanelOpen ? Math.min(baseScale, 0.75) : baseScale;
     AA._activeScale = activeScale;
     const cssW = Math.max(1, window.innerWidth);
     const cssH = Math.max(1, window.innerHeight);
@@ -151,6 +193,7 @@ class WebGLEngine {
   }
   draw() {
     if (!this.glReady || !this.gl || this.gl.isContextLost()) return;
+    this.selectProgram();
     this.gl.uniform1f(this.uniforms.u_time, this.globalTime);
     this.gl.uniform1f(this.uniforms.u_time2, this.wrapTime);
     this.gl.uniform1f(this.uniforms.u_timeMix, this.isWrapping ? this.wrapProgress : 0.0);
@@ -182,11 +225,11 @@ class WebGLEngine {
   render(timestamp) {
     if (!this.running) return;
     this.rafId = requestAnimationFrame(this.renderBound);
-    const { isIdle, lowPower, speed, nightMode, colorTarget, isHolding, bgBrightness = 1, dimOnIdle = true, vignette = 1, renderScale } = this.store.getState();
+    const { isIdle, lowPower, speed, nightMode, colorTarget, isHolding, bgBrightness = 1, dimOnIdle = true, vignette = 1, renderScale, isPanelOpen } = this.store.getState();
     if (speed > 1.05) this.highSpeedFps = true;
     else if (speed < 0.95) this.highSpeedFps = false;
     const speedInterval = this.highSpeedFps ? 16.6 : 33.3;
-    const minInterval = Math.max(isIdle ? 50 : 0, lowPower ? 41.6 : 0, speedInterval);
+    const minInterval = Math.max(isIdle ? 50 : 0, (lowPower || isPanelOpen) ? 41.6 : 0, speedInterval);
     if (this.lastMinInterval !== minInterval) {
       this.lastMinInterval = minInterval;
       this.frameClock = timestamp - minInterval;
@@ -219,13 +262,22 @@ class WebGLEngine {
     }
     const target = nightMode ? [0.16, 0.08, 0.0] : colorTarget;
     for (let i = 0; i < 3; i++) this.colorLive[i] += (target[i] - this.colorLive[i]) * k;
-    for (let i = 0; i < 5; i++) this.currentWeights[i] += (this.targetWeights[i] - this.currentWeights[i]) * k;
+    let wSum = 0;
+    for (let i = 0; i < 5; i++) {
+      let w = this.currentWeights[i] + (this.targetWeights[i] - this.currentWeights[i]) * k;
+      if (this.targetWeights[i] === 0 && w < 0.02) w = 0;
+      this.currentWeights[i] = w;
+      wSum += w;
+    }
+    if (wSum > 0) {
+      for (let i = 0; i < 5; i++) this.currentWeights[i] /= wSum;
+    }
     this.currentBrightness += ((isHolding ? 1.5 : (isIdle && dimOnIdle) ? bgBrightness * 0.65 : bgBrightness) - this.currentBrightness) * k;
     const targetVignette = vignette === 2 ? 0.75 : vignette === 1 ? 0.4 : 0.0;
     this.currentVignette += (targetVignette - this.currentVignette) * k;
     let activeModes = 0;
     for (let i = 0; i < 5; i++) if (this.currentWeights[i] > 0.001) activeModes++;
-    const autoActive = renderScale === 0 && !isIdle;
+    const autoActive = renderScale === 0 && !isIdle && !isPanelOpen;
     if (rawDt > 150 || timestamp < this.autoIgnoreUntil || activeModes > 1 || this.isWrapping || !autoActive) {
       this.emaFrameDt = minInterval;
       this.overloadTime = 0;
