@@ -4,7 +4,7 @@ const { vsSource, fsSource } = AA.SHADERS;
 const SCALE_TIERS = [0.25, 0.5, 0.75, 1.0];
 const UNIFORM_NAMES = ['u_resolution', 'u_time', 'u_color', 'u_color2', 'u_weights', 'u_brightness', 'u_time2', 'u_timeMix', 'u_vignette'];
 const DEEP_IDLE_MS = 300000;
-const HUE_SHIFT = 42 / 360;
+const NIGHT_COLOR = [0.16, 0.08, 0.0];
 const NIGHT_COLOR2 = [0.24, 0.05, 0.0];
 function rgbToHsv(r, g, b) {
   const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
@@ -30,11 +30,13 @@ function hsvToRgb(h, s, v) {
     default: return [v, p, q];
   }
 }
-function deriveSecondaryColor(rgb, nightMode) {
-  if (nightMode) return NIGHT_COLOR2.slice();
+function deriveSecondaryColor(rgb, nightMode, colorMix = true, hueShift = 42) {
+  if (nightMode) return colorMix ? NIGHT_COLOR2.slice() : NIGHT_COLOR.slice();
   const r = clamp(Number(rgb[0]) || 0, 0, 1), g = clamp(Number(rgb[1]) || 0, 0, 1), b = clamp(Number(rgb[2]) || 0, 0, 1);
+  if (!colorMix) return [r, g, b];
   const [h, s, v] = rgbToHsv(r, g, b);
-  let h2 = (h + HUE_SHIFT) % 1, s2, v2;
+  const shift = (((Number(hueShift) || 0) / 360 % 1) + 1) % 1;
+  let h2 = (h + shift) % 1, s2, v2;
   if (s < 0.12 && v > 0.85) {
     if (s < 0.02) h2 = 0.08;
     s2 = 0.22; v2 = 0.95;
@@ -65,7 +67,7 @@ class WebGLEngine {
     const state = this.store.getState();
     AA._activeScale = state.renderScale === 0 ? 1 : state.renderScale;
     this.colorLive = [...state.colorTarget];
-    this.color2Live = deriveSecondaryColor(state.colorTarget, state.nightMode);
+    this.color2Live = deriveSecondaryColor(state.colorTarget, state.nightMode, state.colorMix, state.hueShift);
     this.currentWeights = [0, 0, 0, 0, 0];
     this.targetWeights = [0, 0, 0, 0, 0];
     this.currentWeights[state.mode - 1] = 1.0;
@@ -279,7 +281,7 @@ class WebGLEngine {
   render(timestamp) {
     if (!this.running) return;
     this.rafId = requestAnimationFrame(this.renderBound);
-    const { isIdle, lowPower, speed, nightMode, colorTarget, isHolding, bgBrightness = 1, dimOnIdle = true, vignette = 1, renderScale, isPanelOpen } = this.store.getState();
+    const { isIdle, lowPower, speed, nightMode, colorTarget, isHolding, bgBrightness = 1, dimOnIdle = true, vignette = 1, renderScale, isPanelOpen, colorMix = true, hueShift = 42 } = this.store.getState();
     if (!isIdle) {
       this.idleStartTime = 0;
       this.isDeepIdle = false;
@@ -292,7 +294,7 @@ class WebGLEngine {
     else if (effectiveSpeed < 0.95) this.highSpeedFps = false;
     const speedInterval = this.highSpeedFps ? 16.6 : 33.3;
     const idleInterval = !isIdle ? 0 : (this.isDeepIdle ? 75 : 50);
-    const minInterval = Math.max(idleInterval, (lowPower || isPanelOpen) ? 41.6 : 0, speedInterval);
+    const minInterval = Math.max(idleInterval, lowPower ? 41.6 : 0, isPanelOpen ? 33.3 : 0, speedInterval);
     if (this.lastMinInterval !== minInterval) {
       this.lastMinInterval = minInterval;
       this.frameClock = timestamp - minInterval;
@@ -323,9 +325,9 @@ class WebGLEngine {
         this.wrapProgress = 0;
       }
     }
-    const target = nightMode ? [0.16, 0.08, 0.0] : colorTarget;
+    const target = nightMode ? NIGHT_COLOR : colorTarget;
     for (let i = 0; i < 3; i++) this.colorLive[i] += (target[i] - this.colorLive[i]) * k;
-    const target2 = deriveSecondaryColor(colorTarget, nightMode);
+    const target2 = deriveSecondaryColor(colorTarget, nightMode, colorMix, hueShift);
     for (let i = 0; i < 3; i++) this.color2Live[i] += (target2[i] - this.color2Live[i]) * k;
     let wSum = 0;
     for (let i = 0; i < 5; i++) {
