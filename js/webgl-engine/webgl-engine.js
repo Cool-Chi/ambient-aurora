@@ -2,8 +2,51 @@
 const { on, clamp } = AA.util;
 const { vsSource, fsSource } = AA.SHADERS;
 const SCALE_TIERS = [0.25, 0.5, 0.75, 1.0];
-const UNIFORM_NAMES = ['u_resolution', 'u_time', 'u_color', 'u_weights', 'u_brightness', 'u_time2', 'u_timeMix', 'u_vignette'];
+const UNIFORM_NAMES = ['u_resolution', 'u_time', 'u_color', 'u_color2', 'u_weights', 'u_brightness', 'u_time2', 'u_timeMix', 'u_vignette'];
 const DEEP_IDLE_MS = 300000;
+const HUE_SHIFT = 42 / 360;
+const NIGHT_COLOR2 = [0.24, 0.05, 0.0];
+function rgbToHsv(r, g, b) {
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if (d > 0) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h /= 6;
+    if (h < 0) h += 1;
+  }
+  return [h, max === 0 ? 0 : d / max, max];
+}
+function hsvToRgb(h, s, v) {
+  const hh = ((h % 1) + 1) % 1 * 6, i = Math.floor(hh), f = hh - i;
+  const p = v * (1 - s), q = v * (1 - s * f), t = v * (1 - s * (1 - f));
+  switch (i % 6) {
+    case 0: return [v, t, p];
+    case 1: return [q, v, p];
+    case 2: return [p, v, t];
+    case 3: return [p, q, v];
+    case 4: return [t, p, v];
+    default: return [v, p, q];
+  }
+}
+function deriveSecondaryColor(rgb, nightMode) {
+  if (nightMode) return NIGHT_COLOR2.slice();
+  const r = clamp(Number(rgb[0]) || 0, 0, 1), g = clamp(Number(rgb[1]) || 0, 0, 1), b = clamp(Number(rgb[2]) || 0, 0, 1);
+  const [h, s, v] = rgbToHsv(r, g, b);
+  let h2 = (h + HUE_SHIFT) % 1, s2, v2;
+  if (s < 0.12 && v > 0.85) {
+    if (s < 0.02) h2 = 0.08;
+    s2 = 0.22; v2 = 0.95;
+  } else if (v < 0.08) {
+    s2 = clamp(s * 0.9 + 0.15, 0.2, 0.85);
+    v2 = Math.max(v * 2.2, 0.06);
+  } else {
+    s2 = clamp(s * 0.92 + 0.12, 0.18, 0.92);
+    v2 = clamp(v * 1.15 + 0.08, 0.16, 1.0);
+  }
+  return hsvToRgb(h2, s2, v2);
+}
 class WebGLEngine {
   constructor(canvas, store) {
     this.canvas = canvas;
@@ -22,6 +65,7 @@ class WebGLEngine {
     const state = this.store.getState();
     AA._activeScale = state.renderScale === 0 ? 1 : state.renderScale;
     this.colorLive = [...state.colorTarget];
+    this.color2Live = deriveSecondaryColor(state.colorTarget, state.nightMode);
     this.currentWeights = [0, 0, 0, 0, 0];
     this.targetWeights = [0, 0, 0, 0, 0];
     this.currentWeights[state.mode - 1] = 1.0;
@@ -207,6 +251,7 @@ class WebGLEngine {
     this.gl.uniform1f(this.uniforms.u_time2, this.wrapTime);
     this.gl.uniform1f(this.uniforms.u_timeMix, this.isWrapping ? this.wrapProgress : 0.0);
     this.gl.uniform3f(this.uniforms.u_color, this.colorLive[0], this.colorLive[1], this.colorLive[2]);
+    this.gl.uniform3f(this.uniforms.u_color2, this.color2Live[0], this.color2Live[1], this.color2Live[2]);
     this.gl.uniform1fv(this.uniforms.u_weights, this.currentWeights);
     this.gl.uniform1f(this.uniforms.u_brightness, this.currentBrightness);
     this.gl.uniform1f(this.uVignetteLoc, this.currentVignette);
@@ -280,6 +325,8 @@ class WebGLEngine {
     }
     const target = nightMode ? [0.16, 0.08, 0.0] : colorTarget;
     for (let i = 0; i < 3; i++) this.colorLive[i] += (target[i] - this.colorLive[i]) * k;
+    const target2 = deriveSecondaryColor(colorTarget, nightMode);
+    for (let i = 0; i < 3; i++) this.color2Live[i] += (target2[i] - this.color2Live[i]) * k;
     let wSum = 0;
     for (let i = 0; i < 5; i++) {
       let w = this.currentWeights[i] + (this.targetWeights[i] - this.currentWeights[i]) * k;
