@@ -141,6 +141,7 @@ class UIManager {
         if (this.fpsText) this.fpsText.textContent = '-- FPS';
         if (this.fpsDot) this.fpsDot.style.background = '';
         this.fpsFrames = 0;
+        this._lastGlFrames = AA._glFrames || 0;
         this.fpsLast = performance.now();
         this.fpsRaf = requestAnimationFrame(this.fpsTickBound);
       }
@@ -152,15 +153,15 @@ class UIManager {
   }
   fpsTick() {
     this.fpsRaf = requestAnimationFrame(this.fpsTickBound);
-    this.fpsFrames++;
     const now = performance.now(), dt = now - this.fpsLast;
     if (dt < 500) return;
+    const gf = AA._glFrames || 0;
     if (dt <= 2000) {
-      const fps = Math.round(this.fpsFrames * 1000 / dt);
+      const fps = Math.round((gf - (this._lastGlFrames || 0)) * 1000 / dt);
       this.fpsText.textContent = `${fps} FPS`;
       this.fpsDot.style.background = fps >= 50 ? '#30d158' : fps >= 30 ? '#ffd60a' : '#ff453a';
     }
-    this.fpsFrames = 0;
+    this._lastGlFrames = gf;
     this.fpsLast = now;
   }
   renderPanel() {

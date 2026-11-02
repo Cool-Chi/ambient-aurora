@@ -21,6 +21,7 @@ Thumbs.db
 # Local development artifacts
 orig.html
 diff.patch
+diff_v*.patch
 dist/
 
 *.sh

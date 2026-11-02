@@ -6,6 +6,8 @@ class WebGLEngine {
   constructor(canvas, store) {
     this.canvas = canvas;
     this.store = store;
+    AA._glFrames = 0;
+    AA._glEngine = this;
     this.glReady = false;
     this.uniforms = {};
     this.uVignetteLoc = null;
@@ -155,6 +157,7 @@ class WebGLEngine {
     this.gl.uniform1f(this.uniforms.u_brightness, this.currentBrightness);
     this.gl.uniform1f(this.uVignetteLoc, this.currentVignette);
     this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
+    AA._glFrames = (AA._glFrames || 0) + 1;
   }
   pause() {
     this.running = false;
@@ -195,7 +198,7 @@ class WebGLEngine {
     const rawDt = timestamp - this.lastTime;
     const dt = clamp(rawDt, 0, 100), k = 1 - Math.pow(1 - 0.033, dt / 16.666);
     this.lastTime = timestamp;
-    if (!this.glReady) return;
+    if (!this.glReady) { AA._glFrames = (AA._glFrames || 0) + 1; return; }
     const step = 0.01 * speed * (dt / 16.666);
     this.globalTime += step;
     if (!this.isWrapping && this.globalTime >= 3600) {
