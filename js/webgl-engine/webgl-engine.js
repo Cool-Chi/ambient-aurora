@@ -12,7 +12,8 @@
     'u_brightness',
     'u_time2',
     'u_timeMix',
-    'u_vignette'
+    'u_vignette',
+    'u_octaves'
   ];
   const DEEP_IDLE_MS = 300000;
   const DRIFT_PERIOD_MS = 2400000;
@@ -96,10 +97,8 @@
       this.glReady = false;
       this.uniforms = {};
       this.uVignetteLoc = null;
-      this.programs = [];
-      this.programUniforms = [];
       this.program = null;
-      this.activeProgIdx = -1;
+      this.vao = null;
       this.running = false;
       this.rafId = null;
 
@@ -148,9 +147,8 @@
       on(this.canvas, 'webglcontextlost', (e) => {
         e.preventDefault();
         this.glReady = false;
-        this.activeProgIdx = -1;
-        this.programs = [];
-        this.programUniforms = [];
+        this.program = null;
+        this.vao = null;
         this.pause();
         this.showFallback();
       }, false);
@@ -177,34 +175,8 @@
       return shader;
     }
 
-    buildProgram(vs, fsSrc) {
-      const gl = this.gl;
-      const fs = this.compileShader(gl, fsSrc, gl.FRAGMENT_SHADER);
-      if (!fs) return null;
-      const program = gl.createProgram();
-      gl.attachShader(program, vs);
-      gl.attachShader(program, fs);
-      gl.bindAttribLocation(program, 0, 'position');
-      gl.linkProgram(program);
-      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        console.error(gl.getProgramInfoLog(program));
-        return null;
-      }
-      const uniforms = {};
-      UNIFORM_NAMES.forEach(n => {
-        uniforms[n] = gl.getUniformLocation(program, n);
-      });
-      return { program, uniforms };
-    }
-
     initGL() {
-      this.gl = this.canvas.getContext('webgl', {
-        antialias: false,
-        alpha: false,
-        depth: false,
-        stencil: false,
-        powerPreference: 'low-power'
-      }) || this.canvas.getContext('experimental-webgl', {
+      this.gl = this.canvas.getContext('webgl2', {
         antialias: false,
         alpha: false,
         depth: false,
@@ -212,53 +184,38 @@
         powerPreference: 'low-power'
       });
       this.glReady = false;
-      this.programs = [];
-      this.programUniforms = [];
-      this.activeProgIdx = -1;
+      this.program = null;
+      this.vao = null;
       if (!this.gl) {
         this.showFallback();
         return;
       }
       const gl = this.gl;
       const vs = this.compileShader(gl, this.vsSource, gl.VERTEX_SHADER);
-      if (vs) {
-        const hdr = this.fsSource.indexOf('#endif\n');
-        const lowSrc = hdr >= 0
-          ? this.fsSource.slice(0, hdr + 7) + '#define FBM_OCTAVES 2\n#define LOW_POWER\n' + this.fsSource.slice(hdr + 7)
-          : '#define FBM_OCTAVES 2\n#define LOW_POWER\n' + this.fsSource;
-        const std = this.buildProgram(vs, this.fsSource);
-        const low = std ? this.buildProgram(vs, lowSrc) : null;
-        if (std) {
-          const pb = gl.createBuffer();
-          gl.bindBuffer(gl.ARRAY_BUFFER, pb);
-          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-          gl.enableVertexAttribArray(0);
-          gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-          this.programs = [std.program, low ? low.program : null];
-          this.programUniforms = [std.uniforms, low ? low.uniforms : null];
+      const fs = this.compileShader(gl, this.fsSource, gl.FRAGMENT_SHADER);
+      if (vs && fs) {
+        const program = gl.createProgram();
+        gl.attachShader(program, vs);
+        gl.attachShader(program, fs);
+        gl.linkProgram(program);
+        if (gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          this.program = program;
+          gl.useProgram(program);
+          this.uniforms = {};
+          UNIFORM_NAMES.forEach(n => {
+            this.uniforms[n] = gl.getUniformLocation(program, n);
+          });
+          this.uVignetteLoc = this.uniforms.u_vignette;
+          this.vao = gl.createVertexArray();
+          gl.bindVertexArray(this.vao);
           this.glReady = true;
           this.hideFallback();
           this.resize();
+        } else {
+          console.error(gl.getProgramInfoLog(program));
         }
       }
       if (!this.glReady) this.showFallback();
-    }
-
-    selectProgram() {
-      if (!this.gl || !this.programs.length) return;
-      let idx = this.store.getState().lowPower ? 1 : 0;
-      if (!this.programs[idx]) idx = 0;
-      if (this.activeProgIdx === idx) return;
-      this.activeProgIdx = idx;
-      this.program = this.programs[idx];
-      this.uniforms = this.programUniforms[idx];
-      this.uVignetteLoc = this.uniforms.u_vignette;
-      this.gl.useProgram(this.program);
-      this.gl.uniform2f(
-        this.uniforms.u_resolution,
-        this.gl.drawingBufferWidth || this.canvas.width,
-        this.gl.drawingBufferHeight || this.canvas.height
-      );
     }
 
     updateFallback() {
@@ -325,7 +282,6 @@
 
     resize() {
       if (!this.glReady || !this.gl || this.gl.isContextLost()) return;
-      this.selectProgram();
       const { lowPower, renderScale, isPanelOpen } = this.store.getState();
       const PIXEL_BUDGET = 2500000;
       const baseScale = renderScale === 0 ? this.autoScale : renderScale;
@@ -350,7 +306,6 @@
 
     draw() {
       if (!this.glReady || !this.gl || this.gl.isContextLost()) return;
-      this.selectProgram();
       this.gl.uniform1f(this.uniforms.u_time, this.globalTime);
       this.gl.uniform1f(this.uniforms.u_time2, this.wrapTime);
       this.gl.uniform1f(this.uniforms.u_timeMix, this.isWrapping ? this.wrapProgress : 0.0);
@@ -359,7 +314,8 @@
       this.gl.uniform1fv(this.uniforms.u_weights, this.currentWeights);
       this.gl.uniform1f(this.uniforms.u_brightness, this.currentBrightness);
       this.gl.uniform1f(this.uVignetteLoc, this.currentVignette);
-      this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
+      this.gl.uniform1i(this.uniforms.u_octaves, this.store.getState().lowPower ? 2 : 4);
+      this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
       AA._glFrames = (AA._glFrames || 0) + 1;
     }
 

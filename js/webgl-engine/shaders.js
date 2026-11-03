@@ -1,21 +1,21 @@
 (function (AA) {
-  // Vertex shader: full-screen quad passthrough
-  const vsSource = `attribute vec2 position;
+  // Vertex shader: bufferless full-screen oversized triangle from gl_VertexID (WebGL2)
+  const vsSource = `#version 300 es
 void main(){
-  gl_Position=vec4(position,0.0,1.0);
+  vec2 pos=vec2((gl_VertexID<<1)&2,gl_VertexID&2);
+  gl_Position=vec4(pos*2.0-1.0,0.0,1.0);
 }`;
 
-  // Fragment shader: five background modes, dual-color, dual-time crossfade
-  // NOTE: the precision header must stay first so that
-  // fsSource.indexOf('#endif\n') in webgl-engine.js lands right before '#ifndef FBM_OCTAVES'.
-  const fsSource = `#ifdef GL_FRAGMENT_PRECISION_HIGH
+  // Fragment shader: five background modes, dual-color, dual-time crossfade (GLSL ES 3.00)
+  const fsSource = `#version 300 es
+#ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
+precision highp int;
 #else
 precision mediump float;
+precision mediump int;
 #endif
-#ifndef FBM_OCTAVES
-#define FBM_OCTAVES 4
-#endif
+out vec4 fragColor;
 uniform vec2 u_resolution;
 uniform float u_time;
 uniform vec3 u_color;
@@ -25,24 +25,39 @@ uniform float u_brightness;
 uniform float u_vignette;
 uniform float u_time2;
 uniform float u_timeMix;
+uniform int u_octaves;
 const float EXP_SILK=1.05;
 const float EXP_GLOW=0.72;
 const float EXP_DUST=1.48;
 const float EXP_LIQUID=0.92;
 const float EXP_HORIZON=1.18;
 
-// --- Hash helpers (sin-free) ---
+// --- PCG integer hashes ---
+uint pcg(uint v){
+  uint state=v*747796405u+2891336453u;
+  uint word=((state>>((state>>28u)+4u))^state)*277803737u;
+  return (word>>22u)^word;
+}
+
+uvec2 pcg2d(uvec2 v){
+  v=v*1664525u+1013904223u;
+  v.x+=v.y*1664525u;
+  v.y+=v.x*1664525u;
+  v^=v>>16u;
+  v.x+=v.y*1664525u;
+  v.y+=v.x*1664525u;
+  v^=v>>16u;
+  return v;
+}
+
+// p+0.0 canonicalizes -0.0 to +0.0 so grid corners match across zero crossings
 float hash(float p){
-  p=fract(p*0.1031);
-  p*=p+33.33;
-  p*=p+p;
-  return fract(p);
+  return float(pcg(floatBitsToUint(p+0.0)))*(1.0/4294967296.0);
 }
 
 float hash(vec2 p){
-  vec3 p3=fract(vec3(p.xyx)*0.1031);
-  p3+=dot(p3,p3.yzx+33.33);
-  return fract((p3.x+p3.y)*p3.z);
+  uvec2 h=pcg2d(floatBitsToUint(p+vec2(0.0)));
+  return float(h.x)*(1.0/4294967296.0);
 }
 
 // --- Value noise ---
@@ -53,12 +68,12 @@ float noise(vec2 p){
   return mix(mix(hash(i+vec2(0.0,0.0)),hash(i+vec2(1.0,0.0)),u.x),mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),u.x),u.y);
 }
 
-// --- Fractal Brownian motion ---
+// --- Fractal Brownian motion (octave count from u_octaves) ---
 float fbm(vec2 p){
   float f=0.0;
   float amp=0.5;
-  for(int i=0;i<FBM_OCTAVES;i++){
-    f +=amp*noise(p);
+  for(int i=0;i<u_octaves;i++){
+    f+=amp*noise(p);
     p*=2.0;
     amp*=0.5;
   }
@@ -96,11 +111,8 @@ vec3 renderIntelligence(vec2 uv,float u_time){
 vec3 renderStardust(vec2 uv,float u_time){
   vec2 p=(uv-0.5)*2.0;
   p.x*=u_resolution.x/u_resolution.y;
-#ifdef LOW_POWER
-  float nebula=pow(fbm(p*1.5-u_time*0.05),2.1)*1.65;
-#else
-  float nebula=pow((fbm(p*1.5-u_time*0.05)*0.6+fbm(p*3.0+u_time*0.08)*0.4),2.1)*1.65;
-#endif
+  float n1=fbm(p*1.5-u_time*0.05);
+  float nebula=pow(u_octaves>2?(n1*0.6+fbm(p*3.0+u_time*0.08)*0.4):n1,2.1)*1.65;
   float patchNoise=smoothstep(0.28,0.72,noise(p*0.85+vec2(u_time*0.03,-u_time*0.02)));
   vec3 nebCol=mix(u_color,u_color2,patchNoise*0.75);
   vec3 starTint=mix(vec3(1.0),u_color2+0.3,0.35);
@@ -176,7 +188,7 @@ void main(){
   vec3 lit=c*clamp(1.0-length(p)*u_vignette,0.0,1.0)*u_brightness;
   float dither=(hash(gl_FragCoord.xy)-0.5)*0.008;
   float ditherMask=smoothstep(0.0,0.02,max(lit.r,max(lit.g,lit.b)));
-  gl_FragColor=vec4(max(lit+vec3(dither*ditherMask),0.0),1.0);
+  fragColor=vec4(max(lit+vec3(dither*ditherMask),0.0),1.0);
 }`;
 
   AA.SHADERS = { vsSource, fsSource };
