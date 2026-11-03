@@ -21,6 +21,7 @@ body .background-layer.exiting{transition:transform 2s linear;transform:scale(1.
 .gl-canvas{width:100%;height:100%;display:block}
 .clock-layer{position:absolute;inset:0;mix-blend-mode:var(--clock-blend,normal);display:flex;flex-direction:column;align-items:var(--pos-x,center);justify-content:var(--pos-y,center);padding:4vmin;pointer-events:none;opacity:1;--evade-x:0px;--evade-y:0px;--evade-scale:1;--idle-scale:1;transform-origin:var(--ox,50%) var(--oy,50%);transform:translate(calc(var(--evade-x) + var(--off-x,0vw)),calc(var(--evade-y) + var(--off-y,0vh))) scale(calc(var(--evade-scale) * var(--idle-scale)));will-change:transform,opacity;transition:transform 400ms var(--ease-out),opacity 400ms var(--ease-out)}
 body.is-idle .clock-layer{opacity:.35;--idle-scale:.96;transition:opacity 1500ms var(--ease-in-out),transform 1500ms var(--ease-in-out)}
+body.is-idle.no-idle-dim .clock-layer:not(.exiting){opacity:1}
 body .clock-layer.exiting{transition:opacity 2s linear,transform 2s linear;opacity:.1;--idle-scale:.9}
 .clock-layer.is-flipping{transition:none !important}
 #clock{margin:0;font-variant-numeric:tabular-nums;white-space:nowrap;overflow-wrap:normal;font-size:var(--clock-size);font-weight:var(--clock-weight);color:var(--clock-fill,var(--clock-color));letter-spacing:0;display:flex;flex-direction:row;justify-content:center;align-items:center;filter:var(--clock-filter);position:relative;z-index:2;overflow:visible;transition:gap 300ms var(--ease-out);font-family:var(--clock-font);will-change:transform,opacity;transform:translateZ(0) scale(var(--glass-press,1))}
@@ -74,6 +75,7 @@ body.is-fullscreen .exit-hint{opacity:1}
 body.is-fullscreen .settings-panel.active{opacity:1;transform:scale(1)}
 @media (max-width:600px){.settings-panel{left:16px;right:auto;width:calc(100vw - 32px);max-width:340px;max-height:55dvh;bottom:calc(env(safe-area-inset-bottom,16px) + 72px);transform-origin:bottom left}}
 .settings-block{background:rgba(255,255,255,.06);border-radius:8px;overflow:hidden;flex-shrink:0}
+.settings-block:has(.slider-row){overflow:visible}
 .tab-header{display:flex;gap:4px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:8px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
 .tab-header::-webkit-scrollbar{display:none}
 .tab-nav-btn{background:transparent;border:none;color:rgba(255,255,255,.5);font-size:14px;font-weight:600;padding:4px 8px;cursor:pointer;transition:color 200ms,transform 160ms var(--ease-out);white-space:nowrap;flex-shrink:0}
@@ -107,6 +109,9 @@ body.is-fullscreen .settings-panel.active{opacity:1;transform:scale(1)}
 .slider-icon{width:16px;height:16px;fill:none;stroke:rgba(255,255,255,.5);stroke-width:2;flex-shrink:0}
 .slider-icon.max-icon{width:22px;height:22px}
 .range-container{flex:1;display:flex;align-items:center;justify-content:center;margin:0 16px;height:44px;min-width:0}
+.slider-wrap{position:relative}
+.slider-bubble{position:absolute;left:calc(10px + (100% - 20px) * var(--p,0));bottom:calc(50% + 10px);z-index:3;padding:2px 8px;border-radius:999px;background:rgba(38,38,42,.82);backdrop-filter:blur(16px) saturate(180%);-webkit-backdrop-filter:blur(16px) saturate(180%);border:.5px solid rgba(255,255,255,.22);box-shadow:0 4px 12px rgba(0,0,0,.35);font-size:11px;font-weight:600;line-height:1.4;font-variant-numeric:tabular-nums;color:#fff;white-space:nowrap;pointer-events:none;opacity:0;transform:translate(-50%,2px) scale(.92);transform-origin:50% 100%;transition:opacity 160ms var(--ease-out),transform 180ms var(--ease-out)}
+.slider-wrap.is-sliding .slider-bubble{opacity:1;transform:translate(-50%,-4px) scale(1)}
 input[type=range]{-webkit-appearance:none;width:100%;background:transparent;margin:0;cursor:grab;height:36px;--val:50%}
 input[type=range]:focus{outline:none}
 input[type=range]::-webkit-slider-runnable-track{width:100%;height:4px;border-radius:2px;background:linear-gradient(to right,#fff var(--val),rgba(255,255,255,.15) var(--val))}
@@ -154,6 +159,13 @@ input[type=range]::-webkit-slider-thumb:active{cursor:grabbing;transform:scale(.
 .toggle-switch:active{transform:scale(.95)}
 button,[role="button"],.tc-chip,.swatch-wrapper{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .toggle-switch{touch-action:pan-y}
+.fps-badge{position:absolute;top:max(16px,env(safe-area-inset-top,16px));left:max(16px,env(safe-area-inset-left,16px));z-index:25;pointer-events:none;user-select:none;-webkit-user-select:none;display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:rgba(20,20,24,.52);backdrop-filter:blur(16px) saturate(180%);-webkit-backdrop-filter:blur(16px) saturate(180%);border:.5px solid rgba(255,255,255,.14);box-shadow:0 4px 16px rgba(0,0,0,.2);font-size:11px;font-weight:600;letter-spacing:.03em;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.85);opacity:0;transform:translateY(-4px);visibility:hidden;transition:opacity 220ms var(--ease-out),transform 220ms var(--ease-out),visibility 220ms}
+.fps-badge.is-visible{opacity:1;transform:translateY(0);visibility:visible}
+#fps-badge.is-visible~#scale-badge{transform:translateY(26px)}
+#fps-badge.is-visible~#scale-badge.is-visible{transform:translateY(30px)}
+.fps-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.35);flex-shrink:0;transition:background 200ms var(--ease-out)}
+.fps-text{line-height:1;white-space:nowrap}
+.version-badge{position:fixed;right:max(16px,env(safe-area-inset-right,16px));bottom:max(12px,env(safe-area-inset-bottom,12px));z-index:20;pointer-events:none;user-select:none;-webkit-user-select:none;font-size:11px;font-weight:500;letter-spacing:.04em;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.32);text-shadow:0 1px 2px rgba(0,0,0,.35)}
 .fs-icon path{transition:transform 250ms var(--ease-out);transform-origin:center}
 body.is-fullscreen .fs-top-left{transform:translate(2px,2px)}
 body.is-fullscreen .fs-top-right{transform:translate(-2px,2px)}
@@ -193,12 +205,17 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
 .segmented-highlight{transition:none}
 .aa-color-picker,.aa-color-picker.is-open{transform:none}
 .cp-preset,.cp-preset.is-active,.cp-preset:active,.cp-close:active{transform:none}
+.fps-badge,.fps-badge.is-visible{transform:none}
+#fps-badge.is-visible~#scale-badge,#fps-badge.is-visible~#scale-badge.is-visible{transform:translateY(30px)}
+.slider-bubble,.slider-wrap.is-sliding .slider-bubble{transform:translate(-50%,-4px)}
 }
 @media (prefers-reduced-transparency:reduce){
 .settings-panel{background:rgba(30,30,30,.94);backdrop-filter:none;-webkit-backdrop-filter:none}
 .aa-color-picker{background:rgba(40,40,46,.96);backdrop-filter:none;-webkit-backdrop-filter:none}
 .icon-btn{background:rgba(48,48,52,.92);backdrop-filter:none;-webkit-backdrop-filter:none}
 .hud-toast{background:rgba(20,20,20,.96);backdrop-filter:none;-webkit-backdrop-filter:none}
+.fps-badge{background:rgba(20,20,24,.92);backdrop-filter:none;-webkit-backdrop-filter:none}
+.slider-bubble{background:rgba(38,38,42,.96);backdrop-filter:none;-webkit-backdrop-filter:none}
 }
   </style>
 </head>
@@ -309,7 +326,7 @@ body.is-fullscreen .fs-bottom-right{transform:translate(-2px,-2px)}
   <script>
 // === js/store/store.js ===
 window.AA = window.AA || {};
-// Ambient Aurora v3.2.3 | Store / WebGLEngine / ClockController / UIManager
+// Ambient Aurora v3.11.0-flat | Store / WebGLEngine / ClockController / UIManager
 (function (AA) {
 const $ = id => document.getElementById(id);
 const qs = (el, sel) => el.querySelector(sel);
@@ -323,6 +340,7 @@ class Store {
     this.state = Object.freeze({ ...defaultState });
     this.subscribers = [];
     this.saveTimeout = null;
+    AA._store = this;
     this.load();
   }
   getState() {
@@ -369,11 +387,16 @@ class Store {
       case 'clockLayout': return isInt(v, 0, 1) ? v : undefined;
       case 'textColor': case 'ampmColor': case 'dateColor': case 'customTextColor': return (typeof v === 'string' && /^#[0-9A-Fa-f]{6}$/i.test(v)) ? v : undefined;
       case 'material': return isInt(v, 0, 3) ? v : undefined;
-      case 'showCustomText': case 'showY': case 'showM': case 'showD': case 'showW': return typeof v === 'boolean' ? v : undefined;
+      case 'showCustomText': case 'showY': case 'showM': case 'showD': case 'showW': case 'showFps': return typeof v === 'boolean' ? v : undefined;
       case 'customText': return typeof v === 'string' ? v.substring(0, 30) : undefined;
       case 'anchor': return isInt(v, 0, 8) ? v : undefined;
       case 'offsetX': case 'offsetY': return isNum(v, -50, 50) ? v : undefined;
       case 'clockOpacity': return isNum(v, 0.1, 1) ? v : undefined;
+      case 'bgBrightness': return isNum(v, 0.1, 1.5) ? v : undefined;
+      case 'hueShift': return isNum(v, -180, 180) ? v : undefined;
+      case 'cycleInterval': return isInt(v, 0, 2) ? v : undefined;
+      case 'vignette': return isInt(v, 0, 2) ? v : undefined;
+      case 'renderScale': return v === 'auto' ? 0 : (v === 0 || v === 0.25 || v === 0.5 || v === 0.75 || v === 1) ? v : undefined;
       case 'datePosition': return isInt(v, 0, 1) ? v : undefined;
       case 'idleTimeout': return isInt(v, 0, 2) ? v : undefined;
       case 'size': return isNum(v, 5, 20) ? v : undefined;
@@ -403,6 +426,7 @@ class Store {
 }
 AA.util = { $, qs, on, clamp };
 AA.CONST = { EASE_OUT };
+AA.VERSION = 'v3.11.0-flat';
 AA.Store = Store;
 })(window.AA);
 
@@ -414,31 +438,51 @@ precision highp float;
 #else
 precision mediump float;
 #endif
-uniform vec2 u_resolution;uniform float u_time;uniform vec3 u_color;uniform float u_weights[5];uniform float u_brightness;float hash(float n){
-return fract(sin(n)*43758.5453);}float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}float noise(vec2 p){vec2 i=floor(p);vec2 f=fract(p);
+#ifndef FBM_OCTAVES
+#define FBM_OCTAVES 4
+#endif
+uniform vec2 u_resolution;uniform float u_time;uniform vec3 u_color;uniform vec3 u_color2;uniform float u_weights[5];uniform float u_brightness;uniform float u_vignette;uniform float u_time2;uniform float u_timeMix;
+const float EXP_SILK=1.05;const float EXP_GLOW=0.72;const float EXP_DUST=1.48;const float EXP_LIQUID=0.92;const float EXP_HORIZON=1.18;
+float hash(float p){p=fract(p*0.1031);p*=p+33.33;p*=p+p;return fract(p);}
+float hash(vec2 p){vec3 p3=fract(vec3(p.xyx)*0.1031);p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}float noise(vec2 p){vec2 i=floor(p);vec2 f=fract(p);
 vec2 u=f*f*(3.0-2.0*f);return mix(mix(hash(i+vec2(0.0,0.0)),hash(i+vec2(1.0,0.0)),u.x),mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),u.x),u.y);}float fbm(vec2 p){
-float f=0.0;float amp=0.5;for(int i=0;i<4;i++){f +=amp*noise(p);p*=2.0;amp*=0.5;}return f;}vec3 renderSilk(vec2 uv){vec2 p=uv*2.0-1.0;p.x*=u_resolution.x/u_resolution.y;
+float f=0.0;float amp=0.5;for(int i=0;i<FBM_OCTAVES;i++){f +=amp*noise(p);p*=2.0;amp*=0.5;}return f;}vec3 renderSilk(vec2 uv,float u_time){vec2 p=uv*2.0-1.0;p.x*=u_resolution.x/u_resolution.y;
 float t=u_time*0.25;vec2 q=p;q.x +=sin(p.y*1.5+t*0.8)*0.6;q.y +=cos(p.x*1.5+t*0.6)*0.6;vec2 r=p;r.x +=cos(q.y*2.0+sin(q.x*1.8+t))*0.5;
 r.y +=sin(q.x*2.0+cos(q.y*1.8+t*0.9))*0.5;float folds=(sin(r.x*2.5+r.y*2.0+t)+cos(r.x*1.8-r.y*2.2-t*0.7))*0.5;float sheen=pow(clamp(folds*0.5+0.5,0.0,1.0),3.0);
-vec3 col=mix(u_color*0.15,u_color*1.1,smoothstep(-1.0,0.5,folds));col +=mix(u_color*1.8,vec3(1.0),0.35)*sheen*0.65;return col*(1.0-length(p*0.3)*0.4);}
-vec3 renderIntelligence(vec2 uv){vec2 dc=abs(uv-0.5)*2.0;float edge=max(pow(dc.x,8.0),pow(dc.y,8.0));
-return u_color*smoothstep(0.4,1.2,edge+fbm(uv*2.0-u_time*0.2)*0.4)*smoothstep(0.0,0.4,length(dc))*3.0;}vec3 renderStardust(vec2 uv){vec2 p=(uv-0.5)*2.0;
-p.x*=u_resolution.x/u_resolution.y;float nebula=pow((fbm(p*1.5-u_time*0.05)*0.6+fbm(p*3.0+u_time*0.08)*0.4),2.5)*1.5;vec2 grid=p*20.0;vec2 id=floor(grid);
+vec3 col=mix(u_color*0.18,mix(u_color,u_color2,0.35)*1.05,smoothstep(-1.0,0.5,folds));col +=mix(u_color2*1.7,vec3(1.0),0.28)*sheen*0.7;return col;}
+vec3 renderIntelligence(vec2 uv,float u_time){vec2 dc=abs(uv-0.5)*2.0;float edge=max(pow(dc.x,8.0),pow(dc.y,8.0));
+float grad=clamp(uv.x*0.55+uv.y*0.45+0.2*sin(u_time*0.15),0.0,1.0);vec3 edgeCol=mix(u_color,u_color2,smoothstep(0.15,0.85,grad));
+return edgeCol*smoothstep(0.35,1.15,edge+fbm(uv*2.0-u_time*0.2)*0.4)*smoothstep(0.0,0.4,length(dc))*2.6;}vec3 renderStardust(vec2 uv,float u_time){vec2 p=(uv-0.5)*2.0;
+p.x*=u_resolution.x/u_resolution.y;
+#ifdef LOW_POWER
+float nebula=pow(fbm(p*1.5-u_time*0.05),2.1)*1.65;
+#else
+float nebula=pow((fbm(p*1.5-u_time*0.05)*0.6+fbm(p*3.0+u_time*0.08)*0.4),2.1)*1.65;
+#endif
+float patchNoise=smoothstep(0.28,0.72,noise(p*0.85+vec2(u_time*0.03,-u_time*0.02)));
+vec3 nebCol=mix(u_color,u_color2,patchNoise*0.75);
+vec3 starTint=mix(vec3(1.0),u_color2+0.3,0.35);
+vec2 grid=p*20.0;vec2 id=floor(grid);
 vec2 fv=fract(grid)-0.5;float dist=length(fv-(vec2(hash(id+vec2(1.3,7.1)),hash(id+vec2(7.1,1.3)))-0.5));
 float star=smoothstep(0.12,0.0,dist)*(sin(u_time*2.0+hash(dot(id,vec2(1.0,25.0)))*25.0)*0.5+0.5)*step(0.7,hash(dot(id,vec2(3.7,1.7))));
-return(u_color*nebula+vec3(star*0.8))*(1.0-length(p)*0.4);}vec3 renderLiquid(vec2 uv){vec2 p=uv*2.0-1.0;p.x*=u_resolution.x/u_resolution.y;float t=u_time*0.2;
+return nebCol*nebula+starTint*(star*0.8);}vec3 renderLiquid(vec2 uv,float u_time){vec2 p=uv*2.0-1.0;p.x*=u_resolution.x/u_resolution.y;float t=u_time*0.2;
 vec2 c1=vec2(sin(t)*0.8,cos(t*0.6)*0.6);vec2 c2=vec2(cos(t*1.2)*0.7,sin(t*0.9)*0.7);vec2 c3=vec2(sin(t*0.7+2.0)*0.6,cos(t*1.1+1.0)*0.6);
-float w1=smoothstep(2.0,0.0,length(p-c1));float w2=smoothstep(2.0,0.0,length(p-c2));float w3=smoothstep(2.0,0.0,length(p-c3));vec3 col1=u_color*1.2;
-vec3 col2=mix(u_color,vec3(1.0),0.3);vec3 col3=u_color*0.7;vec3 bg=u_color*0.15;return bg+col1*w1+col2*w2+col3*w3;}vec3 renderHorizon(vec2 uv){vec2 p=uv*2.0-1.0;
+float w1=smoothstep(2.0,0.0,length(p-c1));float w2=smoothstep(2.0,0.0,length(p-c2));float w3=smoothstep(2.0,0.0,length(p-c3));vec3 col1=u_color*1.15;
+vec3 col2=u_color2*1.15;vec3 col3=mix(u_color,u_color2,0.5)*1.05;vec3 bg=mix(u_color,u_color2,0.3)*0.14;return bg+col1*w1+col2*w2+col3*w3;}vec3 renderHorizon(vec2 uv,float u_time){vec2 p=uv*2.0-1.0;
 p.x*=u_resolution.x/u_resolution.y;float curve=-0.7+sin(p.x*0.6+u_time*0.1)*0.15+cos(p.x*0.3-u_time*0.05)*0.1;float dist=p.y-curve;float primaryGlow=exp(-dist*2.5);
 float coreGlow=exp(-dist*8.0);float n=fbm(p*2.0+vec2(u_time*0.05,0.0));float atmosphere=primaryGlow*(0.7+n*0.5);float mask=smoothstep(-0.05,0.1,dist);vec2 grid=p*12.0;
 vec2 id=floor(grid);vec2 fv=fract(grid)-0.5;float starDist=length(fv-(vec2(hash(id+2.0),hash(id+5.1))-0.5));
 float star=smoothstep(0.08,0.0,starDist)*step(0.92,hash(id*7.3));float twinkle=sin(u_time*1.5+hash(id)*20.0)*0.5+0.5;float skyMask=smoothstep(0.0,1.0,p.y);
-vec3 glowColor=u_color*atmosphere*mask+(u_color*1.5+0.2)*coreGlow*mask;vec3 starColor=vec3(star*twinkle*0.5*skyMask);return glowColor+starColor;}void main(){
-vec2 uv=gl_FragCoord.xy/u_resolution.xy;vec3 c=vec3(0.0);if(u_weights[0]>0.001)c +=renderSilk(uv)*u_weights[0];
-if(u_weights[1]>0.001)c +=renderIntelligence(uv)*u_weights[1];if(u_weights[2]>0.001)c +=renderStardust(uv)*u_weights[2];
-if(u_weights[3]>0.001)c +=renderLiquid(uv)*u_weights[3];if(u_weights[4]>0.001)c +=renderHorizon(uv)*u_weights[4];
-gl_FragColor=vec4((c+vec3((fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453)-0.5)*0.008))*u_brightness,1.0);}`;
+float altMix=clamp(dist*1.4,0.0,1.0);vec3 atmoCol=mix(u_color,u_color2,smoothstep(0.0,0.85,altMix));
+vec3 glowColor=atmoCol*atmosphere*mask+(u_color*1.35+u_color2*0.25+0.12)*coreGlow*mask;vec3 starColor=vec3(star*twinkle*0.5*skyMask);return glowColor+starColor;}
+vec3 evalScene(vec2 uv,float t){vec3 c=vec3(0.0);if(u_weights[0]>0.001)c+=renderSilk(uv,t)*EXP_SILK*u_weights[0];if(u_weights[1]>0.001)c+=renderIntelligence(uv,t)*EXP_GLOW*u_weights[1];if(u_weights[2]>0.001)c+=renderStardust(uv,t)*EXP_DUST*u_weights[2];if(u_weights[3]>0.001)c+=renderLiquid(uv,t)*EXP_LIQUID*u_weights[3];if(u_weights[4]>0.001)c+=renderHorizon(uv,t)*EXP_HORIZON*u_weights[4];return c;}
+void main(){
+vec2 uv=gl_FragCoord.xy/u_resolution.xy;vec2 p=(uv-0.5)*2.0;p.x*=u_resolution.x/u_resolution.y;vec3 c=evalScene(uv,u_time);
+if(u_timeMix>0.001)c=mix(c,evalScene(uv,u_time2),smoothstep(0.0,1.0,u_timeMix));
+vec3 lit=c*clamp(1.0-length(p)*u_vignette,0.0,1.0)*u_brightness;
+float dither=(hash(gl_FragCoord.xy)-0.5)*0.008;
+float ditherMask=smoothstep(0.0,0.02,max(lit.r,max(lit.g,lit.b)));
+gl_FragColor=vec4(max(lit+vec3(dither*ditherMask),0.0),1.0);}`;
 AA.SHADERS = { vsSource, fsSource };
 })(window.AA);
 
@@ -446,32 +490,116 @@ AA.SHADERS = { vsSource, fsSource };
 (function (AA) {
 const { on, clamp } = AA.util;
 const { vsSource, fsSource } = AA.SHADERS;
+const SCALE_TIERS = [0.25, 0.5, 0.75, 1.0];
+const UNIFORM_NAMES = ['u_resolution', 'u_time', 'u_color', 'u_color2', 'u_weights', 'u_brightness', 'u_time2', 'u_timeMix', 'u_vignette'];
+const DEEP_IDLE_MS = 300000;
+const DRIFT_PERIOD_MS = 2400000;
+const CYCLE_INTERVALS_MS = [300000, 900000, 3600000];
+const NIGHT_COLOR = [0.16, 0.08, 0.0];
+const NIGHT_COLOR2 = [0.24, 0.05, 0.0];
+function rgbToHsv(r, g, b) {
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if (d > 0) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h /= 6;
+    if (h < 0) h += 1;
+  }
+  return [h, max === 0 ? 0 : d / max, max];
+}
+function hsvToRgb(h, s, v) {
+  const hh = ((h % 1) + 1) % 1 * 6, i = Math.floor(hh), f = hh - i;
+  const p = v * (1 - s), q = v * (1 - s * f), t = v * (1 - s * (1 - f));
+  switch (i % 6) {
+    case 0: return [v, t, p];
+    case 1: return [q, v, p];
+    case 2: return [p, v, t];
+    case 3: return [p, q, v];
+    case 4: return [t, p, v];
+    default: return [v, p, q];
+  }
+}
+function applyHueDrift(rgb, driftOffset) {
+  const r = clamp(Number(rgb[0]) || 0, 0, 1), g = clamp(Number(rgb[1]) || 0, 0, 1), b = clamp(Number(rgb[2]) || 0, 0, 1);
+  if (!driftOffset) return [r, g, b];
+  let [h, s, v] = rgbToHsv(r, g, b);
+  if (s < 0.02) s = 0.18;
+  return hsvToRgb((h + driftOffset) % 1, s, v);
+}
+function deriveSecondaryColor(rgb, nightMode, colorMix = true, hueShift = 42) {
+  if (nightMode) return colorMix ? NIGHT_COLOR2.slice() : NIGHT_COLOR.slice();
+  const r = clamp(Number(rgb[0]) || 0, 0, 1), g = clamp(Number(rgb[1]) || 0, 0, 1), b = clamp(Number(rgb[2]) || 0, 0, 1);
+  if (!colorMix) return [r, g, b];
+  const [h, s, v] = rgbToHsv(r, g, b);
+  const shift = (((Number(hueShift) || 0) / 360 % 1) + 1) % 1;
+  let h2 = (h + shift) % 1, s2, v2;
+  if (s < 0.12 && v > 0.85) {
+    if (s < 0.02) h2 = 0.08;
+    s2 = 0.22; v2 = 0.95;
+  } else if (v < 0.08) {
+    s2 = clamp(s * 0.9 + 0.15, 0.2, 0.85);
+    v2 = Math.max(v * 2.2, 0.06);
+  } else {
+    s2 = clamp(s * 0.92 + 0.12, 0.18, 0.92);
+    v2 = clamp(v * 1.15 + 0.08, 0.16, 1.0);
+  }
+  return hsvToRgb(h2, s2, v2);
+}
 class WebGLEngine {
   constructor(canvas, store) {
     this.canvas = canvas;
     this.store = store;
+    AA._glFrames = 0;
+    AA._glEngine = this;
     this.glReady = false;
     this.uniforms = {};
+    this.uVignetteLoc = null;
+    this.programs = [];
+    this.programUniforms = [];
+    this.program = null;
+    this.activeProgIdx = -1;
     this.running = false;
     this.rafId = null;
     const state = this.store.getState();
+    AA._activeScale = state.renderScale === 0 ? 1 : state.renderScale;
     this.colorLive = [...state.colorTarget];
+    this.color2Live = deriveSecondaryColor(state.colorTarget, state.nightMode, state.colorMix, state.hueShift);
+    this.driftPhase = 0;
+    this.displayMode = state.mode;
+    this.cycleElapsed = 0;
     this.currentWeights = [0, 0, 0, 0, 0];
     this.targetWeights = [0, 0, 0, 0, 0];
     this.currentWeights[state.mode - 1] = 1.0;
     this.targetWeights[state.mode - 1] = 1.0;
     this.currentBrightness = 1.0;
+    this.currentVignette = state.vignette === 2 ? 0.75 : state.vignette === 1 ? 0.4 : 0.0;
     this.globalTime = 0;
     this.lastTime = performance.now();
     this.renderBound = this.render.bind(this);
     this.frameClock = performance.now();
-    this.timeWrapState = 0;
-    this.wrapFade = 1;
+    this.isWrapping = false;
+    this.wrapTime = 0;
+    this.wrapProgress = 0;
+    this.highSpeedFps = (state.speed > 1.0);
+    this.lastMinInterval = 0;
+    this.idleStartTime = state.isIdle ? performance.now() : 0;
+    this.isDeepIdle = false;
+    this.prmMedia = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+    this.reducedMotion = !!(this.prmMedia && this.prmMedia.matches);
+    if (this.prmMedia) on(this.prmMedia, 'change', e => { this.reducedMotion = !!e.matches; });
+    this.autoScale = 1.0;
+    this.emaFrameDt = 33.3;
+    this.overloadTime = 0;
+    this.stableTime = 0;
+    this.autoCooldownUntil = 0;
+    this.autoIgnoreUntil = performance.now() + 1500;
     this.fallbackEl = canvas.parentElement;
     this.fallbackActive = false;
     this.vsSource = vsSource;
     this.fsSource = fsSource;
-    on(this.canvas, 'webglcontextlost', (e) => { e.preventDefault(); this.glReady = false; this.pause(); this.showFallback(); }, false);
+    on(this.canvas, 'webglcontextlost', (e) => { e.preventDefault(); this.glReady = false; this.activeProgIdx = -1; this.programs = []; this.programUniforms = []; this.pause(); this.showFallback(); }, false);
     on(this.canvas, 'webglcontextrestored', () => { this.initGL(); if (!document.hidden) this.resume(); }, false);
     this.initGL();
     this.store.subscribe((key, val) => this.handleStateChange(key, val));
@@ -488,35 +616,66 @@ class WebGLEngine {
     }
     return shader;
   }
+  buildProgram(vs, fsSrc) {
+    const gl = this.gl;
+    const fs = this.compileShader(gl, fsSrc, gl.FRAGMENT_SHADER);
+    if (!fs) return null;
+    const program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.bindAttribLocation(program, 0, 'position');
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      console.error(gl.getProgramInfoLog(program));
+      return null;
+    }
+    const uniforms = {};
+    UNIFORM_NAMES.forEach(n => uniforms[n] = gl.getUniformLocation(program, n));
+    return { program, uniforms };
+  }
   initGL() {
     this.gl = this.canvas.getContext('webgl', { antialias: false, alpha: false, depth: false, stencil: false, powerPreference: 'low-power' }) ||
               this.canvas.getContext('experimental-webgl', { antialias: false, alpha: false, depth: false, stencil: false, powerPreference: 'low-power' });
     this.glReady = false;
+    this.programs = [];
+    this.programUniforms = [];
+    this.activeProgIdx = -1;
     if (!this.gl) { this.showFallback(); return; }
-    const vs = this.compileShader(this.gl, this.vsSource, this.gl.VERTEX_SHADER);
-    const fs = this.compileShader(this.gl, this.fsSource, this.gl.FRAGMENT_SHADER);
-    if (vs && fs) {
-      const program = this.gl.createProgram();
-      this.gl.attachShader(program, vs);
-      this.gl.attachShader(program, fs);
-      this.gl.linkProgram(program);
-      if (this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
-        this.gl.useProgram(program);
-        const pb = this.gl.createBuffer();
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, pb);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), this.gl.STATIC_DRAW);
-        const pos = this.gl.getAttribLocation(program, 'position');
-        this.gl.enableVertexAttribArray(pos);
-        this.gl.vertexAttribPointer(pos, 2, this.gl.FLOAT, false, 0, 0);
-        ['u_resolution', 'u_time', 'u_color', 'u_weights', 'u_brightness'].forEach(n => this.uniforms[n] = this.gl.getUniformLocation(program, n));
+    const gl = this.gl;
+    const vs = this.compileShader(gl, this.vsSource, gl.VERTEX_SHADER);
+    if (vs) {
+      const hdr = this.fsSource.indexOf('#endif\n');
+      const lowSrc = hdr >= 0
+        ? this.fsSource.slice(0, hdr + 7) + '#define FBM_OCTAVES 2\n#define LOW_POWER\n' + this.fsSource.slice(hdr + 7)
+        : '#define FBM_OCTAVES 2\n#define LOW_POWER\n' + this.fsSource;
+      const std = this.buildProgram(vs, this.fsSource);
+      const low = std ? this.buildProgram(vs, lowSrc) : null;
+      if (std) {
+        const pb = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, pb);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+        this.programs = [std.program, low ? low.program : null];
+        this.programUniforms = [std.uniforms, low ? low.uniforms : null];
         this.glReady = true;
         this.hideFallback();
         this.resize();
-      } else {
-        console.error(this.gl.getProgramInfoLog(program));
       }
     }
     if (!this.glReady) this.showFallback();
+  }
+  selectProgram() {
+    if (!this.gl || !this.programs.length) return;
+    let idx = this.store.getState().lowPower ? 1 : 0;
+    if (!this.programs[idx]) idx = 0;
+    if (this.activeProgIdx === idx) return;
+    this.activeProgIdx = idx;
+    this.program = this.programs[idx];
+    this.uniforms = this.programUniforms[idx];
+    this.uVignetteLoc = this.uniforms.u_vignette;
+    this.gl.useProgram(this.program);
+    this.gl.uniform2f(this.uniforms.u_resolution, this.gl.drawingBufferWidth || this.canvas.width, this.gl.drawingBufferHeight || this.canvas.height);
   }
   updateFallback() {
     if (!this.fallbackActive || !this.fallbackEl) return;
@@ -537,10 +696,38 @@ class WebGLEngine {
     this.canvas.style.display = '';
     if (this.fallbackEl) this.fallbackEl.style.background = '';
   }
+  setDisplayMode(m) {
+    this.displayMode = m;
+    this.targetWeights.fill(0);
+    this.targetWeights[m - 1] = 1.0;
+    this.autoIgnoreUntil = performance.now() + 2000;
+    this.overloadTime = 0;
+    this.stableTime = 0;
+  }
   handleStateChange(key, val) {
-    if (key === 'mode') {
-      this.targetWeights.fill(0);
-      this.targetWeights[val - 1] = 1.0;
+    if (key === 'isIdle') {
+      this.idleStartTime = val ? performance.now() : 0;
+      this.isDeepIdle = false;
+    } else if (key === 'mode') {
+      this.cycleElapsed = 0;
+      this.setDisplayMode(val);
+    } else if (key === 'modeCycle') {
+      this.cycleElapsed = 0;
+      const userMode = this.store.getState().mode;
+      if (!val && this.displayMode !== userMode) this.setDisplayMode(userMode);
+    } else if (key === 'cycleInterval') {
+      this.cycleElapsed = 0;
+    } else if (key === 'renderScale') {
+      this.overloadTime = 0;
+      this.stableTime = 0;
+      this.autoCooldownUntil = 0;
+      if (val === 0) this.autoScale = 1.0;
+      this.resize();
+    } else if (key === 'isPanelOpen') {
+      this.overloadTime = 0;
+      this.stableTime = 0;
+      this.autoIgnoreUntil = performance.now() + 1000;
+      this.resize();
     } else if (key === 'lowPower') {
       this.resize();
     } else if (key === 'colorTarget' || key === 'nightMode') {
@@ -549,12 +736,16 @@ class WebGLEngine {
   }
   resize() {
     if (!this.glReady || !this.gl || this.gl.isContextLost()) return;
-    const { lowPower } = this.store.getState();
+    this.selectProgram();
+    const { lowPower, renderScale, isPanelOpen } = this.store.getState();
     const PIXEL_BUDGET = 2500000;
+    const baseScale = renderScale === 0 ? this.autoScale : renderScale;
+    const activeScale = isPanelOpen ? Math.min(baseScale, 0.75) : baseScale;
+    AA._activeScale = activeScale;
     const cssW = Math.max(1, window.innerWidth);
     const cssH = Math.max(1, window.innerHeight);
     const dpr = lowPower ? 0.75 : Math.min(window.devicePixelRatio || 1, 2);
-    const scale = Math.min(dpr, Math.sqrt(PIXEL_BUDGET / (cssW * cssH)));
+    const scale = Math.min(dpr, Math.sqrt(PIXEL_BUDGET / (cssW * cssH))) * clamp(Number(activeScale) || 1, 0.25, 1);
     const w = Math.max(1, Math.round(cssW * scale));
     const h = Math.max(1, Math.round(cssH * scale));
     if (this.canvas.width !== w || this.canvas.height !== h) {
@@ -569,12 +760,17 @@ class WebGLEngine {
   }
   draw() {
     if (!this.glReady || !this.gl || this.gl.isContextLost()) return;
+    this.selectProgram();
     this.gl.uniform1f(this.uniforms.u_time, this.globalTime);
+    this.gl.uniform1f(this.uniforms.u_time2, this.wrapTime);
+    this.gl.uniform1f(this.uniforms.u_timeMix, this.isWrapping ? this.wrapProgress : 0.0);
     this.gl.uniform3f(this.uniforms.u_color, this.colorLive[0], this.colorLive[1], this.colorLive[2]);
+    this.gl.uniform3f(this.uniforms.u_color2, this.color2Live[0], this.color2Live[1], this.color2Live[2]);
     this.gl.uniform1fv(this.uniforms.u_weights, this.currentWeights);
-    const wf = this.wrapFade;
-    this.gl.uniform1f(this.uniforms.u_brightness, this.currentBrightness * (wf * wf * (3 - 2 * wf)));
+    this.gl.uniform1f(this.uniforms.u_brightness, this.currentBrightness);
+    this.gl.uniform1f(this.uVignetteLoc, this.currentVignette);
     this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
+    AA._glFrames = (AA._glFrames || 0) + 1;
   }
   pause() {
     this.running = false;
@@ -588,32 +784,125 @@ class WebGLEngine {
     this.running = true;
     this.lastTime = performance.now();
     this.frameClock = this.lastTime;
+    this.overloadTime = 0;
+    this.stableTime = 0;
+    this.emaFrameDt = this.lastMinInterval || 33.3;
+    this.autoIgnoreUntil = this.lastTime + 1500;
     this.rafId = requestAnimationFrame(this.renderBound);
   }
   render(timestamp) {
     if (!this.running) return;
     this.rafId = requestAnimationFrame(this.renderBound);
-    const { isIdle, lowPower, speed, nightMode, colorTarget, isHolding } = this.store.getState();
-    const minInterval = isIdle ? 50 : lowPower ? 41.6 : 16.6;
+    const { isIdle, lowPower, speed, nightMode, colorTarget, isHolding, bgBrightness = 1, dimOnIdle = true, vignette = 1, renderScale, isPanelOpen, colorMix = true, hueShift = 42, hueDrift = false, modeCycle = false, cycleInterval = 0 } = this.store.getState();
+    if (!isIdle) {
+      this.idleStartTime = 0;
+      this.isDeepIdle = false;
+    } else {
+      if (this.idleStartTime === 0) this.idleStartTime = timestamp;
+      this.isDeepIdle = (timestamp - this.idleStartTime) >= (AA._deepIdleMs || DEEP_IDLE_MS);
+    }
+    const effectiveSpeed = speed * (this.reducedMotion ? 0.3 : 1);
+    if (effectiveSpeed > 1.05) this.highSpeedFps = true;
+    else if (effectiveSpeed < 0.95) this.highSpeedFps = false;
+    const speedInterval = this.highSpeedFps ? 16.6 : 33.3;
+    const idleInterval = !isIdle ? 0 : (this.isDeepIdle ? 75 : 50);
+    const minInterval = Math.max(idleInterval, lowPower ? 41.6 : 0, isPanelOpen ? 33.3 : 0, speedInterval);
+    if (this.lastMinInterval !== minInterval) {
+      this.lastMinInterval = minInterval;
+      this.frameClock = timestamp - minInterval;
+      this.emaFrameDt = minInterval;
+      this.overloadTime = 0;
+      this.stableTime = 0;
+    }
     if (timestamp < this.frameClock + minInterval - 2) return;
     this.frameClock += minInterval;
     if (timestamp - this.frameClock > minInterval) this.frameClock = timestamp;
-    const dt = clamp(timestamp - this.lastTime, 0, 100), k = 1 - Math.pow(1 - 0.033, dt / 16.666);
+    const rawDt = timestamp - this.lastTime;
+    const dt = clamp(rawDt, 0, 100), k = 1 - Math.pow(1 - 0.033, dt / 16.666);
     this.lastTime = timestamp;
-    if (!this.glReady) return;
-    this.globalTime += 0.01 * speed * (dt / 16.666);
-    if (this.timeWrapState === 0 && this.globalTime > 10000.0) this.timeWrapState = 1;
-    if (this.timeWrapState === 1) {
-      this.wrapFade -= dt / 800;
-      if (this.wrapFade <= 0) { this.wrapFade = 0; this.globalTime = 0; this.timeWrapState = 2; }
-    } else if (this.timeWrapState === 2) {
-      this.wrapFade += dt / 800;
-      if (this.wrapFade >= 1) { this.wrapFade = 1; this.timeWrapState = 0; }
+    if (!this.glReady) { AA._glFrames = (AA._glFrames || 0) + 1; return; }
+    const step = 0.01 * effectiveSpeed * (dt / 16.666);
+    this.globalTime += step;
+    if (!this.isWrapping && this.globalTime >= 3600) {
+      this.isWrapping = true;
+      this.wrapTime = 0;
+      this.wrapProgress = 0;
     }
-    const target = nightMode ? [0.16, 0.08, 0.0] : colorTarget;
+    if (this.isWrapping) {
+      this.wrapTime += step;
+      this.wrapProgress += dt / 6000;
+      if (this.wrapProgress >= 1.0) {
+        this.globalTime = this.wrapTime;
+        this.isWrapping = false;
+        this.wrapProgress = 0;
+      }
+    }
+    if (modeCycle) {
+      this.cycleElapsed += dt;
+      const limit = AA._cycleIntervalMs || CYCLE_INTERVALS_MS[cycleInterval] || 300000;
+      if (this.cycleElapsed >= limit) {
+        this.cycleElapsed = 0;
+        this.setDisplayMode((this.displayMode % 5) + 1);
+      }
+    }
+    if (!hueDrift) this.driftPhase = 0;
+    else if (!nightMode) this.driftPhase = (this.driftPhase + dt / (AA._driftPeriodMs || DRIFT_PERIOD_MS)) % 1;
+    const driftedPrimary = (hueDrift && !nightMode) ? applyHueDrift(colorTarget, this.driftPhase) : colorTarget;
+    const target = nightMode ? NIGHT_COLOR : driftedPrimary;
     for (let i = 0; i < 3; i++) this.colorLive[i] += (target[i] - this.colorLive[i]) * k;
-    for (let i = 0; i < 5; i++) this.currentWeights[i] += (this.targetWeights[i] - this.currentWeights[i]) * k;
-    this.currentBrightness += ((isHolding ? 1.5 : isIdle ? 0.65 : 1.0) - this.currentBrightness) * k;
+    const target2 = deriveSecondaryColor(driftedPrimary, nightMode, colorMix, hueShift);
+    for (let i = 0; i < 3; i++) this.color2Live[i] += (target2[i] - this.color2Live[i]) * k;
+    let wSum = 0;
+    for (let i = 0; i < 5; i++) {
+      let w = this.currentWeights[i] + (this.targetWeights[i] - this.currentWeights[i]) * k;
+      if (this.targetWeights[i] === 0 && w < 0.02) w = 0;
+      this.currentWeights[i] = w;
+      wSum += w;
+    }
+    if (wSum > 0) {
+      for (let i = 0; i < 5; i++) this.currentWeights[i] /= wSum;
+    }
+    this.currentBrightness += ((isHolding ? 1.5 : (isIdle && dimOnIdle) ? bgBrightness * (this.isDeepIdle ? 0.45 : 0.65) : bgBrightness) - this.currentBrightness) * k;
+    const targetVignette = vignette === 2 ? 0.75 : vignette === 1 ? 0.4 : 0.0;
+    this.currentVignette += (targetVignette - this.currentVignette) * k;
+    let activeModes = 0;
+    for (let i = 0; i < 5; i++) if (this.currentWeights[i] > 0.001) activeModes++;
+    const autoActive = renderScale === 0 && !isIdle && !isPanelOpen;
+    if (rawDt > 150 || timestamp < this.autoIgnoreUntil || activeModes > 1 || this.isWrapping || !autoActive) {
+      this.emaFrameDt = minInterval;
+      this.overloadTime = 0;
+      this.stableTime = 0;
+    } else {
+      this.emaFrameDt += (rawDt - this.emaFrameDt) * 0.15;
+      if (this.emaFrameDt > minInterval * 1.35) {
+        this.overloadTime += rawDt;
+        this.stableTime = 0;
+      } else if (this.emaFrameDt <= minInterval * 1.12) {
+        this.stableTime += rawDt;
+        this.overloadTime = Math.max(0, this.overloadTime - rawDt * 0.5);
+      }
+      if (timestamp >= this.autoCooldownUntil) {
+        const ti = SCALE_TIERS.indexOf(this.autoScale);
+        if (this.overloadTime >= 2000 && this.autoScale > 0.25) {
+          this.autoScale = SCALE_TIERS[Math.max(0, ti - 1)];
+          this.autoCooldownUntil = timestamp + 5000;
+          this.overloadTime = 0;
+          this.stableTime = 0;
+          this.emaFrameDt = minInterval;
+          this.resize();
+          return;
+        }
+        if (this.stableTime >= 10000 && this.autoScale < 1.0) {
+          this.autoScale = SCALE_TIERS[Math.min(SCALE_TIERS.length - 1, ti + 1)];
+          this.autoCooldownUntil = timestamp + 8000;
+          this.overloadTime = 0;
+          this.stableTime = 0;
+          this.emaFrameDt = minInterval;
+          this.resize();
+          return;
+        }
+      }
+    }
     this.draw();
   }
   start() {
@@ -882,7 +1171,9 @@ AA.ClockController = ClockController;
 const DICT = {
   en: {
     lang: "Language", time: "24-Hour Time", sec: "Show Seconds", tick: "Tick Anim",
-    mode: "Mode", theme: "Theme", size: "Size", weight: "Weight", speed: "Speed",
+    mode: "Mode", theme: "Theme", colorMix: "Color Blend", hueShift: "Hue Shift", size: "Size", weight: "Weight", speed: "Speed", bgBrightness: 'Brightness',
+    hueDrift: "Hue Drift", modeCycle: "Mode Cycle", cycleInt: "Interval", cycleInts: ['5m', '15m', '1h'],
+    vignette: "Vignette", vignettes: ['Off', 'Subtle', 'Strong'], dimIdle: "Dim on Idle",
     lp: "Low Power Mode", idle: "Idle Timeout", burn: "Burn-in Protection", night: "Night Mode",
     font: "Font", lz: "Leading Zero", date: "Show Date", lpOn: "Low Power Mode: On", lpOff: "Low Power Mode: Off",
     modes: ['Silk', 'Glow', 'Dust', 'Liquid', 'Horizon'],
@@ -892,11 +1183,14 @@ const DICT = {
     tc: "Color", tcItems: ['Clock', 'AM', 'Date', 'Text'], mat: "Material", mats: ['Classic', 'Hollow', 'Glow', 'Glass'], sct: "Custom Text", ctph: "Enter text...", anchor: "Position", offset: "Offset X / Y",
     opacity: "Opacity", datePos: "Date Pos", datePositions: ['Below', 'Above'],
     df: "Format", dY: "Y", dM: "M", dD: "D", dW: "W",
+    renderScale: "Render Scale", auto: "Auto", showFps: "FPS Display", showScale: "Scale Display", showSliderVal: "Slider Value",
     idles: ['3s', '10s', 'Never']
   },
   zh: {
     lang: "語言", time: "24小時制", sec: "顯示秒數", tick: "跳秒動效",
-    mode: "背景模式", theme: "色彩主題", size: "時鐘尺寸", weight: "字體粗細", speed: "背景流速",
+    mode: "背景模式", theme: "色彩主題", colorMix: "雙色混色", hueShift: "色相偏移", size: "時鐘尺寸", weight: "字體粗細", speed: "背景流速", bgBrightness: '背景亮度',
+    hueDrift: "色相緩漂", modeCycle: "模式輪播", cycleInt: "輪播間隔", cycleInts: ['5分', '15分', '1時'],
+    vignette: "邊緣暗角", vignettes: ['關', '輕微', '強烈'], dimIdle: "閒置自動壓暗",
     lp: "低功耗模式", idle: "閒置隱藏", burn: "OLED 防烙印", night: "夜間護眼",
     font: "字體風格", lz: "補零顯示", date: "顯示日期", lpOn: "低功耗模式：已開啟", lpOff: "低功耗模式：已關閉",
     modes: ['絲綢', '光暈', '星塵', '液態', '天沿'],
@@ -906,6 +1200,7 @@ const DICT = {
     tc: "字體色彩", tcItems: ['時鐘', 'AM', '日期', '文字'], mat: "字體材質", mats: ['實色', '鏤空', '高光', '玻璃'], sct: "自定義文字", ctph: "輸入文字...", anchor: "空間位置", offset: "X / Y 軸偏移",
     opacity: "透明度", datePos: "日期位置", datePositions: ['下方', '上方'],
     df: "格式", dY: "年", dM: "月", dD: "日", dW: "週",
+    renderScale: "渲染倍率", auto: "自動", showFps: "幀率顯示", showScale: "倍率顯示", showSliderVal: "拉條數值",
     idles: ['3秒', '10秒', '永不']
   }
 };
@@ -928,16 +1223,22 @@ const SLIDERS = [
   { id: 'ctrl-size', key: 'size', min: 5, max: 20, step: 1, svgMin: '<path d="M12 6L8 18M12 6L16 18M9.5 14H14.5" stroke-linecap="round" stroke-linejoin="round"/>', svgMax: '<path d="M12 3L5 21M12 3L19 21M8 15H16" stroke-linecap="round" stroke-linejoin="round"/>' },
   { id: 'ctrl-weight', key: 'weight', min: 100, max: 900, step: 100, svgMin: '<circle cx="12" cy="12" r="8" stroke-width="1"/>', svgMax: '<circle cx="12" cy="12" r="8" stroke-width="4"/>' },
   { id: 'ctrl-speed', key: 'speed', min: 0.1, max: 4, step: 0.01, svgMin: '<path d="M4 12h10M4 8h6M4 16h8" stroke-linecap="round"/>', svgMax: '<path d="M2 12h16M2 8h12M2 16h14M18 12a2 2 0 1 0-2-2M14 8a2 2 0 1 0-2-2M16 16a2 2 0 1 1-2 2" stroke-linecap="round"/>' },
+  { id: 'ctrl-bg-brightness', key: 'bgBrightness', min: 0.1, max: 1.5, step: 0.05, svgMin: '<circle cx="12" cy="12" r="4" stroke-dasharray="2 2"/>', svgMax: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4" stroke-linecap="round"/>' },
+  { id: 'ctrl-hue-shift', key: 'hueShift', min: -180, max: 180, step: 1, svgMin: '<circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5" stroke-dasharray="2 2"/>', svgMax: '<circle cx="8" cy="12" r="5"/><circle cx="16" cy="12" r="5"/>' },
   { id: 'ctrl-opacity', key: 'opacity', min: 0.1, max: 1, step: 0.05, svgMin: '<circle cx="12" cy="12" r="8" stroke-dasharray="2 2"/>', svgMax: '<circle cx="12" cy="12" r="8" fill="rgba(255,255,255,.5)"/>' },
   { id: 'ctrl-offx', key: 'offset', min: -50, max: 50, step: 1, svgMin: '<path d="M15 18l-6-6 6-6"/>', svgMax: '<path d="M9 18l6-6-6-6"/>' },
   { id: 'ctrl-offy', key: 'offset', min: -50, max: 50, step: 1, svgMin: '<path d="M18 15l-6-6-6 6"/>', svgMax: '<path d="M18 9l-6 6-6-6"/>' }
 ];
 const UI_BINDINGS = {
   size: { id: 'ctrl-size', prop: 'value', cssVar: '--clock-size', format: v => `clamp(4rem, ${v}vw, 20vw)` },
-  weight: { id: 'ctrl-weight', prop: 'value', cssVar: '--clock-weight' }, speed: { id: 'ctrl-speed', prop: 'value' }, clockOpacity: { id: 'ctrl-opacity', prop: 'value' }, showCustomText: { id: 'ctrl-showcustom', prop: 'checked' }, customText: { id: 'ctrl-customtext', prop: 'value' }, offsetX: { id: 'ctrl-offx', prop: 'value' }, offsetY: { id: 'ctrl-offy', prop: 'value' },
+  weight: { id: 'ctrl-weight', prop: 'value', cssVar: '--clock-weight' }, speed: { id: 'ctrl-speed', prop: 'value' }, bgBrightness: { id: 'ctrl-bg-brightness', prop: 'value' }, clockOpacity: { id: 'ctrl-opacity', prop: 'value' }, showCustomText: { id: 'ctrl-showcustom', prop: 'checked' }, customText: { id: 'ctrl-customtext', prop: 'value' }, offsetX: { id: 'ctrl-offx', prop: 'value' }, offsetY: { id: 'ctrl-offy', prop: 'value' },
+  colorMix: { id: 'ctrl-colormix', prop: 'checked' }, hueShift: { id: 'ctrl-hue-shift', prop: 'value' },
+  hueDrift: { id: 'ctrl-huedrift', prop: 'checked' }, modeCycle: { id: 'ctrl-modecycle', prop: 'checked' },
   is24Hour: { id: 'ctrl-24hr', prop: 'checked' }, leadingZero: { id: 'ctrl-leadingzero', prop: 'checked' },
   showSeconds: { id: 'ctrl-seconds', prop: 'checked' }, showDate: { id: 'ctrl-date', prop: 'checked' },
-  pixelShift: { id: 'ctrl-pixelshift', prop: 'checked' }, nightMode: { id: 'ctrl-nightmode', prop: 'checked' }
+  pixelShift: { id: 'ctrl-pixelshift', prop: 'checked' }, nightMode: { id: 'ctrl-nightmode', prop: 'checked' }, showFps: { id: 'ctrl-fps', prop: 'checked' },
+  showScale: { id: 'ctrl-scale', prop: 'checked' }, showSliderVal: { id: 'ctrl-sliderval', prop: 'checked' },
+  dimOnIdle: { id: 'ctrl-dimidle', prop: 'checked' }
 };
 const BINDING_BY_ID = Object.assign(Object.create(null), Object.fromEntries(Object.entries(UI_BINDINGS).map(([k, b]) => [b.id, [k, b]])));
 AA.UI_CONFIG = { FONTS, THEMES, SLIDERS, UI_BINDINGS, BINDING_BY_ID };
@@ -1506,6 +1807,17 @@ const { Store, DICT } = AA;
 const { FONTS, THEMES, SLIDERS, UI_BINDINGS, BINDING_BY_ID } = AA.UI_CONFIG;
 const qsa = (el, sel) => el.querySelectorAll(sel);
 const haptic = p => { try { navigator.vibrate?.(p) } catch(e){} };
+const fmtSliderVal = (id, raw) => {
+  const v = Number(raw);
+  switch (id) {
+    case 'ctrl-size': case 'ctrl-weight': return String(Math.round(v));
+    case 'ctrl-speed': return v.toFixed(2) + 'x';
+    case 'ctrl-bg-brightness': case 'ctrl-opacity': return Math.round(v * 100) + '%';
+    case 'ctrl-offx': case 'ctrl-offy': return (v > 0 ? '+' : '') + Math.round(v);
+    case 'ctrl-hue-shift': return (v > 0 ? '+' : '') + Math.round(v) + '°';
+    default: return String(v);
+  }
+};
 class UIManager {
   static get DICT() {
     return DICT;
@@ -1575,6 +1887,13 @@ class UIManager {
     this.glassEls = null;
     this._kCache = {};
     this.tickGlassBound = this.tickGlass.bind(this);
+    this.fpsRaf = null;
+    this.fpsFrames = 0;
+    this.fpsLast = 0;
+    this.fpsBadge = null;
+    this.fpsDot = null;
+    this.fpsText = null;
+    this.fpsTickBound = this.fpsTick.bind(this);
     this.store.subscribe((prop, val) => {
       if (Store.TRANSIENT_KEYS.has(prop)) return;
       let skipAnim = false;
@@ -1605,6 +1924,32 @@ class UIManager {
       crestFlood: $('glass-crest-flood'),
       hollowBlur: $('hollow-blur'), hollowFlood: $('hollow-flood')
     };
+    const host = this.appContainer || document.body;
+    if (!$('fps-badge')) {
+      const fb = document.createElement('div');
+      fb.id = 'fps-badge'; fb.className = 'fps-badge'; fb.setAttribute('aria-hidden', 'true');
+      fb.innerHTML = '<span class="fps-dot"></span><span class="fps-text">-- FPS</span>';
+      host.appendChild(fb);
+    }
+    this.fpsBadge = $('fps-badge');
+    this.fpsDot = qs(this.fpsBadge, '.fps-dot');
+    this.fpsText = qs(this.fpsBadge, '.fps-text');
+    if (!$('scale-badge')) {
+      const sb = document.createElement('div');
+      sb.id = 'scale-badge'; sb.className = 'fps-badge scale-badge'; sb.setAttribute('aria-hidden', 'true');
+      sb.innerHTML = '<span class="fps-dot"></span><span class="fps-text">--</span>';
+      host.appendChild(sb);
+    }
+    this.scaleBadge = $('scale-badge');
+    this.scaleDot = qs(this.scaleBadge, '.fps-dot');
+    this.scaleText = qs(this.scaleBadge, '.fps-text');
+    this._scaleTxt = '';
+    if (/flat/i.test(AA.VERSION || '') && !$('version-badge')) {
+      const vb = document.createElement('div');
+      vb.id = 'version-badge'; vb.className = 'version-badge'; vb.setAttribute('aria-hidden', 'true');
+      vb.textContent = AA.VERSION;
+      host.appendChild(vb);
+    }
     this.renderPanel();
     this.syncUI(true);
     this.bindEvents();
@@ -1613,13 +1958,56 @@ class UIManager {
     this.requestWakeLock();
     window.dispatchEvent(new Event('resize'));
   }
+  updateScaleText() {
+    if (!this.scaleText) return;
+    const { renderScale } = this.store.getState();
+    const fmt = s => { const n = Number(s) || 1; return (n === 1 ? '1.0' : String(n)) + 'x'; };
+    const text = renderScale === 0 ? `AUTO · ${fmt(AA._activeScale || 1)}` : fmt(renderScale);
+    if (this._scaleTxt !== text) { this._scaleTxt = text; this.scaleText.textContent = text; }
+    if (this.scaleDot) this.scaleDot.style.background = renderScale === 0 ? '#0a84ff' : '';
+  }
+  syncFps(on) {
+    const { showScale } = this.store.getState();
+    const needLoop = !!on || !!showScale;
+    if (needLoop) {
+      if (this.fpsRaf === null) {
+        if (this.fpsText) this.fpsText.textContent = '-- FPS';
+        if (this.fpsDot) this.fpsDot.style.background = '';
+        this.fpsFrames = 0;
+        this._lastGlFrames = AA._glFrames || 0;
+        this.fpsLast = performance.now();
+        this.fpsRaf = requestAnimationFrame(this.fpsTickBound);
+      }
+    } else if (this.fpsRaf !== null) {
+      cancelAnimationFrame(this.fpsRaf);
+      this.fpsRaf = null;
+    }
+    if (this.fpsBadge) this.fpsBadge.classList.toggle('is-visible', !!on);
+    if (this.scaleBadge) this.scaleBadge.classList.toggle('is-visible', !!showScale);
+    if (showScale) this.updateScaleText();
+  }
+  fpsTick() {
+    this.fpsRaf = requestAnimationFrame(this.fpsTickBound);
+    const now = performance.now(), dt = now - this.fpsLast;
+    if (dt < 500) return;
+    const gf = AA._glFrames || 0;
+    const { showFps, showScale } = this.store.getState();
+    if (showFps && dt <= 2000) {
+      const fps = Math.round((gf - (this._lastGlFrames || 0)) * 1000 / dt);
+      this.fpsText.textContent = `${fps} FPS`;
+      this.fpsDot.style.background = fps >= 50 ? '#30d158' : fps >= 30 ? '#ffd60a' : '#ff453a';
+    }
+    this._lastGlFrames = gf;
+    this.fpsLast = now;
+    if (showScale) this.updateScaleText();
+  }
   renderPanel() {
     const { lang } = this.store.getState(), d = UIManager.DICT[lang], I = this.activeTab;
     const row = (label, ctrl) => `<div class="settings-row"><span class="row-label" title="${label}">${label}</span>${ctrl}</div>`;
     const tg = (id, label) => row(label, `<input type="checkbox" id="${id}" class="toggle-switch">`);
-    const seg = (label, prop, options, offset = 0) => { const isCol = options.length > 3; return `<div class="settings-row${isCol ? ' col-layout' : ''}"><span class="row-label" title="${label}">${label}</span><div class="segmented-control${isCol ? '' : ' inline-seg'}" data-prop="${prop}" role="radiogroup" aria-label="${label}"><div class="segmented-highlight"></div>${options.map((t, i) => `<button class="segment-btn" role="radio" aria-checked="false" data-value="${i + offset}">${t}</button>`).join('')}</div></div>`; };
+    const seg = (label, prop, options, offset = 0, values = null) => { const isCol = options.length > 3; return `<div class="settings-row${isCol ? ' col-layout' : ''}"><span class="row-label" title="${label}">${label}</span><div class="segmented-control${isCol ? '' : ' inline-seg'}" data-prop="${prop}" role="radiogroup" aria-label="${label}"><div class="segmented-highlight"></div>${options.map((t, i) => `<button class="segment-btn" role="radio" aria-checked="false" data-value="${values ? values[i] : i + offset}">${t}</button>`).join('')}</div></div>`; };
     const mtg = (label, opts) => `<div class="settings-row"><span class="row-label" title="${label}">${label}</span><div class="mtg-control">${opts.map(o => `<button class="mtg-btn" aria-pressed="false" data-prop="${o.p}">${o.l}</button>`).join('')}</div></div>`;
-    const slider = (key, id) => { const s = UIManager.SLIDERS.find(s => s.key === key && (!id || s.id === id)); return `<div class="slider-row" aria-label="${d[key]}">${UIManager.renderIcon(s.svgMin, 'slider-icon min-icon')}<div class="range-container"><input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}"></div>${UIManager.renderIcon(s.svgMax, 'slider-icon max-icon')}</div>`; };
+    const slider = (key, id) => { const s = UIManager.SLIDERS.find(s => s.key === key && (!id || s.id === id)); return `<div class="slider-row" aria-label="${d[key]}">${UIManager.renderIcon(s.svgMin, 'slider-icon min-icon')}<div class="range-container slider-wrap"><input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}"><output class="slider-bubble" aria-hidden="true"></output></div>${UIManager.renderIcon(s.svgMax, 'slider-icon max-icon')}</div>`; };
     const langRow = row(d.lang, `<div class="segmented-control inline-seg" data-prop="lang" role="radiogroup" aria-label="${d.lang}" style="max-width:120px"><div class="segmented-highlight"></div><button class="segment-btn ${lang === 'en' ? 'active' : ''}" role="radio" aria-checked="${lang === 'en'}" data-value="en">EN</button><button class="segment-btn ${lang === 'zh' ? 'active' : ''}" role="radio" aria-checked="${lang === 'zh'}" data-value="zh">中</button></div>`);
     const theme = row(d.theme, `<div class="swatches-container">${UIManager.THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}<div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div></div>`);
     const tcKeys = ['textColor', 'ampmColor', 'dateColor', 'customTextColor'];
@@ -1629,8 +2017,8 @@ class UIManager {
     const ctRow = `<div class="settings-row"><input type="text" id="ctrl-customtext" class="ct-input" maxlength="30" placeholder="${d.ctph}" enterkeyhint="done" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="${d.sct}"></div>`;
     const tabs = [
       [[seg(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono']), tcRow, seg(d.mat, 'material', d.mats)], [slider('size'), slider('weight'), slider('opacity')], [tg('ctrl-24hr', d.time), tg('ctrl-leadingzero', d.lz), tg('ctrl-seconds', d.sec), seg(d.tick, 'clockAnimMode', d.ticks)], [tg('ctrl-date', d.date), mtg(d.df, [{l:d.dY,p:'showY'}, {l:d.dM,p:'showM'}, {l:d.dD,p:'showD'}, {l:d.dW,p:'showW'}]), seg(d.layout, 'clockLayout', d.layouts), seg(d.datePos, 'datePosition', d.datePositions)], [tg('ctrl-showcustom', d.sct), ctRow], [anchorRow, slider('offset', 'ctrl-offx'), slider('offset', 'ctrl-offy')]],
-      [[seg(d.mode, 'mode', d.modes, 1), theme], [slider('speed')]],
-      [[langRow, seg(d.idle, 'idleTimeout', d.idles)], [tg('ctrl-pixelshift', d.burn), tg('ctrl-nightmode', d.night)]]
+      [[seg(d.mode, 'mode', d.modes, 1), theme, tg('ctrl-colormix', d.colorMix), slider('hueShift', 'ctrl-hue-shift')], [tg('ctrl-huedrift', d.hueDrift), tg('ctrl-modecycle', d.modeCycle), seg(d.cycleInt, 'cycleInterval', d.cycleInts)], [slider('speed'), slider('bgBrightness', 'ctrl-bg-brightness'), seg(d.vignette, 'vignette', d.vignettes), seg(d.renderScale, 'renderScale', [d.auto, '0.25x', '0.5x', '0.75x', '1.0x'], 0, [0, 0.25, 0.5, 0.75, 1])]],
+      [[langRow, seg(d.idle, 'idleTimeout', d.idles), tg('ctrl-dimidle', d.dimIdle)], [tg('ctrl-pixelshift', d.burn), tg('ctrl-nightmode', d.night), tg('ctrl-fps', d.showFps), tg('ctrl-scale', d.showScale), tg('ctrl-sliderval', d.showSliderVal)]]
     ];
     if (this._cp) this._cp.close();
     this.panel.innerHTML = `<div class="tab-header" role="tablist">${d.tabs.map((t, i) => `<button class="tab-nav-btn${i === I ? ' active' : ''}" data-tab="${i}" role="tab">${t}</button>`).join('')}</div><div class="tab-panes">${tabs.map((blocks, i) => `<div class="tab-pane${i === I ? ' active' : ''}">${blocks.map(b => `<div class="settings-block">${b.join('')}</div>`).join('')}</div>`).join('')}</div>`;
@@ -1644,7 +2032,14 @@ class UIManager {
     qsa(this.panel, '.tab-pane').forEach((p, j) => { p.classList.toggle('active', j === i); if (j === i) qsa(p, '.segmented-control').forEach(c => this.updateSegmentHighlight(c, state[c.dataset.prop], true)); });
   }
   updateSliderFill(el) {
-    el.style.setProperty('--val', `${((el.value - (el.min || 0)) / ((el.max || 100) - (el.min || 0))) * 100}%`);
+    const p = (el.value - (el.min || 0)) / ((el.max || 100) - (el.min || 0));
+    el.style.setProperty('--val', `${p * 100}%`);
+    const w = el.parentElement;
+    if (w && w.classList.contains('slider-wrap')) {
+      w.style.setProperty('--p', p);
+      const b = qs(w, '.slider-bubble');
+      if (b) b.textContent = fmtSliderVal(el.id, el.value);
+    }
   }
   showHUD(text) {
     this.hudToast.textContent = text;
@@ -1702,6 +2097,23 @@ class UIManager {
       }
     });
     if (full || changedKey === 'pixelShift') this.runPixelShift();
+    if (full || changedKey === 'showFps' || changedKey === 'showScale' || changedKey === 'renderScale') this.syncFps(!!state.showFps);
+    if (full || changedKey === 'dimOnIdle') document.body.classList.toggle('no-idle-dim', !state.dimOnIdle);
+    if (full || changedKey === 'colorMix') {
+      const hsEl = $('ctrl-hue-shift');
+      if (hsEl) {
+        const hsRow = hsEl.closest('.slider-row');
+        if (hsRow) { hsRow.classList.toggle('is-hidden', !state.colorMix); hsRow.style.display = state.colorMix ? '' : 'none'; }
+      }
+    }
+    if (full || changedKey === 'modeCycle') {
+      const ciEl = qs(this.panel, '.segmented-control[data-prop="cycleInterval"]');
+      if (ciEl) {
+        const ciRow = ciEl.closest('.settings-row');
+        if (ciRow) { ciRow.classList.toggle('is-hidden', !state.modeCycle); ciRow.style.display = state.modeCycle ? '' : 'none'; }
+      }
+      if (state.modeCycle && ciEl) this.updateSegmentHighlight(ciEl, state.cycleInterval, true);
+    }
     if (full || changedKey === 'lowPower') {
       const btnLowpower = this.btnLowpower;
       if (btnLowpower) btnLowpower.classList.toggle('is-active', lowPower);
@@ -1737,9 +2149,21 @@ class UIManager {
   }
   bindEvents() {
     let lastHap = 0, anchorHold = null, holdFired = false, anchorX = 0, anchorY = 0;
+    let slideEl = null, slideTimer = null, slideHeld = false;
+    const setSlide = (range, active) => { const w = range && range.parentElement; if (w && w.classList.contains('slider-wrap')) w.classList.toggle('is-sliding', active); };
+    const endSlide = () => { clearTimeout(slideTimer); slideHeld = false; if (slideEl) { setSlide(slideEl, false); slideEl = null; } };
+    const showSlide = (range, held) => {
+      if (!this.store.getState().showSliderVal) return;
+      if (slideEl && slideEl !== range) setSlide(slideEl, false);
+      slideEl = range;
+      if (held) slideHeld = true;
+      setSlide(range, true);
+      clearTimeout(slideTimer);
+      if (!slideHeld) slideTimer = setTimeout(endSlide, 400);
+    };
     const cp = this._cp = AA.createColorPicker(this);
     const clearAnchorHold = () => { if (anchorHold) { clearTimeout(anchorHold); anchorHold = null; } };
-    const segValue = b => isNaN(b.dataset.value) ? b.dataset.value : parseInt(b.dataset.value);
+    const segValue = b => isNaN(b.dataset.value) ? b.dataset.value : Number(b.dataset.value);
     const applySeg = (prop, b) => {
       if (prop === 'material' && +b.dataset.value === 3) this.tryRequestGyro();
       haptic(10); this.store.setState(prop, segValue(b));
@@ -1769,7 +2193,7 @@ class UIManager {
     };
     on(document, 'pointerdown', e => {
       if (this.store.getState().material === 3) { trackGlassPtr(e); this.tryRequestGyro(); }
-      if (e.target.type === 'range') document.body.classList.add('is-dragging');
+      if (e.target.type === 'range') { document.body.classList.add('is-dragging'); showSlide(e.target, true); }
       const sg = e.target.closest('.segmented-control');
       if (sg && e.button === 0) { this.segTarget = sg; this.segProp = sg.dataset.prop; this.segDragged = false; }
       const tg = e.target.closest('.toggle-switch');
@@ -1804,6 +2228,7 @@ class UIManager {
       clearAnchorHold();
       this.exitApp(false);
       document.body.classList.remove('is-dragging');
+      endSlide();
       resetSeg();
       this.tgStart = null;
       setTimeout(() => this.tgTarget = null, 0);
@@ -1816,7 +2241,7 @@ class UIManager {
       if (e.target.closest('.anchor-grid, .icon-btn') || this.store.getState().isHolding) e.preventDefault();
     });
     on(document, 'input', e => {
-      if (e.target.type === 'range') { document.body.classList.add('is-dragging'); const t = e.target, v = t.value, isEdge = v === t.min || v === t.max, now = Date.now(); if (isEdge || now - lastHap > 40) { haptic(isEdge ? 20 : 5); lastHap = now; } }
+      if (e.target.type === 'range') { document.body.classList.add('is-dragging'); showSlide(e.target, false); const t = e.target, v = t.value, isEdge = v === t.min || v === t.max, now = Date.now(); if (isEdge || now - lastHap > 40) { haptic(isEdge ? 20 : 5); lastHap = now; } }
       const entry = UIManager.BINDING_BY_ID[e.target.id];
       if (entry && e.target.type !== 'checkbox') { this.store.setState(entry[0], e.target.type === 'text' ? e.target.value : parseFloat(e.target.value)); }
       else if (e.target.classList.contains('tc-input')) this.store.setState(e.target.dataset.prop, e.target.value);
@@ -1841,7 +2266,7 @@ class UIManager {
       cp.close();
     }, { passive: true });
     on(document, 'keydown', e => { if (e.key === 'Escape' && cp.isOpen()) cp.close(); });
-    this.store.subscribe((key, val) => { if (key === 'isPanelOpen' && !val) { cp.close(); resetSeg(); } });
+    this.store.subscribe((key, val) => { if (key === 'isPanelOpen' && !val) { cp.close(); resetSeg(); endSlide(); } });
     on(window, 'resize', () => cp.reposition());
     on(document, 'click', e => {
       const state = this.store.getState();
@@ -1874,7 +2299,7 @@ class UIManager {
     on(document, 'fullscreenchange', () => window.dispatchEvent(new Event('resize')));
     ['mousemove', 'pointermove', 'touchstart', 'keydown'].forEach(evt => on(window, evt, () => this.wakeUp(), { passive: true }));
     on(document, 'keydown', e => { if (e.target.tagName !== 'INPUT' && (e.code === 'Space' || e.key === ' ')) { e.preventDefault(); if (!e.repeat) { this.touchStartX = null; this.exitApp(true); } } });
-    on(document, 'keyup', e => { if (e.code === 'Space' || e.key === ' ') this.exitApp(false); }); on(window, 'blur', () => this.exitApp(false));
+    on(document, 'keyup', e => { if (e.code === 'Space' || e.key === ' ') this.exitApp(false); }); on(window, 'blur', () => { this.exitApp(false); endSlide(); });
   }
 }
 Object.assign(UIManager.prototype, AA.UI_FX);
@@ -1907,7 +2332,7 @@ function initPWA() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(()=>{});
 }
 initPWA();
-const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], size: 15, weight: 200, speed: 1, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, showY: false, showM: true, showD: true, showW: true, clockAnimMode: 0, clockLayout: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false, textColor: '#ffffff', ampmColor: '#b3b3b3', dateColor: '#b3b3b3', customTextColor: '#b3b3b3', material: 0, showCustomText: false, customText: "Ambient Aurora", anchor: 4, offsetX: 0, offsetY: 0, clockOpacity: 1, datePosition: 0, isIdle: false, isHolding: false, isPanelOpen: false };
+const defaultState = { lang: 'en', mode: 1, colorTarget: [0.21, 0.11, 0.47], colorMix: true, hueShift: 42, hueDrift: false, modeCycle: false, cycleInterval: 0, size: 15, weight: 200, speed: 1, bgBrightness: 1, vignette: 1, dimOnIdle: true, is24Hour: true, leadingZero: true, showSeconds: false, showDate: true, showY: false, showM: true, showD: true, showW: true, clockAnimMode: 0, clockLayout: 0, fontStyle: 0, lowPower: false, idleTimeout: 0, pixelShift: true, nightMode: false, textColor: '#ffffff', ampmColor: '#b3b3b3', dateColor: '#b3b3b3', customTextColor: '#b3b3b3', material: 0, showCustomText: false, customText: "Ambient Aurora", anchor: 4, offsetX: 0, offsetY: 0, clockOpacity: 1, datePosition: 0, renderScale: 0, showFps: false, showScale: false, showSliderVal: false, isIdle: false, isHolding: false, isPanelOpen: false };
 const store = new Store(defaultState);
 const glEngine = new WebGLEngine($('gl-canvas'), store);
 const clockController = new ClockController($('clock-layer'), store,$('settings-panel'));
