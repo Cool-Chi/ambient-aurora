@@ -1,5 +1,5 @@
 window.AA = window.AA || {};
-// Ambient Aurora v3.10.0-flat | Store / WebGLEngine / ClockController / UIManager
+// Ambient Aurora v3.11.0-flat | Store / WebGLEngine / ClockController / UIManager
 (function (AA) {
 const $ = id => document.getElementById(id);
 const qs = (el, sel) => el.querySelector(sel);
@@ -67,6 +67,7 @@ class Store {
       case 'clockOpacity': return isNum(v, 0.1, 1) ? v : undefined;
       case 'bgBrightness': return isNum(v, 0.1, 1.5) ? v : undefined;
       case 'hueShift': return isNum(v, -180, 180) ? v : undefined;
+      case 'cycleInterval': return isInt(v, 0, 2) ? v : undefined;
       case 'vignette': return isInt(v, 0, 2) ? v : undefined;
       case 'renderScale': return v === 'auto' ? 0 : (v === 0 || v === 0.25 || v === 0.5 || v === 0.75 || v === 1) ? v : undefined;
       case 'datePosition': return isInt(v, 0, 1) ? v : undefined;
@@ -98,6 +99,6 @@ class Store {
 }
 AA.util = { $, qs, on, clamp };
 AA.CONST = { EASE_OUT };
-AA.VERSION = 'v3.10.0-flat';
+AA.VERSION = 'v3.11.0-flat';
 AA.Store = Store;
 })(window.AA);

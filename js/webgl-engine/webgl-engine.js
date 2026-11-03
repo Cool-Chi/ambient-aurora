@@ -4,6 +4,8 @@ const { vsSource, fsSource } = AA.SHADERS;
 const SCALE_TIERS = [0.25, 0.5, 0.75, 1.0];
 const UNIFORM_NAMES = ['u_resolution', 'u_time', 'u_color', 'u_color2', 'u_weights', 'u_brightness', 'u_time2', 'u_timeMix', 'u_vignette'];
 const DEEP_IDLE_MS = 300000;
+const DRIFT_PERIOD_MS = 2400000;
+const CYCLE_INTERVALS_MS = [300000, 900000, 3600000];
 const NIGHT_COLOR = [0.16, 0.08, 0.0];
 const NIGHT_COLOR2 = [0.24, 0.05, 0.0];
 function rgbToHsv(r, g, b) {
@@ -29,6 +31,13 @@ function hsvToRgb(h, s, v) {
     case 4: return [t, p, v];
     default: return [v, p, q];
   }
+}
+function applyHueDrift(rgb, driftOffset) {
+  const r = clamp(Number(rgb[0]) || 0, 0, 1), g = clamp(Number(rgb[1]) || 0, 0, 1), b = clamp(Number(rgb[2]) || 0, 0, 1);
+  if (!driftOffset) return [r, g, b];
+  let [h, s, v] = rgbToHsv(r, g, b);
+  if (s < 0.02) s = 0.18;
+  return hsvToRgb((h + driftOffset) % 1, s, v);
 }
 function deriveSecondaryColor(rgb, nightMode, colorMix = true, hueShift = 42) {
   if (nightMode) return colorMix ? NIGHT_COLOR2.slice() : NIGHT_COLOR.slice();
@@ -68,6 +77,9 @@ class WebGLEngine {
     AA._activeScale = state.renderScale === 0 ? 1 : state.renderScale;
     this.colorLive = [...state.colorTarget];
     this.color2Live = deriveSecondaryColor(state.colorTarget, state.nightMode, state.colorMix, state.hueShift);
+    this.driftPhase = 0;
+    this.displayMode = state.mode;
+    this.cycleElapsed = 0;
     this.currentWeights = [0, 0, 0, 0, 0];
     this.targetWeights = [0, 0, 0, 0, 0];
     this.currentWeights[state.mode - 1] = 1.0;
@@ -195,16 +207,27 @@ class WebGLEngine {
     this.canvas.style.display = '';
     if (this.fallbackEl) this.fallbackEl.style.background = '';
   }
+  setDisplayMode(m) {
+    this.displayMode = m;
+    this.targetWeights.fill(0);
+    this.targetWeights[m - 1] = 1.0;
+    this.autoIgnoreUntil = performance.now() + 2000;
+    this.overloadTime = 0;
+    this.stableTime = 0;
+  }
   handleStateChange(key, val) {
     if (key === 'isIdle') {
       this.idleStartTime = val ? performance.now() : 0;
       this.isDeepIdle = false;
     } else if (key === 'mode') {
-      this.targetWeights.fill(0);
-      this.targetWeights[val - 1] = 1.0;
-      this.autoIgnoreUntil = performance.now() + 2000;
-      this.overloadTime = 0;
-      this.stableTime = 0;
+      this.cycleElapsed = 0;
+      this.setDisplayMode(val);
+    } else if (key === 'modeCycle') {
+      this.cycleElapsed = 0;
+      const userMode = this.store.getState().mode;
+      if (!val && this.displayMode !== userMode) this.setDisplayMode(userMode);
+    } else if (key === 'cycleInterval') {
+      this.cycleElapsed = 0;
     } else if (key === 'renderScale') {
       this.overloadTime = 0;
       this.stableTime = 0;
@@ -281,7 +304,7 @@ class WebGLEngine {
   render(timestamp) {
     if (!this.running) return;
     this.rafId = requestAnimationFrame(this.renderBound);
-    const { isIdle, lowPower, speed, nightMode, colorTarget, isHolding, bgBrightness = 1, dimOnIdle = true, vignette = 1, renderScale, isPanelOpen, colorMix = true, hueShift = 42 } = this.store.getState();
+    const { isIdle, lowPower, speed, nightMode, colorTarget, isHolding, bgBrightness = 1, dimOnIdle = true, vignette = 1, renderScale, isPanelOpen, colorMix = true, hueShift = 42, hueDrift = false, modeCycle = false, cycleInterval = 0 } = this.store.getState();
     if (!isIdle) {
       this.idleStartTime = 0;
       this.isDeepIdle = false;
@@ -325,9 +348,20 @@ class WebGLEngine {
         this.wrapProgress = 0;
       }
     }
-    const target = nightMode ? NIGHT_COLOR : colorTarget;
+    if (modeCycle) {
+      this.cycleElapsed += dt;
+      const limit = AA._cycleIntervalMs || CYCLE_INTERVALS_MS[cycleInterval] || 300000;
+      if (this.cycleElapsed >= limit) {
+        this.cycleElapsed = 0;
+        this.setDisplayMode((this.displayMode % 5) + 1);
+      }
+    }
+    if (!hueDrift) this.driftPhase = 0;
+    else if (!nightMode) this.driftPhase = (this.driftPhase + dt / (AA._driftPeriodMs || DRIFT_PERIOD_MS)) % 1;
+    const driftedPrimary = (hueDrift && !nightMode) ? applyHueDrift(colorTarget, this.driftPhase) : colorTarget;
+    const target = nightMode ? NIGHT_COLOR : driftedPrimary;
     for (let i = 0; i < 3; i++) this.colorLive[i] += (target[i] - this.colorLive[i]) * k;
-    const target2 = deriveSecondaryColor(colorTarget, nightMode, colorMix, hueShift);
+    const target2 = deriveSecondaryColor(driftedPrimary, nightMode, colorMix, hueShift);
     for (let i = 0; i < 3; i++) this.color2Live[i] += (target2[i] - this.color2Live[i]) * k;
     let wSum = 0;
     for (let i = 0; i < 5; i++) {

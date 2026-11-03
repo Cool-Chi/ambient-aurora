@@ -23,6 +23,7 @@ const UI_BINDINGS = {
   size: { id: 'ctrl-size', prop: 'value', cssVar: '--clock-size', format: v => `clamp(4rem, ${v}vw, 20vw)` },
   weight: { id: 'ctrl-weight', prop: 'value', cssVar: '--clock-weight' }, speed: { id: 'ctrl-speed', prop: 'value' }, bgBrightness: { id: 'ctrl-bg-brightness', prop: 'value' }, clockOpacity: { id: 'ctrl-opacity', prop: 'value' }, showCustomText: { id: 'ctrl-showcustom', prop: 'checked' }, customText: { id: 'ctrl-customtext', prop: 'value' }, offsetX: { id: 'ctrl-offx', prop: 'value' }, offsetY: { id: 'ctrl-offy', prop: 'value' },
   colorMix: { id: 'ctrl-colormix', prop: 'checked' }, hueShift: { id: 'ctrl-hue-shift', prop: 'value' },
+  hueDrift: { id: 'ctrl-huedrift', prop: 'checked' }, modeCycle: { id: 'ctrl-modecycle', prop: 'checked' },
   is24Hour: { id: 'ctrl-24hr', prop: 'checked' }, leadingZero: { id: 'ctrl-leadingzero', prop: 'checked' },
   showSeconds: { id: 'ctrl-seconds', prop: 'checked' }, showDate: { id: 'ctrl-date', prop: 'checked' },
   pixelShift: { id: 'ctrl-pixelshift', prop: 'checked' }, nightMode: { id: 'ctrl-nightmode', prop: 'checked' }, showFps: { id: 'ctrl-fps', prop: 'checked' },
