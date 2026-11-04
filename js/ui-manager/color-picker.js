@@ -11,6 +11,7 @@
   const CP_PRESETS = ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#5ac8fa', '#007aff', '#af52de', '#ffffff'];
   const CP_TARGETS = ['colorTarget', 'textColor', 'ampmColor', 'dateColor', 'customTextColor'];
 
+  // NOTE: hsvToRgb / rgbToHsv here use hue h in degrees [0, 360); AA.COLOR_UTILS uses normalized turns [0, 1).
   const hsvToRgb = (h, s, v) => {
     const c = v * s;
     const hp = (h % 360) / 60;

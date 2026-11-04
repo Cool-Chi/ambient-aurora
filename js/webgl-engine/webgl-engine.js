@@ -1,13 +1,14 @@
 (function (AA) {
   const { on, clamp } = AA.util;
   const { vsSource, fsSource } = AA.SHADERS;
+  const { NIGHT_COLOR, applyHueDrift, deriveSecondaryColor } = AA.COLOR_UTILS;
 
   // Central tunables for the engine (no other magic numbers for these behaviors)
   const ENGINE_CFG = {
     PIXEL_BUDGET: 2500000,          // Max rendered pixels (SD-7)
     LOW_POWER_DPR: 0.75,            // DPR in low-power mode
     MAX_DPR: 2,                     // Max DPR in standard mode
-    PANEL_SCALE_CAP: 0.75,          // Max render scale while settings panel is open
+    PANEL_SCALE_CAP: 0.75,          // Max Auto render scale while settings panel is open
     FPS_HIGH_MS: 16.6,              // ~60fps frame interval (speed > 1.05)
     FPS_BASE_MS: 33.3,              // ~30fps frame interval (speed <= 1.0 or panel open)
     FPS_LOW_POWER_MS: 41.6,         // ~24fps frame interval (low power)
@@ -36,7 +37,10 @@
     AUTO_DOWN_MS: 2000,             // Sustained overload duration before stepping down
     AUTO_UP_MS: 10000,              // Sustained stable duration before stepping up
     AUTO_COOLDOWN_DOWN_MS: 5000,    // Cooldown after stepping scale down
-    AUTO_COOLDOWN_UP_MS: 8000       // Cooldown after stepping scale up
+    AUTO_COOLDOWN_UP_MS: 8000,      // Cooldown after stepping scale up
+    AUTO_FLAP_WINDOW_MS: 30000,     // Downgrade within this window after an upgrade doubles the next upgrade threshold
+    AUTO_UP_MAX_MS: 80000,          // Cap for the doubled upgrade threshold (80s)
+    AUTO_STABLE_RESET_MS: 60000     // Continuous stable time that resets the upgrade threshold to AUTO_UP_MS
   };
 
   const SCALE_TIERS = [0.25, 0.5, 0.75, 1.0];
@@ -52,81 +56,12 @@
     'u_vignette',
     'u_octaves'
   ];
-  const NIGHT_COLOR = [0.16, 0.08, 0.0];
-  const NIGHT_COLOR2 = [0.24, 0.05, 0.0];
-
-  function rgbToHsv(r, g, b) {
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const d = max - min;
-    let h = 0;
-    if (d > 0) {
-      if (max === r) h = ((g - b) / d) % 6;
-      else if (max === g) h = (b - r) / d + 2;
-      else h = (r - g) / d + 4;
-      h /= 6;
-      if (h < 0) h += 1;
-    }
-    return [h, max === 0 ? 0 : d / max, max];
-  }
-
-  function hsvToRgb(h, s, v) {
-    const hh = ((h % 1) + 1) % 1 * 6;
-    const i = Math.floor(hh);
-    const f = hh - i;
-    const p = v * (1 - s);
-    const q = v * (1 - s * f);
-    const t = v * (1 - s * (1 - f));
-    switch (i % 6) {
-      case 0: return [v, t, p];
-      case 1: return [q, v, p];
-      case 2: return [p, v, t];
-      case 3: return [p, q, v];
-      case 4: return [t, p, v];
-      default: return [v, p, q];
-    }
-  }
-
-  function applyHueDrift(rgb, driftOffset) {
-    const r = clamp(Number(rgb[0]) || 0, 0, 1);
-    const g = clamp(Number(rgb[1]) || 0, 0, 1);
-    const b = clamp(Number(rgb[2]) || 0, 0, 1);
-    if (!driftOffset) return [r, g, b];
-    let [h, s, v] = rgbToHsv(r, g, b);
-    if (s < 0.02) s = 0.18;
-    return hsvToRgb((h + driftOffset) % 1, s, v);
-  }
-
-  function deriveSecondaryColor(rgb, nightMode, colorMix = true, hueShift = 42) {
-    if (nightMode) return colorMix ? NIGHT_COLOR2.slice() : NIGHT_COLOR.slice();
-    const r = clamp(Number(rgb[0]) || 0, 0, 1);
-    const g = clamp(Number(rgb[1]) || 0, 0, 1);
-    const b = clamp(Number(rgb[2]) || 0, 0, 1);
-    if (!colorMix) return [r, g, b];
-    const [h, s, v] = rgbToHsv(r, g, b);
-    const shift = (((Number(hueShift) || 0) / 360 % 1) + 1) % 1;
-    let h2 = (h + shift) % 1;
-    let s2;
-    let v2;
-    if (s < 0.12 && v > 0.85) {
-      if (s < 0.02) h2 = 0.08;
-      s2 = 0.22;
-      v2 = 0.95;
-    } else if (v < 0.08) {
-      s2 = clamp(s * 0.9 + 0.15, 0.2, 0.85);
-      v2 = Math.max(v * 2.2, 0.06);
-    } else {
-      s2 = clamp(s * 0.92 + 0.12, 0.18, 0.92);
-      v2 = clamp(v * 1.15 + 0.08, 0.16, 1.0);
-    }
-    return hsvToRgb(h2, s2, v2);
-  }
 
   class WebGLEngine {
     constructor(canvas, store) {
       this.canvas = canvas;
       this.store = store;
-      this.frameCount = 0;
+      AA._glFrames = 0;
       this.glReady = false;
       this.uniforms = {};
       this.uVignetteLoc = null;
@@ -155,9 +90,11 @@
         modeCycle: state.modeCycle ?? false,
         cycleInterval: state.cycleInterval ?? 0
       };
-      this.activeScale = state.renderScale === 0 ? 1 : state.renderScale;
+      AA._activeScale = state.renderScale === 0 ? 1 : state.renderScale;
       this.colorLive = [...state.colorTarget];
-      this.color2Live = deriveSecondaryColor(state.colorTarget, state.nightMode, state.colorMix, state.hueShift);
+      this.cachedColor2 = null;
+      this.updateCachedColor2();
+      this.color2Live = [...this.cachedColor2];
       this.driftPhase = 0;
       this.displayMode = state.mode;
       this.cycleElapsed = 0;
@@ -190,6 +127,8 @@
       this.overloadTime = 0;
       this.stableTime = 0;
       this.autoCooldownUntil = 0;
+      this.autoUpRequiredMs = ENGINE_CFG.AUTO_UP_MS;
+      this.lastAutoUpTime = 0;
       this.autoIgnoreUntil = performance.now() + ENGINE_CFG.AUTO_IGNORE_INIT_MS;
       this.fallbackEl = canvas.parentElement;
       this.fallbackActive = false;
@@ -278,6 +217,11 @@
       this.fallbackEl.style.background = `radial-gradient(ellipse at 30% 25%, ${rgb(1.6)} 0%, ${rgb(0.8)} 45%, #050505 100%)`;
     }
 
+    updateCachedColor2() {
+      const { colorTarget, nightMode, colorMix, hueShift } = this.params;
+      this.cachedColor2 = deriveSecondaryColor(colorTarget, nightMode, colorMix, hueShift);
+    }
+
     showFallback() {
       if (!this.fallbackEl) return;
       this.fallbackActive = true;
@@ -304,6 +248,10 @@
     handleStateChange(key, val) {
       if (key in this.params) this.params[key] = val;
 
+      if (key === 'colorTarget' || key === 'nightMode' || key === 'colorMix' || key === 'hueShift') {
+        this.updateCachedColor2();
+      }
+
       if (key === 'isIdle') {
         this.idleStartTime = val ? performance.now() : 0;
         this.isDeepIdle = false;
@@ -320,6 +268,8 @@
         this.overloadTime = 0;
         this.stableTime = 0;
         this.autoCooldownUntil = 0;
+        this.autoUpRequiredMs = ENGINE_CFG.AUTO_UP_MS;
+        this.lastAutoUpTime = 0;
         if (val === 0) this.autoScale = 1.0;
         this.resize();
       } else if (key === 'isPanelOpen') {
@@ -337,9 +287,11 @@
     resize() {
       if (!this.glReady || !this.gl || this.gl.isContextLost()) return;
       const { lowPower, renderScale, isPanelOpen } = this.params;
-      const baseScale = renderScale === 0 ? this.autoScale : renderScale;
-      const activeScale = isPanelOpen ? Math.min(baseScale, ENGINE_CFG.PANEL_SCALE_CAP) : baseScale;
-      this.activeScale = activeScale;
+      // Panel cap applies to Auto only; manual scales are used as-is
+      const activeScale = renderScale === 0
+        ? (isPanelOpen ? Math.min(this.autoScale, ENGINE_CFG.PANEL_SCALE_CAP) : this.autoScale)
+        : renderScale;
+      AA._activeScale = activeScale;
       const cssW = Math.max(1, window.innerWidth);
       const cssH = Math.max(1, window.innerHeight);
       const dpr = lowPower ? ENGINE_CFG.LOW_POWER_DPR : Math.min(window.devicePixelRatio || 1, ENGINE_CFG.MAX_DPR);
@@ -369,7 +321,7 @@
       this.gl.uniform1f(this.uVignetteLoc, this.currentVignette);
       this.gl.uniform1i(this.uniforms.u_octaves, this.params.lowPower ? 2 : 4);
       this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
-      this.frameCount++;
+      AA._glFrames = (AA._glFrames || 0) + 1;
     }
 
     pause() {
@@ -480,8 +432,6 @@
         bgBrightness,
         dimOnIdle,
         vignette,
-        colorMix,
-        hueShift,
         hueDrift
       } = this.params;
 
@@ -491,11 +441,14 @@
         this.driftPhase = (this.driftPhase + dt / ENGINE_CFG.DRIFT_PERIOD_MS) % 1;
       }
 
-      const driftedPrimary = (hueDrift && !nightMode) ? applyHueDrift(colorTarget, this.driftPhase) : colorTarget;
-      const target = nightMode ? NIGHT_COLOR : driftedPrimary;
+      const target = nightMode
+        ? NIGHT_COLOR
+        : (hueDrift ? applyHueDrift(colorTarget, this.driftPhase) : colorTarget);
       for (let i = 0; i < 3; i++) this.colorLive[i] += (target[i] - this.colorLive[i]) * k;
 
-      const target2 = deriveSecondaryColor(driftedPrimary, nightMode, colorMix, hueShift);
+      const target2 = (hueDrift && !nightMode)
+        ? applyHueDrift(this.cachedColor2, this.driftPhase)
+        : this.cachedColor2;
       for (let i = 0; i < 3; i++) this.color2Live[i] += (target2[i] - this.color2Live[i]) * k;
 
       this.currentBrightness += (
@@ -551,12 +504,18 @@
         this.stableTime = 0;
       } else if (this.emaFrameDt <= minInterval * ENGINE_CFG.AUTO_STABLE_RATIO) {
         this.stableTime += rawDt;
+        if (this.autoUpRequiredMs > ENGINE_CFG.AUTO_UP_MS && this.stableTime >= ENGINE_CFG.AUTO_STABLE_RESET_MS) {
+          this.autoUpRequiredMs = ENGINE_CFG.AUTO_UP_MS;
+        }
         this.overloadTime = Math.max(0, this.overloadTime - rawDt * 0.5);
       }
 
       if (timestamp >= this.autoCooldownUntil) {
         const ti = SCALE_TIERS.indexOf(this.autoScale);
         if (this.overloadTime >= ENGINE_CFG.AUTO_DOWN_MS && this.autoScale > 0.25) {
+          if (this.lastAutoUpTime > 0 && (timestamp - this.lastAutoUpTime) <= ENGINE_CFG.AUTO_FLAP_WINDOW_MS) {
+            this.autoUpRequiredMs = Math.min(this.autoUpRequiredMs * 2, ENGINE_CFG.AUTO_UP_MAX_MS);
+          }
           this.autoScale = SCALE_TIERS[Math.max(0, ti - 1)];
           this.autoCooldownUntil = timestamp + ENGINE_CFG.AUTO_COOLDOWN_DOWN_MS;
           this.overloadTime = 0;
@@ -565,8 +524,9 @@
           this.resize();
           return true;
         }
-        if (this.stableTime >= ENGINE_CFG.AUTO_UP_MS && this.autoScale < 1.0) {
+        if (this.stableTime >= this.autoUpRequiredMs && this.autoScale < 1.0) {
           this.autoScale = SCALE_TIERS[Math.min(SCALE_TIERS.length - 1, ti + 1)];
+          this.lastAutoUpTime = timestamp;
           this.autoCooldownUntil = timestamp + ENGINE_CFG.AUTO_COOLDOWN_UP_MS;
           this.overloadTime = 0;
           this.stableTime = 0;
@@ -586,7 +546,7 @@
       if (!timing) return;
 
       if (!this.glReady) {
-        this.frameCount++;
+        AA._glFrames = (AA._glFrames || 0) + 1;
         return;
       }
 
