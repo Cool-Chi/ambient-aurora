@@ -152,7 +152,51 @@
       }, false);
 
       this.initGL();
-      this.store.subscribe((key, val) => this.handleStateChange(key, val));
+
+      const onColor = () => this.updateCachedColor2();
+      const onColorFallback = () => {
+        this.updateCachedColor2();
+        this.updateFallback();
+      };
+      this.stateHandlers = {
+        bgColor: onColorFallback,
+        isNightMode: onColorFallback,
+        isBgColorMix: onColor,
+        bgHueShift: onColor,
+        isIdle: val => {
+          this.idleStartTime = val ? performance.now() : 0;
+          this.isDeepIdle = false;
+        },
+        bgMode: val => {
+          this.cycleElapsed = 0;
+          this.setDisplayMode(val);
+        },
+        isBgModeCycle: val => {
+          this.cycleElapsed = 0;
+          const userMode = this.params.bgMode;
+          if (!val && this.displayMode !== userMode) this.setDisplayMode(userMode);
+        },
+        bgCycleInterval: () => {
+          this.cycleElapsed = 0;
+        },
+        bgRenderScale: val => {
+          this.overloadTime = 0;
+          this.stableTime = 0;
+          this.autoCooldownUntil = 0;
+          this.autoUpRequiredMs = ENGINE_CFG.AUTO_UP_MS;
+          this.lastAutoUpTime = 0;
+          if (val === 'auto') this.autoScale = 1.0;
+          this.resize();
+        },
+        isPanelOpen: () => {
+          this.overloadTime = 0;
+          this.stableTime = 0;
+          this.autoIgnoreUntil = performance.now() + ENGINE_CFG.AUTO_IGNORE_PANEL_MS;
+          this.resize();
+        },
+        isLowPower: () => this.resize()
+      };
+      this.store.subscribe(Object.keys(this.params), (key, val) => this.handleStateChange(key, val));
       on(window, 'resize', () => this.resize());
     }
 
@@ -250,41 +294,8 @@
 
     handleStateChange(key, val) {
       if (key in this.params) this.params[key] = val;
-
-      if (key === 'bgColor' || key === 'isNightMode' || key === 'isBgColorMix' || key === 'bgHueShift') {
-        this.updateCachedColor2();
-      }
-
-      if (key === 'isIdle') {
-        this.idleStartTime = val ? performance.now() : 0;
-        this.isDeepIdle = false;
-      } else if (key === 'bgMode') {
-        this.cycleElapsed = 0;
-        this.setDisplayMode(val);
-      } else if (key === 'isBgModeCycle') {
-        this.cycleElapsed = 0;
-        const userMode = this.params.bgMode;
-        if (!val && this.displayMode !== userMode) this.setDisplayMode(userMode);
-      } else if (key === 'bgCycleInterval') {
-        this.cycleElapsed = 0;
-      } else if (key === 'bgRenderScale') {
-        this.overloadTime = 0;
-        this.stableTime = 0;
-        this.autoCooldownUntil = 0;
-        this.autoUpRequiredMs = ENGINE_CFG.AUTO_UP_MS;
-        this.lastAutoUpTime = 0;
-        if (val === 'auto') this.autoScale = 1.0;
-        this.resize();
-      } else if (key === 'isPanelOpen') {
-        this.overloadTime = 0;
-        this.stableTime = 0;
-        this.autoIgnoreUntil = performance.now() + ENGINE_CFG.AUTO_IGNORE_PANEL_MS;
-        this.resize();
-      } else if (key === 'isLowPower') {
-        this.resize();
-      } else if (key === 'bgColor' || key === 'isNightMode') {
-        this.updateFallback();
-      }
+      const handler = this.stateHandlers[key];
+      if (handler) handler(val);
     }
 
     resize() {

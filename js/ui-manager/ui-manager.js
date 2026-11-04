@@ -1,8 +1,8 @@
 (function (AA) {
   const { $, qs, on, clamp } = AA.util;
   const { EASE_OUT } = AA.CONST;
-  const { Store, DICT } = AA;
-  const { FONTS, THEMES, SLIDERS, UI_BINDINGS, BINDING_BY_ID, SETTINGS_SCHEMA, SCHEMA_BY_KEY } = AA.UI_CONFIG;
+  const { DICT } = AA;
+  const { FONTS, THEMES, SLIDERS, UI_BINDINGS, BINDING_BY_ID, SETTINGS_SCHEMA, SCHEMA_BY_KEY, DEPENDENTS_BY_KEY } = AA.UI_CONFIG;
 
   const qsa = (el, sel) => el.querySelectorAll(sel);
 
@@ -19,6 +19,61 @@
   const ANCHOR_KEY = keyOfType('anchor');
   const THEME_KEY = keyOfType('theme');
   const LOWPOWER_KEY = keyOfType('button');
+
+  // Per-type control syncing: (entry, value, state, ui, skipAnim)
+  const syncBoundValue = (e, val) => {
+    const b = UI_BINDINGS[e.key];
+    const el = b && $(b.id);
+    if (el && String(el[b.prop]) !== String(val)) el[b.prop] = val;
+    return el;
+  };
+
+  const SYNC_BY_TYPE = {
+    slider: (e, val, state, ui) => {
+      const el = syncBoundValue(e, val);
+      if (el && el.type === 'range') ui.updateSliderFill(el);
+    },
+    toggle: (e, val) => {
+      syncBoundValue(e, val);
+    },
+    'custom-text': (e, val) => {
+      syncBoundValue(e, val);
+    },
+    segmented: (e, val, state, ui, skipAnim) => {
+      const c = qs(document, `.segmented-control[data-prop="${e.key}"]`);
+      if (c && val !== undefined) {
+        requestAnimationFrame(() => ui.updateSegmentHighlight(c, val, skipAnim));
+      }
+    },
+    'color-chip': (e, val) => {
+      const inp = $(e.id);
+      const dot = $(`swatch-${e.key}`);
+      if (inp) inp.value = val;
+      if (dot) dot.style.background = val;
+    },
+    'mtg-item': (e, val) => {
+      const btn = qs(document, `.mtg-btn[data-prop="${e.key}"]`);
+      if (!btn) return;
+      const act = !!val;
+      btn.classList.toggle('active', act);
+      btn.setAttribute('aria-pressed', act ? 'true' : 'false');
+    },
+    theme: (e, val) => {
+      qsa(document, '.swatches-container .swatch-wrapper').forEach(s => s.classList.remove('active'));
+      const activeSwatch = qs(document, `.swatch-wrapper[data-rgb="${val.join(',')}"]`);
+      const customEl = $('custom-swatch-color');
+      if (activeSwatch) {
+        activeSwatch.classList.add('active');
+        customEl.style.background = '';
+        customEl.classList.remove('has-color');
+      } else {
+        $('custom-swatch-wrapper').classList.add('active');
+        $('custom-color-input').value = UIManager.rgbToHex(...val);
+        customEl.style.background = UIManager.rgbToHex(...val);
+        customEl.classList.add('has-color');
+      }
+    }
+  };
 
   class UIManager {
     static get DICT() {
@@ -108,8 +163,7 @@
       this.fpsText = null;
       this.fpsTickBound = this.fpsTick.bind(this);
 
-      this.store.subscribe((prop, val) => {
-        if (Store.TRANSIENT_KEYS.has(prop)) return;
+      this.store.subscribe(SETTINGS_SCHEMA.map(e => e.key), prop => {
         let skipAnim = false;
         if (prop === 'lang') {
           this.renderPanel();
@@ -494,7 +548,6 @@
       entries.forEach(e => {
         const val = state[e.key];
         const a = e.apply;
-
         if (a) {
           if (a.cssVar) sp(a.cssVar, a.cssFormat ? a.cssFormat(val) : val);
           if (a.hook && !ran.has(a.hook)) {
@@ -502,70 +555,29 @@
             a.hook(val, state, this);
           }
         }
-
-        if (e.type === 'slider' || e.type === 'toggle' || e.type === 'custom-text') {
-          const b = UIManager.UI_BINDINGS[e.key];
-          const el = b && $(b.id);
-          if (el) {
-            if (String(el[b.prop]) !== String(val)) el[b.prop] = val;
-            if (el.type === 'range') this.updateSliderFill(el);
-          }
-        } else if (e.type === 'segmented') {
-          const c = qs(document, `.segmented-control[data-prop="${e.key}"]`);
-          if (c && val !== undefined) {
-            requestAnimationFrame(() => this.updateSegmentHighlight(c, val, skipAnim));
-          }
-        } else if (e.type === 'color-chip') {
-          const inp = $(e.id);
-          const dot = $(`swatch-${e.key}`);
-          if (inp) inp.value = val;
-          if (dot) dot.style.background = val;
-        } else if (e.type === 'mtg-item') {
-          const btn = qs(document, `.mtg-btn[data-prop="${e.key}"]`);
-          if (btn) {
-            const act = !!val;
-            btn.classList.toggle('active', act);
-            btn.setAttribute('aria-pressed', act ? 'true' : 'false');
-          }
-        } else if (e.type === 'theme') {
-          qsa(document, '.swatches-container .swatch-wrapper').forEach(s => s.classList.remove('active'));
-          const activeSwatch = qs(document, `.swatch-wrapper[data-rgb="${val.join(',')}"]`);
-          const customEl = $('custom-swatch-color');
-          if (activeSwatch) {
-            activeSwatch.classList.add('active');
-            customEl.style.background = '';
-            customEl.classList.remove('has-color');
-          } else {
-            $('custom-swatch-wrapper').classList.add('active');
-            $('custom-color-input').value = UIManager.rgbToHex(...val);
-            customEl.style.background = UIManager.rgbToHex(...val);
-            customEl.classList.add('has-color');
-          }
-        }
+        SYNC_BY_TYPE[e.type]?.(e, val, state, this, skipAnim);
       });
 
-      SETTINGS_SCHEMA.forEach(e => {
-        if (!e.visibleWhen) return;
-        let rowEl = null;
-        if (e.type === 'segmented') {
-          const c = qs(this.panel, `.segmented-control[data-prop="${e.key}"]`);
-          rowEl = c && c.closest('.settings-row');
-        } else {
-          const el = $(e.id);
-          rowEl = el && el.closest(e.type === 'slider' ? '.slider-row' : '.settings-row');
-        }
+      const syncDependentRow = (e, st, isFull) => {
+        const ctrl = e.type === 'segmented' ? qs(this.panel, `.segmented-control[data-prop="${e.key}"]`) : $(e.id);
+        const rowEl = ctrl && ctrl.closest(e.type === 'slider' ? '.slider-row' : '.settings-row');
         if (!rowEl) return;
-        const vis = !!e.visibleWhen(state);
+        const vis = Boolean(st[e.dependsOn]);
         const wasHidden = rowEl.classList.contains('is-hidden');
         rowEl.classList.toggle('is-hidden', !vis);
         rowEl.style.display = vis ? '' : 'none';
-        if (vis && e.type === 'segmented' && (full || wasHidden)) {
-          const c = qs(rowEl, '.segmented-control');
-          if (c) this.updateSegmentHighlight(c, state[e.key], true);
+        if (vis && e.type === 'segmented' && (isFull || wasHidden)) {
+          this.updateSegmentHighlight(ctrl, st[e.key], true);
         }
-      });
+      };
 
-      if (this._cp) this._cp.refresh(changedKey);
+      if (full) {
+        SETTINGS_SCHEMA.forEach(e => {
+          if (e.dependsOn) syncDependentRow(e, state, true);
+        });
+      } else if (DEPENDENTS_BY_KEY[changedKey]) {
+        DEPENDENTS_BY_KEY[changedKey].forEach(e => syncDependentRow(e, state, false));
+      }
     }
 
     static renderIcon(paths, cls = '', size = 0) {
@@ -835,8 +847,8 @@
         if (e.key === 'Escape' && cp.isOpen()) cp.close();
       });
 
-      this.store.subscribe((key, val) => {
-        if (key === 'isPanelOpen' && !val) {
+      this.store.subscribe('isPanelOpen', (_, val) => {
+        if (!val) {
           cp.close();
           resetSeg();
           endSlide();

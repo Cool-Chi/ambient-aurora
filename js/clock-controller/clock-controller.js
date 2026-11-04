@@ -50,7 +50,31 @@
       this.layoutObserver.observe(this.panel);
       [this.container, this.clockWrapper].forEach(e => this.layoutObserver.observe(e));
 
-      this.store.subscribe((key, val) => this.handleStateChange(key, val));
+      const evade = () => this.updateEvasion();
+      const retick = () => {
+        this.lastTime = this.blank();
+        this.tick();
+      };
+      const handlers = {
+        clockLayout: (_, val) => this.animateLayout(val),
+        datePosition: (_, val) => this.animateDatePosition(val),
+        clockAnchor: () => this.animateAnchor(),
+        clockCustomText: (_, val) => {
+          this.customTextElement.textContent = val;
+        },
+        showCustomText: (_, val) => {
+          this.customTextElement.classList.toggle('is-hidden', !val);
+        }
+      };
+      ['isPanelOpen', 'clockOffsetX', 'clockOffsetY'].forEach(k => {
+        handlers[k] = evade;
+      });
+      ['is24Hour', 'showSeconds', 'isLeadingZero', 'clockTickAnim', 'lang', 'showDate', 'showYear', 'showMonth', 'showDay', 'showWeekday'].forEach(k => {
+        handlers[k] = retick;
+      });
+      this.stateHandlers = handlers;
+
+      this.store.subscribe(Object.keys(handlers), (key, val) => this.handleStateChange(key, val));
     }
 
     blank() {
@@ -85,89 +109,83 @@
     }
 
     handleStateChange(key, val) {
-      if (key === 'isPanelOpen') {
+      const handler = this.stateHandlers[key];
+      if (handler) handler(key, val);
+    }
+
+    animateLayout(val) {
+      const ce = this.clockElement;
+      if (this.layoutAnim) {
+        this.layoutAnim.cancel();
+        this.layoutAnim = null;
+      }
+      const out = this.layoutAnim = ce.animate(
+        [{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(0.95)' }],
+        { duration: 150, easing: EASE_OUT }
+      );
+      out.onfinish = () => {
+        if (this.layoutAnim !== out) return;
+        ce.classList.toggle('is-vertical', val === 1);
         this.updateEvasion();
-      } else if (key === 'clockLayout') {
-        const ce = this.clockElement;
-        if (this.layoutAnim) {
-          this.layoutAnim.cancel();
-          this.layoutAnim = null;
-        }
-        const out = this.layoutAnim = ce.animate(
-          [{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(0.95)' }],
-          { duration: 150, easing: EASE_OUT }
+        const inn = this.layoutAnim = ce.animate(
+          [{ opacity: 0, transform: 'scale(1.05)' }, { opacity: 1, transform: 'scale(1)' }],
+          { duration: 280, easing: EASE_OUT }
         );
-        out.onfinish = () => {
-          if (this.layoutAnim !== out) return;
-          ce.classList.toggle('is-vertical', val === 1);
-          this.updateEvasion();
-          const inn = this.layoutAnim = ce.animate(
-            [{ opacity: 0, transform: 'scale(1.05)' }, { opacity: 1, transform: 'scale(1)' }],
-            { duration: 280, easing: EASE_OUT }
-          );
-          inn.onfinish = inn.oncancel = () => {
-            if (this.layoutAnim === inn) this.layoutAnim = null;
-          };
+        inn.onfinish = inn.oncancel = () => {
+          if (this.layoutAnim === inn) this.layoutAnim = null;
         };
-      } else if (key === 'datePosition') {
-        [this.dateElement, this.customTextElement].forEach((el, i) => {
+      };
+    }
+
+    animateDatePosition(val) {
+      [this.dateElement, this.customTextElement].forEach((el, i) => {
+        el.animate(
+          [{ opacity: 1, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(8px)' }],
+          { duration: 140, easing: EASE_OUT }
+        ).onfinish = () => {
+          el.classList.toggle('is-above', val === 1);
+          if (i) this.updateEvasion();
           el.animate(
-            [{ opacity: 1, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(8px)' }],
-            { duration: 140, easing: EASE_OUT }
-          ).onfinish = () => {
-            el.classList.toggle('is-above', val === 1);
-            if (i) this.updateEvasion();
-            el.animate(
-              [{ opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)' }],
-              { duration: 240, easing: EASE_OUT }
-            );
+            [{ opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)' }],
+            { duration: 240, easing: EASE_OUT }
+          );
+        };
+      });
+    }
+
+    animateAnchor() {
+      const cw = this.clockWrapper;
+      const cl = this.container;
+      const first = cw.getBoundingClientRect();
+      if (this.anchorAnim) {
+        this.anchorAnim.cancel();
+        cl.classList.remove('is-flipping');
+      }
+      requestAnimationFrame(() => {
+        if (this.anchorAnim) this.anchorAnim.cancel();
+        cl.classList.add('is-flipping');
+        this.updateEvasion();
+        void cw.offsetWidth;
+        const last = cw.getBoundingClientRect();
+        const rx = first.left - last.left;
+        const ry = first.top - last.top;
+        const dist = Math.sqrt(rx * rx + ry * ry);
+        const sc = cw.offsetWidth ? last.width / cw.offsetWidth : 1;
+        if (dist > 5) {
+          const a = this.anchorAnim = cw.animate(
+            [
+              { transform: `translate(${rx / sc}px,${ry / sc}px)`, filter: `blur(${Math.min(12, dist * 0.05)}px)` },
+              { transform: 'translate(0px, 0px)', filter: 'blur(0px)' }
+            ],
+            { duration: 400, easing: EASE_OUT }
+          );
+          a.onfinish = a.oncancel = () => {
+            if (this.anchorAnim === a) cl.classList.remove('is-flipping');
           };
-        });
-      } else if (key === 'clockAnchor') {
-        const cw = this.clockWrapper;
-        const cl = this.container;
-        const first = cw.getBoundingClientRect();
-        if (this.anchorAnim) {
-          this.anchorAnim.cancel();
+        } else {
           cl.classList.remove('is-flipping');
         }
-        requestAnimationFrame(() => {
-          if (this.anchorAnim) this.anchorAnim.cancel();
-          cl.classList.add('is-flipping');
-          this.updateEvasion();
-          void cw.offsetWidth;
-          const last = cw.getBoundingClientRect();
-          const rx = first.left - last.left;
-          const ry = first.top - last.top;
-          const dist = Math.sqrt(rx * rx + ry * ry);
-          const sc = cw.offsetWidth ? last.width / cw.offsetWidth : 1;
-          if (dist > 5) {
-            const a = this.anchorAnim = cw.animate(
-              [
-                { transform: `translate(${rx / sc}px,${ry / sc}px)`, filter: `blur(${Math.min(12, dist * 0.05)}px)` },
-                { transform: 'translate(0px, 0px)', filter: 'blur(0px)' }
-              ],
-              { duration: 400, easing: EASE_OUT }
-            );
-            a.onfinish = a.oncancel = () => {
-              if (this.anchorAnim === a) cl.classList.remove('is-flipping');
-            };
-          } else {
-            cl.classList.remove('is-flipping');
-          }
-        });
-      } else if (key === 'clockOffsetX' || key === 'clockOffsetY') {
-        this.updateEvasion();
-      } else if (key === 'clockCustomText') {
-        this.customTextElement.textContent = val;
-      } else if (key === 'showCustomText') {
-        this.customTextElement.classList.toggle('is-hidden', !val);
-      } else if (
-        ['is24Hour', 'showSeconds', 'isLeadingZero', 'clockTickAnim', 'lang', 'showDate', 'showYear', 'showMonth', 'showDay', 'showWeekday'].includes(key)
-      ) {
-        this.lastTime = this.blank();
-        this.tick();
-      }
+      });
     }
 
     diffDOM(container, newStr, oldStr) {

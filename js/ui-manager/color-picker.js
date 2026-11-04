@@ -361,6 +361,8 @@
       }
     };
 
+    ui.store.subscribe(CP_TARGETS, key => api.refresh(key));
+
     return api;
   };
 

@@ -62,6 +62,7 @@
    *
    * One setting = one entry: key, default, validate, type, tab, block, id, label, ...
    * Entries are listed in render order (tab, then block, then position inside the block).
+   * dependsOn: key of a boolean setting that controls this row's visibility.
    */
   const SETTINGS_SCHEMA = [
     // ---- Tab 0: Clock / Block 0 ----
@@ -420,7 +421,7 @@
       svgMin: '<circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5" stroke-dasharray="2 2"/>',
       svgMax: '<circle cx="8" cy="12" r="5"/><circle cx="16" cy="12" r="5"/>',
       formatVal: v => fmtSigned(v) + '°',
-      visibleWhen: s => s.isBgColorMix
+      dependsOn: 'isBgColorMix'
     },
     // ---- Tab 1: Background / Block 1 ----
     {
@@ -453,7 +454,7 @@
       label: { en: 'Interval', zh: '輪播間隔' },
       options: { en: ['5m', '15m', '1h'], zh: ['5分', '15分', '1時'] },
       values: [0, 1, 2],
-      visibleWhen: s => s.isBgModeCycle
+      dependsOn: 'isBgModeCycle'
     },
     // ---- Tab 1: Background / Block 2 ----
     {
@@ -618,6 +619,13 @@
 
   const SCHEMA_BY_KEY = Object.fromEntries(SETTINGS_SCHEMA.map(e => [e.key, e]));
 
+  const DEPENDENTS_BY_KEY = {};
+  SETTINGS_SCHEMA.forEach(e => {
+    if (e.dependsOn) {
+      (DEPENDENTS_BY_KEY[e.dependsOn] = DEPENDENTS_BY_KEY[e.dependsOn] || []).push(e);
+    }
+  });
+
   const SLIDERS = SETTINGS_SCHEMA
     .filter(e => e.type === 'slider')
     .map(e => ({ id: e.id, key: e.key, min: e.min, max: e.max, step: e.step, svgMin: e.svgMin, svgMax: e.svgMax }));
@@ -658,6 +666,7 @@
     BG_MODES,
     SETTINGS_SCHEMA,
     SCHEMA_BY_KEY,
+    DEPENDENTS_BY_KEY,
     SLIDERS,
     UI_BINDINGS,
     BINDING_BY_ID,

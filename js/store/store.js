@@ -1,5 +1,5 @@
 window.AA = window.AA || {};
-// Ambient Aurora v3.14.0-flat | Store / WebGLEngine / ClockController / UIManager
+// Ambient Aurora v3.14.1-flat | Store / WebGLEngine / ClockController / UIManager
 (function (AA) {
 const $ = id => document.getElementById(id);
 const qs = (el, sel) => el.querySelector(sel);
@@ -13,7 +13,7 @@ class Store {
     this.storageKey = storageKey;
     this.defaultState = Object.freeze({ ...defaultState });
     this.state = this.defaultState;
-    this.subscribers = [];
+    this.subscribers = new Map();
     this.saveTimeout = null;
     this.load();
   }
@@ -26,14 +26,21 @@ class Store {
     this.scheduleSave(key);
     this.notify(key, value);
   }
-  subscribe(callback) {
-    this.subscribers.push(callback);
-    return () => {
-      this.subscribers = this.subscribers.filter(cb => cb !== callback);
-    };
+  subscribe(keys, cb) {
+    const list = Array.isArray(keys) ? keys : [keys];
+    for (const k of list) {
+      let set = this.subscribers.get(k);
+      if (!set) {
+        set = new Set();
+        this.subscribers.set(k, set);
+      }
+      set.add(cb);
+    }
   }
-  notify(key, value) {
-    this.subscribers.forEach(cb => cb(key, value));
+  notify(key, val) {
+    const set = this.subscribers.get(key);
+    if (!set) return;
+    for (const cb of set) cb(key, val, this.state);
   }
   scheduleSave(key) {
     if (Store.TRANSIENT_KEYS.has(key)) return;
@@ -101,6 +108,6 @@ class Store {
 }
 AA.util = { $, qs, on, clamp };
 AA.CONST = { EASE_OUT };
-AA.VERSION = 'v3.14.0-flat';
+AA.VERSION = 'v3.14.1-flat';
 AA.Store = Store;
 })(window.AA);
