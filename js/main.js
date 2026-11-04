@@ -126,7 +126,7 @@
   const store = new Store(defaultState);
   const glEngine = new WebGLEngine($('gl-canvas'), store);
   const clockController = new ClockController($('clock-layer'), store, $('settings-panel'));
-  const uiManager = new UIManager(store);
+  const uiManager = new UIManager(store, glEngine);
 
   uiManager.init();
   glEngine.start();
