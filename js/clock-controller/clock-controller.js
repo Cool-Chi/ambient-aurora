@@ -26,8 +26,8 @@
 
       this.clockElement.classList.toggle('is-vertical', this.store.getState().clockLayout === 1);
 
-      const { customText, showCustomText, datePosition } = this.store.getState();
-      this.customTextElement.textContent = customText;
+      const { clockCustomText, showCustomText, datePosition } = this.store.getState();
+      this.customTextElement.textContent = clockCustomText;
       this.customTextElement.classList.toggle('is-hidden', !showCustomText);
       [this.dateElement, this.customTextElement].forEach(el => {
         el.classList.toggle('is-above', datePosition === 1);
@@ -123,7 +123,7 @@
             );
           };
         });
-      } else if (key === 'anchor') {
+      } else if (key === 'clockAnchor') {
         const cw = this.clockWrapper;
         const cl = this.container;
         const first = cw.getBoundingClientRect();
@@ -156,14 +156,14 @@
             cl.classList.remove('is-flipping');
           }
         });
-      } else if (key === 'offsetX' || key === 'offsetY') {
+      } else if (key === 'clockOffsetX' || key === 'clockOffsetY') {
         this.updateEvasion();
-      } else if (key === 'customText') {
+      } else if (key === 'clockCustomText') {
         this.customTextElement.textContent = val;
       } else if (key === 'showCustomText') {
         this.customTextElement.classList.toggle('is-hidden', !val);
       } else if (
-        ['is24Hour', 'showSeconds', 'leadingZero', 'clockAnimMode', 'lang', 'showDate', 'showY', 'showM', 'showD', 'showW'].includes(key)
+        ['is24Hour', 'showSeconds', 'isLeadingZero', 'clockTickAnim', 'lang', 'showDate', 'showYear', 'showMonth', 'showDay', 'showWeekday'].includes(key)
       ) {
         this.lastTime = this.blank();
         this.tick();
@@ -178,14 +178,14 @@
             .map(c => `<span><div class="digit-old">${c}</div><div class="digit-new">${c}</div></span>`)
             .join('');
         } else {
-          const { clockAnimMode, material } = this.store.getState();
-          const pfx = (container !== this.ampmCont && material === 1) ? 'url(#hollow-fx) ' : '';
+          const { clockTickAnim, clockMaterial } = this.store.getState();
+          const pfx = (container !== this.ampmCont && clockMaterial === 1) ? 'url(#hollow-fx) ' : '';
           for (let i = 0; i < newStr.length; i++) {
             if (newStr[i] !== oldStr[i]) {
               const span = container.children[i];
               const oldEl = qs(span, '.digit-old');
               const newEl = qs(span, '.digit-new');
-              const animMode = Number(clockAnimMode);
+              const animMode = Number(clockTickAnim);
               if (animMode === 0) {
                 oldEl.textContent = newStr[i];
               } else {
@@ -216,7 +216,7 @@
       clearTimeout(this.timer);
       if (!this.running) return;
 
-      const { is24Hour, leadingZero, showSeconds, showDate, lang, showY, showM, showD, showW } = this.store.getState();
+      const { is24Hour, isLeadingZero, showSeconds, showDate, lang, showYear, showMonth, showDay, showWeekday } = this.store.getState();
       const now = new Date();
       const pad = n => String(n).padStart(2, '0');
       const de = this.dateElement;
@@ -230,7 +230,7 @@
       const secStr = pad(now.getSeconds());
       const ampmStr = is24Hour ? '' : isPM ? 'PM' : 'AM';
 
-      this.tensCont.classList.toggle('is-hidden', !leadingZero && hTens === '0');
+      this.tensCont.classList.toggle('is-hidden', !isLeadingZero && hTens === '0');
       [this.secCont, this.colonMS].forEach(c => c.classList.toggle('is-hidden', !showSeconds));
       this.ampmCont.classList.toggle('is-hidden', is24Hour);
       de.classList.toggle('is-hidden', !showDate);
@@ -241,7 +241,7 @@
       lt.sec = this.diffDOM(this.secCont, secStr, lt.sec);
       lt.ampm = this.diffDOM(this.ampmCont, ampmStr, lt.ampm);
 
-      const dateStr = this.formatDate(now, lang, showY, showM, showD, showW);
+      const dateStr = this.formatDate(now, lang, showYear, showMonth, showDay, showWeekday);
       if (de.textContent !== dateStr) {
         if (de.textContent === "") {
           de.textContent = dateStr;
@@ -263,7 +263,7 @@
     }
 
     updateEvasion() {
-      const { isPanelOpen, anchor, offsetX, offsetY } = this.store.getState();
+      const { isPanelOpen, clockAnchor, clockOffsetX, clockOffsetY } = this.store.getState();
       let x = 0;
       let y = 0;
       let k = 1;
@@ -281,10 +281,10 @@
           b: cw.offsetTop + cw.offsetHeight
         };
         const pad = Math.min(ww, wh) * 0.04;
-        const ox = [pad, ww / 2, ww - pad][anchor % 3];
-        const oy = [pad, wh / 2, wh - pad][Math.floor(anchor / 3)];
-        const dx = offsetX * ww / 100;
-        const dy = offsetY * wh / 100;
+        const ox = [pad, ww / 2, ww - pad][clockAnchor % 3];
+        const oy = [pad, wh / 2, wh - pad][Math.floor(clockAnchor / 3)];
+        const dx = clockOffsetX * ww / 100;
+        const dy = clockOffsetY * wh / 100;
         const R = f => ({
           l: ox + f * (B.l - ox) + dx,
           r: ox + f * (B.r - ox) + dx,

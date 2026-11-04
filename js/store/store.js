@@ -1,5 +1,5 @@
 window.AA = window.AA || {};
-// Ambient Aurora v3.13.0-flat | Store / WebGLEngine / ClockController / UIManager
+// Ambient Aurora v3.14.0-flat | Store / WebGLEngine / ClockController / UIManager
 (function (AA) {
 const $ = id => document.getElementById(id);
 const qs = (el, sel) => el.querySelector(sel);
@@ -7,10 +7,12 @@ const on = (el, evt, cb, opt) => el.addEventListener(evt, cb, opt);
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
 class Store {
+  static STORAGE_VERSION = 1;
   static TRANSIENT_KEYS = new Set(['isIdle', 'isHolding', 'isPanelOpen']);
   constructor(defaultState, storageKey = 'aurora_settings') {
     this.storageKey = storageKey;
-    this.state = Object.freeze({ ...defaultState });
+    this.defaultState = Object.freeze({ ...defaultState });
+    this.state = this.defaultState;
     this.subscribers = [];
     this.saveTimeout = null;
     this.load();
@@ -41,63 +43,64 @@ class Store {
   flush() {
     clearTimeout(this.saveTimeout);
     try {
-      const toSave = {};
+      const persistedState = {};
       for (const [k, v] of Object.entries(this.state)) {
-        if (!Store.TRANSIENT_KEYS.has(k)) toSave[k] = v;
+        if (!Store.TRANSIENT_KEYS.has(k)) persistedState[k] = v;
       }
-      localStorage.setItem(this.storageKey, JSON.stringify(toSave));
+      localStorage.setItem(this.storageKey, JSON.stringify({ version: Store.STORAGE_VERSION, state: persistedState }));
     } catch(e){}
   }
-  static validate(key, v, def) {
-    const isInt = (n, lo, hi) => typeof n === 'number' && Number.isInteger(n) && n >= lo && n <= hi;
-    const isNum = (n, lo, hi) => typeof n === 'number' && Number.isFinite(n) && n >= lo && n <= hi;
-    switch (key) {
-      case 'lang': return (v === 'en' || v === 'zh') ? v : undefined;
-      case 'mode': return isInt(v, 1, 5) ? v : undefined;
-      case 'fontStyle': return isInt(v, 0, 2) ? v : undefined;
-      case 'clockAnimMode': return isInt(v, 0, 3) ? v : undefined;
-      case 'clockLayout': return isInt(v, 0, 1) ? v : undefined;
-      case 'textColor': case 'ampmColor': case 'dateColor': case 'customTextColor': return (typeof v === 'string' && /^#[0-9A-Fa-f]{6}$/i.test(v)) ? v : undefined;
-      case 'material': return isInt(v, 0, 3) ? v : undefined;
-      case 'showCustomText': case 'showY': case 'showM': case 'showD': case 'showW': case 'showFps': return typeof v === 'boolean' ? v : undefined;
-      case 'customText': return typeof v === 'string' ? v.substring(0, 30) : undefined;
-      case 'anchor': return isInt(v, 0, 8) ? v : undefined;
-      case 'offsetX': case 'offsetY': return isNum(v, -50, 50) ? v : undefined;
-      case 'clockOpacity': return isNum(v, 0.1, 1) ? v : undefined;
-      case 'bgBrightness': return isNum(v, 0.1, 1.5) ? v : undefined;
-      case 'hueShift': return isNum(v, -180, 180) ? v : undefined;
-      case 'cycleInterval': return isInt(v, 0, 2) ? v : undefined;
-      case 'vignette': return isInt(v, 0, 2) ? v : undefined;
-      case 'renderScale': return v === 'auto' ? 0 : (v === 0 || v === 0.25 || v === 0.5 || v === 0.75 || v === 1) ? v : undefined;
-      case 'datePosition': return isInt(v, 0, 1) ? v : undefined;
-      case 'idleTimeout': return isInt(v, 0, 2) ? v : undefined;
-      case 'size': return isNum(v, 5, 20) ? v : undefined;
-      case 'weight': return isNum(v, 100, 900) ? v : undefined;
-      case 'speed': return isNum(v, 0.1, 4) ? v : undefined;
-      case 'colorTarget':
-        return (Array.isArray(v) && v.length === 3 && v.every(x => isNum(x, 0, 1))) ? [v[0], v[1], v[2]] : undefined;
-      default:
-        return (typeof v === typeof def && v !== null) ? v : undefined;
+  // Schema-driven validation: returns an object holding only the keys whose value passes SETTINGS_SCHEMA[k].validate
+  static validate(raw, def) {
+    const out = {};
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+    const cfg = AA.UI_CONFIG;
+    const schema = cfg && cfg.SETTINGS_SCHEMA;
+    if (!schema) return out;
+    const byKey = cfg.SCHEMA_BY_KEY || Object.fromEntries(schema.map(e => [e.key, e]));
+    for (const k of Object.keys(def)) {
+      if (Store.TRANSIENT_KEYS.has(k)) continue;
+      if (!Object.prototype.hasOwnProperty.call(raw, k)) continue;
+      const entry = byKey[k];
+      if (!entry || typeof entry.validate !== 'function') continue;
+      const v = raw[k];
+      if (entry.validate(v) === true) out[k] = Array.isArray(v) ? v.slice() : v;
     }
+    return out;
   }
   load() {
+    this.state = this.defaultState;
+    let raw = null;
     try {
-      const saved = JSON.parse(localStorage.getItem(this.storageKey));
-      if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
-        const merged = { ...this.state };
-        for (const k of Object.keys(this.state)) {
-          if (Store.TRANSIENT_KEYS.has(k)) continue;
-          if (!Object.prototype.hasOwnProperty.call(saved, k)) continue;
-          const clean = Store.validate(k, saved[k], this.state[k]);
-          if (clean !== undefined) merged[k] = clean;
-        }
-        this.state = Object.freeze(merged);
-      }
-    } catch (e) {}
+      raw = localStorage.getItem(this.storageKey);
+    } catch (e) {
+      return;
+    }
+    if (raw === null) return;
+    let parsed = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      parsed = null;
+    }
+    const valid = !!parsed &&
+      typeof parsed === 'object' &&
+      !Array.isArray(parsed) &&
+      parsed.version === Store.STORAGE_VERSION &&
+      !!parsed.state &&
+      typeof parsed.state === 'object' &&
+      !Array.isArray(parsed.state);
+    if (!valid) {
+      try {
+        localStorage.removeItem(this.storageKey);
+      } catch (e) {}
+      return;
+    }
+    this.state = Object.freeze({ ...this.defaultState, ...Store.validate(parsed.state, this.defaultState) });
   }
 }
 AA.util = { $, qs, on, clamp };
 AA.CONST = { EASE_OUT };
-AA.VERSION = 'v3.13.0-flat';
+AA.VERSION = 'v3.14.0-flat';
 AA.Store = Store;
 })(window.AA);

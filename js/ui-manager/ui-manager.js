@@ -2,7 +2,7 @@
   const { $, qs, on, clamp } = AA.util;
   const { EASE_OUT } = AA.CONST;
   const { Store, DICT } = AA;
-  const { FONTS, THEMES, SLIDERS, UI_BINDINGS, BINDING_BY_ID } = AA.UI_CONFIG;
+  const { FONTS, THEMES, SLIDERS, UI_BINDINGS, BINDING_BY_ID, SETTINGS_SCHEMA, SCHEMA_BY_KEY } = AA.UI_CONFIG;
 
   const qsa = (el, sel) => el.querySelectorAll(sel);
 
@@ -12,26 +12,13 @@
     } catch (e) {}
   };
 
-  const fmtSliderVal = (id, raw) => {
-    const v = Number(raw);
-    switch (id) {
-      case 'ctrl-size':
-      case 'ctrl-weight':
-        return String(Math.round(v));
-      case 'ctrl-speed':
-        return v.toFixed(2) + 'x';
-      case 'ctrl-bg-brightness':
-      case 'ctrl-opacity':
-        return Math.round(v * 100) + '%';
-      case 'ctrl-offx':
-      case 'ctrl-offy':
-        return (v > 0 ? '+' : '') + Math.round(v);
-      case 'ctrl-hue-shift':
-        return (v > 0 ? '+' : '') + Math.round(v) + '°';
-      default:
-        return String(v);
-    }
+  const keyOfType = type => {
+    const e = SETTINGS_SCHEMA.find(s => s.type === type);
+    return e ? e.key : null;
   };
+  const ANCHOR_KEY = keyOfType('anchor');
+  const THEME_KEY = keyOfType('theme');
+  const LOWPOWER_KEY = keyOfType('button');
 
   class UIManager {
     static get DICT() {
@@ -235,17 +222,17 @@
 
     updateScaleText() {
       if (!this.scaleText) return;
-      const { renderScale } = this.store.getState();
+      const { bgRenderScale } = this.store.getState();
       const fmt = s => {
         const n = Number(s) || 1;
         return (n === 1 ? '1.0' : String(n)) + 'x';
       };
-      const text = renderScale === 0 ? `AUTO · ${fmt(AA._activeScale || 1)}` : fmt(renderScale);
+      const text = bgRenderScale === 'auto' ? `AUTO · ${fmt(AA._activeScale || 1)}` : fmt(bgRenderScale);
       if (this._scaleTxt !== text) {
         this._scaleTxt = text;
         this.scaleText.textContent = text;
       }
-      if (this.scaleDot) this.scaleDot.style.background = renderScale === 0 ? '#0a84ff' : '';
+      if (this.scaleDot) this.scaleDot.style.background = bgRenderScale === 'auto' ? '#0a84ff' : '';
     }
 
     syncFps(on) {
@@ -291,7 +278,8 @@
     }
 
     renderPanel() {
-      const { lang } = this.store.getState();
+      const state = this.store.getState();
+      const { lang } = state;
       const d = UIManager.DICT[lang];
       const I = this.activeTab;
 
@@ -299,121 +287,86 @@
         return `<div class="settings-row"><span class="row-label" title="${label}">${label}</span>${ctrl}</div>`;
       };
 
-      const tg = (id, label) => {
-        return row(label, `<input type="checkbox" id="${id}" class="toggle-switch">`);
+      const tg = e => {
+        return row(e.label[lang], `<input type="checkbox" id="${e.id}" class="toggle-switch">`);
       };
 
-      const seg = (label, prop, options, offset = 0, values = null) => {
+      const seg = e => {
+        const label = e.label[lang];
+        const options = e.options[lang];
         const isCol = options.length > 3;
-        return `<div class="settings-row${isCol ? ' col-layout' : ''}"><span class="row-label" title="${label}">${label}</span><div class="segmented-control${isCol ? '' : ' inline-seg'}" data-prop="${prop}" role="radiogroup" aria-label="${label}"><div class="segmented-highlight"></div>${options.map((t, i) => `<button class="segment-btn" role="radio" aria-checked="false" data-value="${values ? values[i] : i + offset}">${t}</button>`).join('')}</div></div>`;
+        const style = e.style ? ` style="${e.style}"` : '';
+        const btns = options.map((t, i) => {
+          const act = !!e.prerender && String(e.values[i]) === String(state[e.key]);
+          return `<button class="segment-btn${act ? ' active' : ''}" role="radio" aria-checked="${act}" data-value="${e.values[i]}">${t}</button>`;
+        }).join('');
+        return `<div class="settings-row${isCol ? ' col-layout' : ''}"><span class="row-label" title="${label}">${label}</span><div class="segmented-control${isCol ? '' : ' inline-seg'}" data-prop="${e.key}" role="radiogroup" aria-label="${label}"${style}><div class="segmented-highlight"></div>${btns}</div></div>`;
       };
 
-      const mtg = (label, opts) => {
-        return `<div class="settings-row"><span class="row-label" title="${label}">${label}</span><div class="mtg-control">${opts.map(o => `<button class="mtg-btn" aria-pressed="false" data-prop="${o.p}">${o.l}</button>`).join('')}</div></div>`;
+      const mtg = grp => {
+        return row(d[grp[0].group], `<div class="mtg-control">${grp.map(e => `<button class="mtg-btn" aria-pressed="false" data-prop="${e.key}">${e.label[lang]}</button>`).join('')}</div>`);
       };
 
-      const slider = (key, id) => {
-        const s = UIManager.SLIDERS.find(s => s.key === key && (!id || s.id === id));
-        return `<div class="slider-row" aria-label="${d[key]}">${UIManager.renderIcon(s.svgMin, 'slider-icon min-icon')}<div class="range-container slider-wrap"><input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}"><output class="slider-bubble" aria-hidden="true"></output></div>${UIManager.renderIcon(s.svgMax, 'slider-icon max-icon')}</div>`;
+      const chips = grp => {
+        return row(
+          d[grp[0].group],
+          `<div class="tc-group">${grp.map(e => `<label class="tc-chip"><span class="tc-dot" id="swatch-${e.key}" style="background:${state[e.key]}"></span><span class="tc-lbl">${e.label[lang]}</span><input type="color" class="tc-input" id="${e.id}" data-prop="${e.key}" value="${state[e.key]}" aria-label="${d[e.group]} ${e.label[lang]}"></label>`).join('')}</div>`
+        );
       };
 
-      const langRow = row(
-        d.lang,
-        `<div class="segmented-control inline-seg" data-prop="lang" role="radiogroup" aria-label="${d.lang}" style="max-width:120px"><div class="segmented-highlight"></div><button class="segment-btn ${lang === 'en' ? 'active' : ''}" role="radio" aria-checked="${lang === 'en'}" data-value="en">EN</button><button class="segment-btn ${lang === 'zh' ? 'active' : ''}" role="radio" aria-checked="${lang === 'zh'}" data-value="zh">中</button></div>`
-      );
+      const slider = e => {
+        return `<div class="slider-row" aria-label="${e.label[lang]}">${UIManager.renderIcon(e.svgMin, 'slider-icon min-icon')}<div class="range-container slider-wrap"><input type="range" id="${e.id}" min="${e.min}" max="${e.max}" step="${e.step}"><output class="slider-bubble" aria-hidden="true"></output></div>${UIManager.renderIcon(e.svgMax, 'slider-icon max-icon')}</div>`;
+      };
 
-      const theme = row(
-        d.theme,
-        `<div class="swatches-container">${UIManager.THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}<div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div></div>`
-      );
+      const theme = e => {
+        return row(
+          e.label[lang],
+          `<div class="swatches-container">${UIManager.THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}<div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div></div>`
+        );
+      };
 
-      const tcKeys = ['textColor', 'ampmColor', 'dateColor', 'customTextColor'];
-      const tcState = this.store.getState();
-      const tcRow = row(
-        d.tc,
-        `<div class="tc-group">${tcKeys.map((k, idx) => `<label class="tc-chip"><span class="tc-dot" id="swatch-${k}" style="background:${tcState[k]}"></span><span class="tc-lbl">${d.tcItems[idx]}</span><input type="color" class="tc-input" id="ctrl-${k}" data-prop="${k}" value="${tcState[k]}" aria-label="${d.tc} ${d.tcItems[idx]}"></label>`).join('')}</div>`
-      );
+      const anchorRow = e => {
+        const label = e.label[lang];
+        return `<div class="settings-row anchor-row"><span class="row-label" title="${label}">${label}</span><div class="anchor-grid" data-prop="${e.key}" role="radiogroup" aria-label="${label}">${[...Array(9)].map((_, i) => `<button class="anchor-btn" data-value="${i}" role="radio" aria-checked="false" aria-label="${label} ${i + 1}"></button>`).join('')}</div></div>`;
+      };
 
-      const anchorRow = `<div class="settings-row anchor-row"><span class="row-label" title="${d.anchor}">${d.anchor}</span><div class="anchor-grid" data-prop="anchor" role="radiogroup" aria-label="${d.anchor}">${[...Array(9)].map((_, i) => `<button class="anchor-btn" data-value="${i}" role="radio" aria-checked="false" aria-label="${d.anchor} ${i + 1}"></button>`).join('')}</div></div>`;
+      const ctRow = e => {
+        return `<div class="settings-row"><input type="text" id="${e.id}" class="ct-input" maxlength="${e.maxLength}" placeholder="${e.placeholder[lang]}" enterkeyhint="done" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="${e.label[lang]}"></div>`;
+      };
 
-      const ctRow = `<div class="settings-row"><input type="text" id="ctrl-customtext" class="ct-input" maxlength="30" placeholder="${d.ctph}" enterkeyhint="done" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="${d.sct}"></div>`;
+      const RENDER = {
+        toggle: tg,
+        segmented: seg,
+        slider,
+        theme,
+        anchor: anchorRow,
+        'custom-text': ctRow
+      };
 
-      const tabs = [
-        // Tab 0: Clock
-        [
-          [
-            seg(d.font, 'fontStyle', ['SF Pro', 'New York', 'Mono']),
-            tcRow,
-            seg(d.mat, 'material', d.mats)
-          ],
-          [
-            slider('size'),
-            slider('weight'),
-            slider('opacity')
-          ],
-          [
-            tg('ctrl-24hr', d.time),
-            tg('ctrl-leadingzero', d.lz),
-            tg('ctrl-seconds', d.sec),
-            seg(d.tick, 'clockAnimMode', d.ticks)
-          ],
-          [
-            tg('ctrl-date', d.date),
-            mtg(d.df, [
-              { l: d.dY, p: 'showY' },
-              { l: d.dM, p: 'showM' },
-              { l: d.dD, p: 'showD' },
-              { l: d.dW, p: 'showW' }
-            ]),
-            seg(d.layout, 'clockLayout', d.layouts),
-            seg(d.datePos, 'datePosition', d.datePositions)
-          ],
-          [
-            tg('ctrl-showcustom', d.sct),
-            ctRow
-          ],
-          [
-            anchorRow,
-            slider('offset', 'ctrl-offx'),
-            slider('offset', 'ctrl-offy')
-          ]
-        ],
-        // Tab 1: Background
-        [
-          [
-            seg(d.mode, 'mode', d.modes, 1),
-            theme,
-            tg('ctrl-colormix', d.colorMix),
-            slider('hueShift', 'ctrl-hue-shift')
-          ],
-          [
-            tg('ctrl-huedrift', d.hueDrift),
-            tg('ctrl-modecycle', d.modeCycle),
-            seg(d.cycleInt, 'cycleInterval', d.cycleInts)
-          ],
-          [
-            slider('speed'),
-            slider('bgBrightness', 'ctrl-bg-brightness'),
-            seg(d.vignette, 'vignette', d.vignettes),
-            seg(d.renderScale, 'renderScale', [d.auto, '0.25x', '0.5x', '0.75x', '1.0x'], 0, [0, 0.25, 0.5, 0.75, 1])
-          ]
-        ],
-        // Tab 2: System
-        [
-          [
-            langRow,
-            seg(d.idle, 'idleTimeout', d.idles),
-            tg('ctrl-dimidle', d.dimIdle)
-          ],
-          [
-            tg('ctrl-pixelshift', d.burn),
-            tg('ctrl-nightmode', d.night),
-            tg('ctrl-fps', d.showFps),
-            tg('ctrl-scale', d.showScale),
-            tg('ctrl-sliderval', d.showSliderVal)
-          ]
-        ]
-      ];
+      const renderBlock = list => {
+        const out = [];
+        for (let i = 0; i < list.length; i++) {
+          const e = list[i];
+          if (e.type === 'color-chip' || e.type === 'mtg-item') {
+            const grp = [e];
+            while (i + 1 < list.length && list[i + 1].type === e.type && list[i + 1].group === e.group) {
+              grp.push(list[++i]);
+            }
+            out.push(e.type === 'color-chip' ? chips(grp) : mtg(grp));
+          } else if (RENDER[e.type]) {
+            out.push(RENDER[e.type](e));
+          }
+        }
+        return out;
+      };
+
+      const tabs = d.tabs.map((_, t) => {
+        const blocks = [];
+        SETTINGS_SCHEMA.filter(e => e.tab === t).forEach(e => {
+          (blocks[e.block] = blocks[e.block] || []).push(e);
+        });
+        return blocks.filter(Boolean).map(renderBlock);
+      });
 
       if (this._cp) this._cp.close();
 
@@ -451,7 +404,12 @@
       if (w && w.classList.contains('slider-wrap')) {
         w.style.setProperty('--p', p);
         const b = qs(w, '.slider-bubble');
-        if (b) b.textContent = fmtSliderVal(el.id, el.value);
+        if (b) {
+          const hit = UIManager.BINDING_BY_ID[el.id];
+          const ent = hit && SCHEMA_BY_KEY[hit[0]];
+          const v = Number(el.value);
+          b.textContent = ent && ent.formatVal ? ent.formatVal(v) : String(v);
+        }
       }
     }
 
@@ -464,7 +422,7 @@
 
     updateSegmentHighlight(container, val, skipAnim = false) {
       const btn = Array.from(qsa(container, '.segment-btn')).find(b => {
-        return isNaN(b.dataset.value) ? b.dataset.value === val : Number(b.dataset.value) === Number(val);
+        return String(b.dataset.value) === String(val);
       });
 
       if (btn) {
@@ -488,13 +446,15 @@
 
     syncUI(skipAnim = false, changedKey = null) {
       const state = this.store.getState();
-      const { lowPower, colorTarget, anchor, offsetX, offsetY } = state;
+      const full = changedKey === null;
+      const changed = full ? null : SCHEMA_BY_KEY[changedKey];
+      const ap = changed && changed.apply;
+      const entries = full ? SETTINGS_SCHEMA : (changed ? [changed] : []);
       const root = document.documentElement;
       const sp = (k, v) => root.style.setProperty(k, v);
-      const full = changedKey === null;
 
-      if (!full && !skipAnim && (changedKey === 'material' || changedKey === 'fontStyle')) {
-        const targetEl = changedKey === 'fontStyle' ? this.clockWrapperEl : this.clockEl;
+      if (!full && !skipAnim && ap && ap.typoTarget) {
+        const targetEl = ap.typoTarget === 'wrapper' ? this.clockWrapperEl : this.clockEl;
         if (this.typoAnim) {
           this.typoAnim.cancel();
           this.typoAnim = null;
@@ -526,127 +486,84 @@
         } else {
           this.applyVisualVars(false);
         }
-      } else if (
-        full ||
-        skipAnim ||
-        ['nightMode', 'textColor', 'ampmColor', 'dateColor', 'customTextColor', 'clockOpacity', 'size', 'colorTarget'].includes(changedKey)
-      ) {
+      } else if (full || skipAnim || (ap && (ap.visual || ap.typoTarget))) {
         this.applyVisualVars(full);
       }
 
-      if (full || changedKey === 'anchor') {
-        const ax = anchor % 3;
-        const ay = Math.floor(anchor / 3);
-        const F = ['flex-start', 'center', 'flex-end'];
-        const O = ['4vmin', '50%', 'calc(100% - 4vmin)'];
-        sp('--pos-x', F[ax]);
-        sp('--pos-y', F[ay]);
-        sp('--ox', O[ax]);
-        sp('--oy', O[ay]);
-        qsa(document, '.anchor-btn').forEach((b, i) => {
-          b.classList.toggle('active', i === anchor);
-          b.setAttribute('aria-checked', i === anchor ? 'true' : 'false');
-        });
-      }
+      const ran = new Set();
+      entries.forEach(e => {
+        const val = state[e.key];
+        const a = e.apply;
 
-      if (full || ['showY', 'showM', 'showD', 'showW'].includes(changedKey)) {
-        qsa(document, '.mtg-btn').forEach(b => {
-          const act = !!state[b.dataset.prop];
-          b.classList.toggle('active', act);
-          b.setAttribute('aria-pressed', act ? 'true' : 'false');
-        });
-      }
-
-      if (full || changedKey === 'offsetX') sp('--off-x', `${offsetX}vw`);
-      if (full || changedKey === 'offsetY') sp('--off-y', `${offsetY}vh`);
-
-      ['textColor', 'ampmColor', 'dateColor', 'customTextColor'].forEach(k => {
-        if (full || changedKey === k) {
-          const inp = $(`ctrl-${k}`);
-          const dot = $(`swatch-${k}`);
-          if (inp) inp.value = state[k];
-          if (dot) dot.style.background = state[k];
-        }
-      });
-
-      if (full || changedKey === 'pixelShift') this.runPixelShift();
-      if (full || changedKey === 'showFps' || changedKey === 'showScale' || changedKey === 'renderScale') {
-        this.syncFps(!!state.showFps);
-      }
-      if (full || changedKey === 'dimOnIdle') {
-        document.body.classList.toggle('no-idle-dim', !state.dimOnIdle);
-      }
-
-      if (full || changedKey === 'colorMix') {
-        const hsEl = $('ctrl-hue-shift');
-        if (hsEl) {
-          const hsRow = hsEl.closest('.slider-row');
-          if (hsRow) {
-            hsRow.classList.toggle('is-hidden', !state.colorMix);
-            hsRow.style.display = state.colorMix ? '' : 'none';
+        if (a) {
+          if (a.cssVar) sp(a.cssVar, a.cssFormat ? a.cssFormat(val) : val);
+          if (a.hook && !ran.has(a.hook)) {
+            ran.add(a.hook);
+            a.hook(val, state, this);
           }
         }
-      }
 
-      if (full || changedKey === 'modeCycle') {
-        const ciEl = qs(this.panel, '.segmented-control[data-prop="cycleInterval"]');
-        if (ciEl) {
-          const ciRow = ciEl.closest('.settings-row');
-          if (ciRow) {
-            ciRow.classList.toggle('is-hidden', !state.modeCycle);
-            ciRow.style.display = state.modeCycle ? '' : 'none';
+        if (e.type === 'slider' || e.type === 'toggle' || e.type === 'custom-text') {
+          const b = UIManager.UI_BINDINGS[e.key];
+          const el = b && $(b.id);
+          if (el) {
+            if (String(el[b.prop]) !== String(val)) el[b.prop] = val;
+            if (el.type === 'range') this.updateSliderFill(el);
           }
-        }
-        if (state.modeCycle && ciEl) this.updateSegmentHighlight(ciEl, state.cycleInterval, true);
-      }
-
-      if (full || changedKey === 'lowPower') {
-        const btnLowpower = this.btnLowpower;
-        if (btnLowpower) btnLowpower.classList.toggle('is-active', lowPower);
-      }
-
-      const bindings = UIManager.UI_BINDINGS;
-      const bindKeys = full ? Object.keys(bindings) : (bindings[changedKey] ? [changedKey] : []);
-      bindKeys.forEach(k => {
-        const b = bindings[k];
-        const el = $(b.id);
-        if (el) {
-          if (String(el[b.prop]) !== String(state[k])) el[b.prop] = state[k];
-          if (b.cssVar) sp(b.cssVar, b.format ? b.format(state[k]) : state[k]);
-          if (el.type === 'range') this.updateSliderFill(el);
-        }
-      });
-
-      if (full) {
-        qsa(document, '.segmented-control').forEach(c => {
-          const val = state[c.dataset.prop];
-          if (val !== undefined) {
+        } else if (e.type === 'segmented') {
+          const c = qs(document, `.segmented-control[data-prop="${e.key}"]`);
+          if (c && val !== undefined) {
             requestAnimationFrame(() => this.updateSegmentHighlight(c, val, skipAnim));
           }
-        });
-      } else {
-        const c = qs(document, `.segmented-control[data-prop="${changedKey}"]`);
-        const val = state[changedKey];
-        if (c && val !== undefined) {
-          requestAnimationFrame(() => this.updateSegmentHighlight(c, val, skipAnim));
+        } else if (e.type === 'color-chip') {
+          const inp = $(e.id);
+          const dot = $(`swatch-${e.key}`);
+          if (inp) inp.value = val;
+          if (dot) dot.style.background = val;
+        } else if (e.type === 'mtg-item') {
+          const btn = qs(document, `.mtg-btn[data-prop="${e.key}"]`);
+          if (btn) {
+            const act = !!val;
+            btn.classList.toggle('active', act);
+            btn.setAttribute('aria-pressed', act ? 'true' : 'false');
+          }
+        } else if (e.type === 'theme') {
+          qsa(document, '.swatches-container .swatch-wrapper').forEach(s => s.classList.remove('active'));
+          const activeSwatch = qs(document, `.swatch-wrapper[data-rgb="${val.join(',')}"]`);
+          const customEl = $('custom-swatch-color');
+          if (activeSwatch) {
+            activeSwatch.classList.add('active');
+            customEl.style.background = '';
+            customEl.classList.remove('has-color');
+          } else {
+            $('custom-swatch-wrapper').classList.add('active');
+            $('custom-color-input').value = UIManager.rgbToHex(...val);
+            customEl.style.background = UIManager.rgbToHex(...val);
+            customEl.classList.add('has-color');
+          }
         }
-      }
+      });
 
-      if (full || changedKey === 'colorTarget') {
-        qsa(document, '.swatches-container .swatch-wrapper').forEach(s => s.classList.remove('active'));
-        const activeSwatch = qs(document, `.swatch-wrapper[data-rgb="${colorTarget.join(',')}"]`);
-        const customEl = $('custom-swatch-color');
-        if (activeSwatch) {
-          activeSwatch.classList.add('active');
-          customEl.style.background = '';
-          customEl.classList.remove('has-color');
+      SETTINGS_SCHEMA.forEach(e => {
+        if (!e.visibleWhen) return;
+        let rowEl = null;
+        if (e.type === 'segmented') {
+          const c = qs(this.panel, `.segmented-control[data-prop="${e.key}"]`);
+          rowEl = c && c.closest('.settings-row');
         } else {
-          $('custom-swatch-wrapper').classList.add('active');
-          $('custom-color-input').value = UIManager.rgbToHex(...colorTarget);
-          customEl.style.background = UIManager.rgbToHex(...colorTarget);
-          customEl.classList.add('has-color');
+          const el = $(e.id);
+          rowEl = el && el.closest(e.type === 'slider' ? '.slider-row' : '.settings-row');
         }
-      }
+        if (!rowEl) return;
+        const vis = !!e.visibleWhen(state);
+        const wasHidden = rowEl.classList.contains('is-hidden');
+        rowEl.classList.toggle('is-hidden', !vis);
+        rowEl.style.display = vis ? '' : 'none';
+        if (vis && e.type === 'segmented' && (full || wasHidden)) {
+          const c = qs(rowEl, '.segmented-control');
+          if (c) this.updateSegmentHighlight(c, state[e.key], true);
+        }
+      });
 
       if (this._cp) this._cp.refresh(changedKey);
     }
@@ -701,7 +618,7 @@
       const segValue = b => (isNaN(b.dataset.value) ? b.dataset.value : Number(b.dataset.value));
 
       const applySeg = (prop, b) => {
-        if (prop === 'material' && +b.dataset.value === 3) this.tryRequestGyro();
+        if (prop === 'clockMaterial' && +b.dataset.value === 3) this.tryRequestGyro();
         haptic(10);
         this.store.setState(prop, segValue(b));
       };
@@ -741,7 +658,7 @@
             }
           }
         }
-        if (!hit || segValue(hit) === this.store.getState()[this.segProp]) return;
+        if (!hit || String(segValue(hit)) === String(this.store.getState()[this.segProp])) return;
         this.segDragged = true;
         applySeg(this.segProp, hit);
       };
@@ -753,7 +670,7 @@
       };
 
       on(document, 'pointerdown', e => {
-        if (this.store.getState().material === 3) {
+        if (this.store.getState().clockMaterial === 3) {
           trackGlassPtr(e);
           this.tryRequestGyro();
         }
@@ -783,10 +700,11 @@
             holdFired = true;
             anchorHold = null;
             haptic([30, 50]);
-            this.store.setState('offsetX', 0);
-            this.store.setState('offsetY', 0);
-            if (this.store.getState().anchor !== +btn.dataset.value) {
-              this.store.setState('anchor', +btn.dataset.value);
+            (SCHEMA_BY_KEY[ANCHOR_KEY].resets || []).forEach(k => {
+              this.store.setState(k, SCHEMA_BY_KEY[k].default);
+            });
+            if (this.store.getState()[ANCHOR_KEY] !== +btn.dataset.value) {
+              this.store.setState(ANCHOR_KEY, +btn.dataset.value);
             }
           }, 500);
         } else if (
@@ -811,7 +729,7 @@
         ) {
           this.exitApp(false);
         }
-        if (state.material === 3) trackGlassPtr(e);
+        if (state.clockMaterial === 3) trackGlassPtr(e);
         if (this.segTarget) scrubSeg(e);
         if (this.tgTarget && this.tgStart !== null) {
           const dx = e.clientX - this.tgStart;
@@ -869,7 +787,7 @@
         } else if (e.target.classList.contains('tc-input')) {
           this.store.setState(e.target.dataset.prop, e.target.value);
         } else if (e.target.id === 'custom-color-input') {
-          this.store.setState('colorTarget', UIManager.hexToRgb(e.target.value));
+          this.store.setState(THEME_KEY, UIManager.hexToRgb(e.target.value));
         }
       });
 
@@ -898,7 +816,7 @@
         const isTc = !!(t.classList && t.classList.contains('tc-input'));
         if (!isBg && !isTc) return;
         e.preventDefault();
-        cp.toggle(isBg ? 'colorTarget' : t.dataset.prop, t, e.detail === 0);
+        cp.toggle(isBg ? THEME_KEY : t.dataset.prop, t, e.detail === 0);
       }, { capture: true });
 
       on(document, 'pointerdown', e => {
@@ -950,17 +868,17 @@
         } else if (anchorBtn) {
           if (!holdFired && !anchorBtn.classList.contains('active')) {
             haptic(10);
-            this.store.setState('anchor', +anchorBtn.dataset.value);
+            this.store.setState(ANCHOR_KEY, +anchorBtn.dataset.value);
           }
           holdFired = false;
         } else if (segBtn && !segBtn.classList.contains('active')) {
           applySeg(segBtn.closest('.segmented-control').dataset.prop, segBtn);
         } else if (swatch) {
           haptic(10);
-          this.store.setState('colorTarget', swatch.dataset.rgb.split(',').map(Number));
+          this.store.setState(THEME_KEY, swatch.dataset.rgb.split(',').map(Number));
         } else if (e.target.closest('#btn-lowpower')) {
-          const newState = !state.lowPower;
-          this.store.setState('lowPower', newState);
+          const newState = !state[LOWPOWER_KEY];
+          this.store.setState(LOWPOWER_KEY, newState);
           this.showHUD(newState ? UIManager.DICT[state.lang].lpOn : UIManager.DICT[state.lang].lpOff);
         } else if (e.target.closest('#btn-settings')) {
           this.panel.classList.toggle('active');

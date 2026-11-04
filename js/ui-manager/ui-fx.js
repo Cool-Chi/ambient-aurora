@@ -4,44 +4,44 @@ const haptic = p => { try { navigator.vibrate?.(p) } catch(e){} };
 function runPixelShift() {
   const state = this.store.getState();
   clearInterval(this.pixelShiftTimer);
-  if (state.pixelShift) this.pixelShiftTimer = setInterval(() => this.appContainer.style.transform = `translate(${(Math.random()-0.5)*12}px, ${(Math.random()-0.5)*12}px)`, 60000);
+  if (state.isPixelShift) this.pixelShiftTimer = setInterval(() => this.appContainer.style.transform = `translate(${(Math.random()-0.5)*12}px, ${(Math.random()-0.5)*12}px)`, 60000);
   else this.appContainer.style.transform = 'translate(0px, 0px)';
 }
 function applyVisualVars(full = false) {
-  const { fontStyle, nightMode, textColor, ampmColor, dateColor, customTextColor, material, clockOpacity: op, size, colorTarget } = this.store.getState();
+  const { clockFont, isNightMode, clockColor, clockAmpmColor, dateColor, clockCustomTextColor, clockMaterial, clockOpacity: op, clockSize, bgColor } = this.store.getState();
   const root = document.documentElement, sp = (k, v) => root.style.setProperty(k, v);
   const rgba = (hex, a) => `rgba(${AA.UIManager.hexToRgb(hex).map(x => Math.round(x * 255)).join(', ')}, ${a})`;
   const nightCol = `rgba(110, 63, 32, ${op})`;
-  sp('--clock-font', AA.UIManager.FONTS[fontStyle]);
-  sp('--ampm-color', nightMode ? nightCol : rgba(ampmColor, op));
-  sp('--date-color', nightMode ? nightCol : rgba(dateColor, op));
-  sp('--custom-text-color', nightMode ? nightCol : rgba(customTextColor, op));
-  sp('--clock-shadow-color', nightMode ? 'transparent' : `rgba(255, 255, 255, ${0.2 * op})`);
-  const [r, g, b] = nightMode ? [217, 119, 54] : AA.UIManager.hexToRgb(textColor).map(x => Math.round(x * 255));
+  sp('--clock-font', AA.UIManager.FONTS[clockFont]);
+  sp('--ampm-color', isNightMode ? nightCol : rgba(clockAmpmColor, op));
+  sp('--date-color', isNightMode ? nightCol : rgba(dateColor, op));
+  sp('--custom-text-color', isNightMode ? nightCol : rgba(clockCustomTextColor, op));
+  sp('--clock-shadow-color', isNightMode ? 'transparent' : `rgba(255, 255, 255, ${0.2 * op})`);
+  const [r, g, b] = isNightMode ? [217, 119, 54] : AA.UIManager.hexToRgb(clockColor).map(x => Math.round(x * 255));
   const cColor = `rgba(${r}, ${g}, ${b}, ${op})`;
   let fill = cColor, stroke = '0', blend = 'normal', digitFilter = 'none', filter = 'drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 4px var(--clock-shadow-color))';
-  if (material === 1) {
+  if (clockMaterial === 1) {
     fill = `rgb(${r}, ${g}, ${b})`;
     stroke = '0';
     digitFilter = 'url(#hollow-fx)';
     const hb = this.glassEls && this.glassEls.hollowBlur, hf = this.glassEls && this.glassEls.hollowFlood;
-    if (hb) hb.setAttribute('stdDeviation', Math.max(1.0, size * 0.095).toFixed(2));
+    if (hb) hb.setAttribute('stdDeviation', Math.max(1.0, clockSize * 0.095).toFixed(2));
     if (hf) {
       hf.setAttribute('flood-color', `rgb(${r}, ${g}, ${b})`);
       hf.setAttribute('flood-opacity', String(op));
     }
-  } else if (material === 2) {
+  } else if (clockMaterial === 2) {
     const [rc, gc, bc] = [r, g, b].map(c => Math.round(c + (255 - c) * 0.38));
     fill = `rgba(${rc}, ${gc}, ${bc}, ${op})`;
     stroke = `max(1px, 0.015em) rgba(${r}, ${g}, ${b}, ${(0.9 * op).toFixed(2)})`;
     blend = 'screen';
     filter = `drop-shadow(0 0 2px rgba(255, 255, 255, ${(0.65 * op).toFixed(2)})) drop-shadow(0 0 6px rgba(${r}, ${g}, ${b}, ${(0.95 * op).toFixed(2)})) drop-shadow(0 0 16px rgba(${r}, ${g}, ${b}, ${(0.75 * op).toFixed(2)})) drop-shadow(0 0 34px rgba(${r}, ${g}, ${b}, ${(0.45 * op).toFixed(2)}))`;
-  } else if (material === 3) {
-    const maxC = Math.max(colorTarget[0], colorTarget[1], colorTarget[2], 0.01);
-    const [ar, ag, ab] = nightMode ? [217, 119, 54] : colorTarget.map(v => Math.round(clamp((v / maxC) * 195 + 60, 0, 255)));
-    const [gr, gg, gb] = nightMode ? [217, 119, 54] : [Math.round(r * 0.45 + ar * 0.55), Math.round(g * 0.45 + ag * 0.55), Math.round(b * 0.45 + ab * 0.55)];
-    const [sr, sg, sb] = nightMode ? [242, 168, 110] : [gr, gg, gb].map(c => Math.round(c + (255 - c) * 0.65));
-    const [cr, cg, cb] = nightMode ? [255, 210, 165] : [r, g, b].map(c => Math.round(c + (255 - c) * 0.92));
+  } else if (clockMaterial === 3) {
+    const maxC = Math.max(bgColor[0], bgColor[1], bgColor[2], 0.01);
+    const [ar, ag, ab] = isNightMode ? [217, 119, 54] : bgColor.map(v => Math.round(clamp((v / maxC) * 195 + 60, 0, 255)));
+    const [gr, gg, gb] = isNightMode ? [217, 119, 54] : [Math.round(r * 0.45 + ar * 0.55), Math.round(g * 0.45 + ag * 0.55), Math.round(b * 0.45 + ab * 0.55)];
+    const [sr, sg, sb] = isNightMode ? [242, 168, 110] : [gr, gg, gb].map(c => Math.round(c + (255 - c) * 0.65));
+    const [cr, cg, cb] = isNightMode ? [255, 210, 165] : [r, g, b].map(c => Math.round(c + (255 - c) * 0.92));
     fill = `rgb(${gr}, ${gg}, ${gb})`;
     stroke = '0';
     digitFilter = 'none';
@@ -55,16 +55,16 @@ function applyVisualVars(full = false) {
       setFlood(ge.causticFlood, `rgb(${sr}, ${sg}, ${sb})`, 0.36 + this.glassPress * 0.16);
       setFlood(ge.whisperFlood, `rgb(${ar}, ${ag}, ${ab})`, 0.28);
       setFlood(ge.crestFlood, `rgb(${cr}, ${cg}, ${cb})`, 0.95);
-      setFlood(ge.prismCFlood, '#38e8ff', nightMode ? 0 : 0.38);
-      setFlood(ge.prismWFlood, '#ff6ee0', nightMode ? 0 : 0.34);
-      if (this._glassStaticSize !== size) {
-        this._glassStaticSize = size;
-        ge.bevelBlur.setAttribute('stdDeviation', Math.min(2.0, Math.max(1.3, size * 0.14)).toFixed(2));
-        ge.crestBlur.setAttribute('stdDeviation', Math.min(0.4, Math.max(0.32, size * 0.024)).toFixed(2));
-        const mDist = String(Math.min(3, Math.max(1, Math.round(size * 0.12))));
+      setFlood(ge.prismCFlood, '#38e8ff', isNightMode ? 0 : 0.38);
+      setFlood(ge.prismWFlood, '#ff6ee0', isNightMode ? 0 : 0.34);
+      if (this._glassStaticSize !== clockSize) {
+        this._glassStaticSize = clockSize;
+        ge.bevelBlur.setAttribute('stdDeviation', Math.min(2.0, Math.max(1.3, clockSize * 0.14)).toFixed(2));
+        ge.crestBlur.setAttribute('stdDeviation', Math.min(0.4, Math.max(0.32, clockSize * 0.024)).toFixed(2));
+        const mDist = String(Math.min(3, Math.max(1, Math.round(clockSize * 0.12))));
         ge.mwOff.setAttribute('dx', mDist); ge.meOff.setAttribute('dx', '-' + mDist);
         ge.mnOff.setAttribute('dy', mDist); ge.msOff.setAttribute('dy', '-' + mDist);
-        const cDist = String(Math.min(2, Math.max(1, Math.round(size * 0.045))));
+        const cDist = String(Math.min(2, Math.max(1, Math.round(clockSize * 0.045))));
         ge.cwOff.setAttribute('dx', cDist); ge.ceOff.setAttribute('dx', '-' + cDist);
         ge.cnOff.setAttribute('dy', cDist); ge.csOff.setAttribute('dy', '-' + cDist);
       }
@@ -73,8 +73,8 @@ function applyVisualVars(full = false) {
     this.updateGlassVectors(true);
     this.startGlassLoop();
   }
-  this._lastMat = material;
-  if (material !== 3) {
+  this._lastMat = clockMaterial;
+  if (clockMaterial !== 3) {
     this.stopGlassLoop();
     sp('--glass-press', '1');
   }
@@ -104,13 +104,13 @@ function tryRequestGyro() {
   }
 }
 function handleGyro(e) {
-  if (e.gamma === null || e.beta === null || this.store.getState().material !== 3) return;
+  if (e.gamma === null || e.beta === null || this.store.getState().clockMaterial !== 3) return;
   this.hasGyro = true;
   this.gyroX = clamp(e.gamma / 35, -1, 1);
   this.gyroY = clamp((e.beta - 45) / 35, -1, 1);
 }
 function startGlassLoop() {
-  if (this.glassRaf || document.hidden || this.store.getState().material !== 3) return;
+  if (this.glassRaf || document.hidden || this.store.getState().clockMaterial !== 3) return;
   this._lastGlassDom = 0;
   this.updateGlassVectors(true);
   this.lastGlassTick = performance.now();
@@ -125,7 +125,7 @@ function stopGlassLoop() {
 function updateGlassVectors(force = false) {
   const g = this.glassEls;
   if (!g || !g.crestX) return;
-  const { clockOpacity: op, nightMode } = this.store.getState();
+  const { clockOpacity: op, isNightMode } = this.store.getState();
   const p = this.glassPress;
   const comp = 1 - p * 0.35;
   const nx = Math.cos(this.lAngle), ny = Math.sin(this.lAngle);
@@ -164,7 +164,7 @@ function updateGlassVectors(force = false) {
       g.bevelFlood.setAttribute('flood-opacity', ((0.17 + p * 0.08) * op).toFixed(3));
       g.causticFlood.setAttribute('flood-opacity', ((0.36 + p * 0.16) * op).toFixed(3));
     }
-    if (!nightMode) {
+    if (!isNightMode) {
       g.prismCFlood.setAttribute('flood-opacity', ((0.38 + p * 0.12) * op).toFixed(3));
       g.prismWFlood.setAttribute('flood-opacity', ((0.34 + p * 0.12) * op).toFixed(3));
     }
@@ -173,8 +173,8 @@ function updateGlassVectors(force = false) {
 }
 function tickGlass(now) {
   this.glassRaf = null;
-  const { material, isHolding, isIdle, speed, lowPower } = this.store.getState();
-  if (material !== 3 || document.hidden) return;
+  const { clockMaterial, isHolding, isIdle, bgSpeed, isLowPower } = this.store.getState();
+  if (clockMaterial !== 3 || document.hidden) return;
   const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const fdt = clamp(now - this.lastGlassTick, 1, 64);
   this.lastGlassTick = now;
@@ -190,7 +190,7 @@ function tickGlass(now) {
   }
   const ptrActive = now < this.ptrActiveUntil ? 1 : 0;
   const active = ptrActive === 1 || this.ptrW > 0.01 || isHolding || this.glassPress > 0.002;
-  const minStep = active ? 36 : (isIdle ? 240 : lowPower ? 240 : 110);
+  const minStep = active ? 36 : (isIdle ? 240 : isLowPower ? 240 : 110);
   const flipping = this.clockLayerObj && this.clockLayerObj.classList.contains('is-flipping');
   if (flipping || now - (this._lastGlassDom || 0) < minStep) {
     this.glassRaf = requestAnimationFrame(this.tickGlassBound);
@@ -198,7 +198,7 @@ function tickGlass(now) {
   }
   const dt = clamp((now - (this._lastGlassDom || now - minStep)) * 0.001, 0.016, 0.3);
   this._lastGlassDom = now;
-  const t = now * 0.00018 * clamp(speed, 0.2, 2.5);
+  const t = now * 0.00018 * clamp(bgSpeed, 0.2, 2.5);
   const driftX = Math.cos(t) * 0.64 + Math.sin(t * 0.43) * 0.22 + 0.16;
   const driftY = Math.sin(t * 0.71) * 0.64 + Math.cos(t * 0.37) * 0.22 + 0.18;
   const ambX = this.hasGyro ? clamp(driftX * 0.35 + (-this.gyroX) * 0.85, -1.15, 1.15) : driftX;
@@ -282,7 +282,7 @@ function exitApp(isStarting) {
     clearTimeout(this.holdTimeout);
     this.holdTimeout = null;
   }
-  if (this.store.getState().material === 3) this.startGlassLoop();
+  if (this.store.getState().clockMaterial === 3) this.startGlassLoop();
 }
 async function requestWakeLock() {
   if (this.wakeLock || this.wakeLockPending) return;

@@ -63,65 +63,7 @@
 
   initPWA();
 
-  const defaultState = {
-    // Language & background
-    lang: 'en',
-    mode: 1,
-    colorTarget: [0.21, 0.11, 0.47],
-    colorMix: true,
-    hueShift: 42,
-    hueDrift: false,
-    modeCycle: false,
-    cycleInterval: 0,
-    // Clock typography
-    size: 15,
-    weight: 200,
-    speed: 1,
-    bgBrightness: 1,
-    vignette: 1,
-    dimOnIdle: true,
-    // Time & date
-    is24Hour: true,
-    leadingZero: true,
-    showSeconds: false,
-    showDate: true,
-    showY: false,
-    showM: true,
-    showD: true,
-    showW: true,
-    // Clock style
-    clockAnimMode: 0,
-    clockLayout: 0,
-    fontStyle: 0,
-    // System
-    lowPower: false,
-    idleTimeout: 0,
-    pixelShift: true,
-    nightMode: false,
-    // Colors & material
-    textColor: '#ffffff',
-    ampmColor: '#b3b3b3',
-    dateColor: '#b3b3b3',
-    customTextColor: '#b3b3b3',
-    material: 0,
-    // Custom text & position
-    showCustomText: false,
-    customText: "Ambient Aurora",
-    anchor: 4,
-    offsetX: 0,
-    offsetY: 0,
-    clockOpacity: 1,
-    datePosition: 0,
-    // Rendering & HUD
-    renderScale: 0,
-    showFps: false,
-    showScale: false,
-    showSliderVal: false,
-    // Transient
-    isIdle: false,
-    isHolding: false,
-    isPanelOpen: false
-  };
+  const defaultState = AA.UI_CONFIG.buildDefaultState();
 
   const store = new Store(defaultState);
   const glEngine = new WebGLEngine($('gl-canvas'), store);

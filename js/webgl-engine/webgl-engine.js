@@ -2,6 +2,7 @@
   const { on, clamp } = AA.util;
   const { vsSource, fsSource } = AA.SHADERS;
   const { NIGHT_COLOR, applyHueDrift, deriveSecondaryColor } = AA.COLOR_UTILS;
+  const { BG_MODES } = AA.UI_CONFIG;
 
   // Central tunables for the engine (no other magic numbers for these behaviors)
   const ENGINE_CFG = {
@@ -72,38 +73,39 @@
 
       const state = this.store.getState();
       this.params = {
-        mode: state.mode,
+        bgMode: state.bgMode,
         isIdle: state.isIdle,
-        lowPower: state.lowPower,
-        speed: state.speed,
-        nightMode: state.nightMode,
-        colorTarget: state.colorTarget,
+        isLowPower: state.isLowPower,
+        bgSpeed: state.bgSpeed,
+        isNightMode: state.isNightMode,
+        bgColor: state.bgColor,
         isHolding: state.isHolding,
         bgBrightness: state.bgBrightness ?? 1,
-        dimOnIdle: state.dimOnIdle ?? true,
-        vignette: state.vignette ?? 1,
-        renderScale: state.renderScale,
+        isDimOnIdle: state.isDimOnIdle ?? true,
+        bgVignette: state.bgVignette ?? 1,
+        bgRenderScale: state.bgRenderScale,
         isPanelOpen: state.isPanelOpen,
-        colorMix: state.colorMix ?? true,
-        hueShift: state.hueShift ?? 42,
-        hueDrift: state.hueDrift ?? false,
-        modeCycle: state.modeCycle ?? false,
-        cycleInterval: state.cycleInterval ?? 0
+        isBgColorMix: state.isBgColorMix ?? true,
+        bgHueShift: state.bgHueShift ?? 42,
+        isBgHueDrift: state.isBgHueDrift ?? false,
+        isBgModeCycle: state.isBgModeCycle ?? false,
+        bgCycleInterval: state.bgCycleInterval ?? 0
       };
-      AA._activeScale = state.renderScale === 0 ? 1 : state.renderScale;
-      this.colorLive = [...state.colorTarget];
+      AA._activeScale = state.bgRenderScale === 'auto' ? 1 : state.bgRenderScale;
+      this.colorLive = [...state.bgColor];
       this.cachedColor2 = null;
       this.updateCachedColor2();
       this.color2Live = [...this.cachedColor2];
       this.driftPhase = 0;
-      this.displayMode = state.mode;
+      this.displayMode = state.bgMode;
       this.cycleElapsed = 0;
       this.currentWeights = [0, 0, 0, 0, 0];
       this.targetWeights = [0, 0, 0, 0, 0];
-      this.currentWeights[state.mode - 1] = 1.0;
-      this.targetWeights[state.mode - 1] = 1.0;
+      const modeIdx = Math.max(0, BG_MODES.indexOf(state.bgMode));
+      this.currentWeights[modeIdx] = 1.0;
+      this.targetWeights[modeIdx] = 1.0;
       this.currentBrightness = 1.0;
-      this.currentVignette = ENGINE_CFG.VIGNETTE_MAP[state.vignette] ?? 0;
+      this.currentVignette = ENGINE_CFG.VIGNETTE_MAP[state.bgVignette] ?? 0;
       this.globalTime = 0;
       this.lastTime = performance.now();
       this.renderBound = this.render.bind(this);
@@ -111,7 +113,7 @@
       this.isWrapping = false;
       this.wrapTime = 0;
       this.wrapProgress = 0;
-      this.highSpeedFps = (state.speed > 1.0);
+      this.highSpeedFps = (state.bgSpeed > 1.0);
       this.lastMinInterval = 0;
       this.idleStartTime = state.isIdle ? performance.now() : 0;
       this.isDeepIdle = false;
@@ -211,15 +213,15 @@
 
     updateFallback() {
       if (!this.fallbackActive || !this.fallbackEl) return;
-      const { nightMode, colorTarget } = this.params;
-      const c = nightMode ? NIGHT_COLOR : colorTarget;
+      const { isNightMode, bgColor } = this.params;
+      const c = isNightMode ? NIGHT_COLOR : bgColor;
       const rgb = (m) => `rgb(${c.map(x => Math.round(clamp(x * m, 0, 1) * 255)).join(',')})`;
       this.fallbackEl.style.background = `radial-gradient(ellipse at 30% 25%, ${rgb(1.6)} 0%, ${rgb(0.8)} 45%, #050505 100%)`;
     }
 
     updateCachedColor2() {
-      const { colorTarget, nightMode, colorMix, hueShift } = this.params;
-      this.cachedColor2 = deriveSecondaryColor(colorTarget, nightMode, colorMix, hueShift);
+      const { bgColor, isNightMode, isBgColorMix, bgHueShift } = this.params;
+      this.cachedColor2 = deriveSecondaryColor(bgColor, isNightMode, isBgColorMix, bgHueShift);
     }
 
     showFallback() {
@@ -237,9 +239,10 @@
     }
 
     setDisplayMode(m) {
+      const idx = Math.max(0, BG_MODES.indexOf(m));
       this.displayMode = m;
       this.targetWeights.fill(0);
-      this.targetWeights[m - 1] = 1.0;
+      this.targetWeights[idx] = 1.0;
       this.autoIgnoreUntil = performance.now() + ENGINE_CFG.AUTO_IGNORE_MODE_MS;
       this.overloadTime = 0;
       this.stableTime = 0;
@@ -248,53 +251,53 @@
     handleStateChange(key, val) {
       if (key in this.params) this.params[key] = val;
 
-      if (key === 'colorTarget' || key === 'nightMode' || key === 'colorMix' || key === 'hueShift') {
+      if (key === 'bgColor' || key === 'isNightMode' || key === 'isBgColorMix' || key === 'bgHueShift') {
         this.updateCachedColor2();
       }
 
       if (key === 'isIdle') {
         this.idleStartTime = val ? performance.now() : 0;
         this.isDeepIdle = false;
-      } else if (key === 'mode') {
+      } else if (key === 'bgMode') {
         this.cycleElapsed = 0;
         this.setDisplayMode(val);
-      } else if (key === 'modeCycle') {
+      } else if (key === 'isBgModeCycle') {
         this.cycleElapsed = 0;
-        const userMode = this.params.mode;
+        const userMode = this.params.bgMode;
         if (!val && this.displayMode !== userMode) this.setDisplayMode(userMode);
-      } else if (key === 'cycleInterval') {
+      } else if (key === 'bgCycleInterval') {
         this.cycleElapsed = 0;
-      } else if (key === 'renderScale') {
+      } else if (key === 'bgRenderScale') {
         this.overloadTime = 0;
         this.stableTime = 0;
         this.autoCooldownUntil = 0;
         this.autoUpRequiredMs = ENGINE_CFG.AUTO_UP_MS;
         this.lastAutoUpTime = 0;
-        if (val === 0) this.autoScale = 1.0;
+        if (val === 'auto') this.autoScale = 1.0;
         this.resize();
       } else if (key === 'isPanelOpen') {
         this.overloadTime = 0;
         this.stableTime = 0;
         this.autoIgnoreUntil = performance.now() + ENGINE_CFG.AUTO_IGNORE_PANEL_MS;
         this.resize();
-      } else if (key === 'lowPower') {
+      } else if (key === 'isLowPower') {
         this.resize();
-      } else if (key === 'colorTarget' || key === 'nightMode') {
+      } else if (key === 'bgColor' || key === 'isNightMode') {
         this.updateFallback();
       }
     }
 
     resize() {
       if (!this.glReady || !this.gl || this.gl.isContextLost()) return;
-      const { lowPower, renderScale, isPanelOpen } = this.params;
+      const { isLowPower, bgRenderScale, isPanelOpen } = this.params;
       // Panel cap applies to Auto only; manual scales are used as-is
-      const activeScale = renderScale === 0
+      const activeScale = bgRenderScale === 'auto'
         ? (isPanelOpen ? Math.min(this.autoScale, ENGINE_CFG.PANEL_SCALE_CAP) : this.autoScale)
-        : renderScale;
+        : bgRenderScale;
       AA._activeScale = activeScale;
       const cssW = Math.max(1, window.innerWidth);
       const cssH = Math.max(1, window.innerHeight);
-      const dpr = lowPower ? ENGINE_CFG.LOW_POWER_DPR : Math.min(window.devicePixelRatio || 1, ENGINE_CFG.MAX_DPR);
+      const dpr = isLowPower ? ENGINE_CFG.LOW_POWER_DPR : Math.min(window.devicePixelRatio || 1, ENGINE_CFG.MAX_DPR);
       const scale = Math.min(dpr, Math.sqrt(ENGINE_CFG.PIXEL_BUDGET / (cssW * cssH))) * clamp(Number(activeScale) || 1, 0.25, 1);
       const w = Math.max(1, Math.round(cssW * scale));
       const h = Math.max(1, Math.round(cssH * scale));
@@ -319,7 +322,7 @@
       this.gl.uniform1fv(this.uniforms.u_weights, this.currentWeights);
       this.gl.uniform1f(this.uniforms.u_brightness, this.currentBrightness);
       this.gl.uniform1f(this.uVignetteLoc, this.currentVignette);
-      this.gl.uniform1i(this.uniforms.u_octaves, this.params.lowPower ? 2 : 4);
+      this.gl.uniform1i(this.uniforms.u_octaves, this.params.isLowPower ? 2 : 4);
       this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
       AA._glFrames = (AA._glFrames || 0) + 1;
     }
@@ -346,7 +349,7 @@
 
     // Idle state, FPS interval, frame gating. Returns null when this frame is skipped.
     scheduleFrame(timestamp) {
-      const { isIdle, lowPower, speed, isPanelOpen } = this.params;
+      const { isIdle, isLowPower, bgSpeed, isPanelOpen } = this.params;
 
       if (!isIdle) {
         this.idleStartTime = 0;
@@ -356,7 +359,7 @@
         this.isDeepIdle = (timestamp - this.idleStartTime) >= ENGINE_CFG.DEEP_IDLE_MS;
       }
 
-      const effectiveSpeed = speed * (this.reducedMotion ? ENGINE_CFG.REDUCED_MOTION_MUL : 1);
+      const effectiveSpeed = bgSpeed * (this.reducedMotion ? ENGINE_CFG.REDUCED_MOTION_MUL : 1);
       if (effectiveSpeed > ENGINE_CFG.SPEED_UP_THRESH) this.highSpeedFps = true;
       else if (effectiveSpeed < ENGINE_CFG.SPEED_DOWN_THRESH) this.highSpeedFps = false;
 
@@ -364,7 +367,7 @@
       const idleInterval = !isIdle ? 0 : (this.isDeepIdle ? ENGINE_CFG.FPS_DEEP_IDLE_MS : ENGINE_CFG.FPS_IDLE_MS);
       const minInterval = Math.max(
         idleInterval,
-        lowPower ? ENGINE_CFG.FPS_LOW_POWER_MS : 0,
+        isLowPower ? ENGINE_CFG.FPS_LOW_POWER_MS : 0,
         isPanelOpen ? ENGINE_CFG.FPS_BASE_MS : 0,
         speedInterval
       );
@@ -412,13 +415,14 @@
 
     // Automatic mode cycling via engine-internal displayMode
     stepModeCycle(dt) {
-      const { modeCycle, cycleInterval } = this.params;
-      if (!modeCycle) return;
+      const { isBgModeCycle, bgCycleInterval } = this.params;
+      if (!isBgModeCycle) return;
       this.cycleElapsed += dt;
-      const limit = ENGINE_CFG.CYCLE_INTERVALS_MS[cycleInterval] || ENGINE_CFG.CYCLE_INTERVALS_MS[0];
+      const limit = ENGINE_CFG.CYCLE_INTERVALS_MS[bgCycleInterval] || ENGINE_CFG.CYCLE_INTERVALS_MS[0];
       if (this.cycleElapsed >= limit) {
         this.cycleElapsed = 0;
-        this.setDisplayMode((this.displayMode % 5) + 1);
+        const nextIdx = (BG_MODES.indexOf(this.displayMode) + 1) % BG_MODES.length;
+        this.setDisplayMode(BG_MODES[nextIdx]);
       }
     }
 
@@ -426,27 +430,27 @@
     stepColorsAndScene(dt, k) {
       const {
         isIdle,
-        nightMode,
-        colorTarget,
+        isNightMode,
+        bgColor,
         isHolding,
         bgBrightness,
-        dimOnIdle,
-        vignette,
-        hueDrift
+        isDimOnIdle,
+        bgVignette,
+        isBgHueDrift
       } = this.params;
 
-      if (!hueDrift) {
+      if (!isBgHueDrift) {
         this.driftPhase = 0;
-      } else if (!nightMode) {
+      } else if (!isNightMode) {
         this.driftPhase = (this.driftPhase + dt / ENGINE_CFG.DRIFT_PERIOD_MS) % 1;
       }
 
-      const target = nightMode
+      const target = isNightMode
         ? NIGHT_COLOR
-        : (hueDrift ? applyHueDrift(colorTarget, this.driftPhase) : colorTarget);
+        : (isBgHueDrift ? applyHueDrift(bgColor, this.driftPhase) : bgColor);
       for (let i = 0; i < 3; i++) this.colorLive[i] += (target[i] - this.colorLive[i]) * k;
 
-      const target2 = (hueDrift && !nightMode)
+      const target2 = (isBgHueDrift && !isNightMode)
         ? applyHueDrift(this.cachedColor2, this.driftPhase)
         : this.cachedColor2;
       for (let i = 0; i < 3; i++) this.color2Live[i] += (target2[i] - this.color2Live[i]) * k;
@@ -454,12 +458,12 @@
       this.currentBrightness += (
         (isHolding
           ? ENGINE_CFG.BRIGHT_HOLD
-          : (isIdle && dimOnIdle)
+          : (isIdle && isDimOnIdle)
             ? bgBrightness * (this.isDeepIdle ? ENGINE_CFG.BRIGHT_DEEP_IDLE_MUL : ENGINE_CFG.BRIGHT_IDLE_MUL)
             : bgBrightness) - this.currentBrightness
       ) * k;
 
-      const targetVignette = ENGINE_CFG.VIGNETTE_MAP[vignette] ?? 0;
+      const targetVignette = ENGINE_CFG.VIGNETTE_MAP[bgVignette] ?? 0;
       this.currentVignette += (targetVignette - this.currentVignette) * k;
     }
 
@@ -479,12 +483,12 @@
 
     // Auto render-scale controller. Returns true when the scale changed (resize already drew).
     stepAutoScale(timestamp, rawDt, minInterval) {
-      const { renderScale, isIdle, isPanelOpen } = this.params;
+      const { bgRenderScale, isIdle, isPanelOpen } = this.params;
 
       let activeModes = 0;
       for (let i = 0; i < 5; i++) if (this.currentWeights[i] > 0.001) activeModes++;
 
-      const autoActive = renderScale === 0 && !isIdle && !isPanelOpen;
+      const autoActive = bgRenderScale === 'auto' && !isIdle && !isPanelOpen;
       if (
         rawDt > ENGINE_CFG.AUTO_MAX_RAW_DT ||
         timestamp < this.autoIgnoreUntil ||

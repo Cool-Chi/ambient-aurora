@@ -9,7 +9,7 @@
   };
 
   const CP_PRESETS = ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#5ac8fa', '#007aff', '#af52de', '#ffffff'];
-  const CP_TARGETS = ['colorTarget', 'textColor', 'ampmColor', 'dateColor', 'customTextColor'];
+  const CP_TARGETS = ['bgColor', 'clockColor', 'clockAmpmColor', 'dateColor', 'clockCustomTextColor'];
 
   // NOTE: hsvToRgb / rgbToHsv here use hue h in degrees [0, 360); AA.COLOR_UTILS uses normalized turns [0, 1).
   const hsvToRgb = (h, s, v) => {
@@ -94,8 +94,8 @@
 
     const readHex = p => {
       const st = ui.store.getState();
-      if (p === 'colorTarget') {
-        const c = st.colorTarget;
+      if (p === 'bgColor') {
+        const c = st.bgColor;
         return AA.UIManager.rgbToHex(c[0], c[1], c[2]);
       }
       const val = st[p];
@@ -136,7 +136,7 @@
       dirty = false;
       if (!isOpen || !prop || hex === lastEmit) return;
       lastEmit = hex;
-      if (prop === 'colorTarget') ui.store.setState('colorTarget', AA.UIManager.hexToRgb(hex));
+      if (prop === 'bgColor') ui.store.setState('bgColor', AA.UIManager.hexToRgb(hex));
       else ui.store.setState(prop, hex);
       ui.scheduleIdle();
     };
