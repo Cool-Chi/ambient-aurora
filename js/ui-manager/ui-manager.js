@@ -68,8 +68,9 @@
       return `#${[r, g, b].map(x => clamp(Math.round(x * 255), 0, 255).toString(16).padStart(2, '0')).join('')}`;
     }
 
-    constructor(store) {
+    constructor(store, glEngine) {
       this.store = store;
+      this.glEngine = glEngine;
       this.panel = $('settings-panel');
       this.activeTab = 0;
       this.appContainer = $('app-container');
@@ -241,7 +242,8 @@
         const n = Number(s) || 1;
         return (n === 1 ? '1.0' : String(n)) + 'x';
       };
-      const text = renderScale === 0 ? `AUTO · ${fmt(AA._activeScale || 1)}` : fmt(renderScale);
+      const activeScale = this.glEngine ? this.glEngine.activeScale : 1;
+      const text = renderScale === 0 ? `AUTO · ${fmt(activeScale || 1)}` : fmt(renderScale);
       if (this._scaleTxt !== text) {
         this._scaleTxt = text;
         this.scaleText.textContent = text;
@@ -258,7 +260,7 @@
           if (this.fpsText) this.fpsText.textContent = '-- FPS';
           if (this.fpsDot) this.fpsDot.style.background = '';
           this.fpsFrames = 0;
-          this._lastGlFrames = AA._glFrames || 0;
+          this._lastGlFrames = this.glEngine ? this.glEngine.frameCount : 0;
           this.fpsLast = performance.now();
           this.fpsRaf = requestAnimationFrame(this.fpsTickBound);
         }
@@ -278,7 +280,7 @@
       const dt = now - this.fpsLast;
       if (dt < 500) return;
 
-      const gf = AA._glFrames || 0;
+      const gf = this.glEngine ? this.glEngine.frameCount : 0;
       const { showFps, showScale } = this.store.getState();
 
       if (showFps && dt <= 2000) {

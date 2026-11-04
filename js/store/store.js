@@ -1,5 +1,5 @@
 window.AA = window.AA || {};
-// Ambient Aurora v3.12.0-flat | Store / WebGLEngine / ClockController / UIManager
+// Ambient Aurora v3.12.1-flat | Store / WebGLEngine / ClockController / UIManager
 (function (AA) {
 const $ = id => document.getElementById(id);
 const qs = (el, sel) => el.querySelector(sel);
@@ -13,7 +13,6 @@ class Store {
     this.state = Object.freeze({ ...defaultState });
     this.subscribers = [];
     this.saveTimeout = null;
-    AA._store = this;
     this.load();
   }
   getState() {
@@ -99,6 +98,6 @@ class Store {
 }
 AA.util = { $, qs, on, clamp };
 AA.CONST = { EASE_OUT };
-AA.VERSION = 'v3.12.0-flat';
+AA.VERSION = 'v3.12.1-flat';
 AA.Store = Store;
 })(window.AA);
