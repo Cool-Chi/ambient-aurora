@@ -558,6 +558,17 @@
         SYNC_BY_TYPE[e.type]?.(e, val, state, this, skipAnim);
       });
 
+      const updateBlockLastVisible = blockEl => {
+        const rows = Array.from(blockEl.children);
+        rows.forEach(r => r.classList.remove('is-last-visible'));
+        for (let i = rows.length - 1; i >= 0; i--) {
+          if (!rows[i].classList.contains('is-hidden')) {
+            rows[i].classList.add('is-last-visible');
+            break;
+          }
+        }
+      };
+
       const syncDependentRow = (e, st, isFull) => {
         const ctrl = e.type === 'segmented' ? qs(this.panel, `.segmented-control[data-prop="${e.key}"]`) : $(e.id);
         const rowEl = ctrl && ctrl.closest(e.type === 'slider' ? '.slider-row' : '.settings-row');
@@ -566,6 +577,9 @@
         const wasHidden = rowEl.classList.contains('is-hidden');
         rowEl.classList.toggle('is-hidden', !vis);
         rowEl.style.display = vis ? '' : 'none';
+        if (rowEl.parentElement && rowEl.parentElement.classList.contains('settings-block')) {
+          updateBlockLastVisible(rowEl.parentElement);
+        }
         if (vis && e.type === 'segmented' && (isFull || wasHidden)) {
           this.updateSegmentHighlight(ctrl, st[e.key], true);
         }
@@ -575,6 +589,7 @@
         SETTINGS_SCHEMA.forEach(e => {
           if (e.dependsOn) syncDependentRow(e, state, true);
         });
+        qsa(this.panel, '.settings-block').forEach(updateBlockLastVisible);
       } else if (DEPENDENTS_BY_KEY[changedKey]) {
         DEPENDENTS_BY_KEY[changedKey].forEach(e => syncDependentRow(e, state, false));
       }

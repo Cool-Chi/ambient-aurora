@@ -1,5 +1,5 @@
 window.AA = window.AA || {};
-// Ambient Aurora v3.14.1-flat | Store / WebGLEngine / ClockController / UIManager
+// Ambient Aurora v3.14.2-flat | Store / WebGLEngine / ClockController / UIManager
 (function (AA) {
 const $ = id => document.getElementById(id);
 const qs = (el, sel) => el.querySelector(sel);
@@ -7,7 +7,7 @@ const on = (el, evt, cb, opt) => el.addEventListener(evt, cb, opt);
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
 class Store {
-  static STORAGE_VERSION = 1;
+  static STORAGE_VERSION = 2;
   static TRANSIENT_KEYS = new Set(['isIdle', 'isHolding', 'isPanelOpen']);
   constructor(defaultState, storageKey = 'aurora_settings') {
     this.storageKey = storageKey;
@@ -108,6 +108,6 @@ class Store {
 }
 AA.util = { $, qs, on, clamp };
 AA.CONST = { EASE_OUT };
-AA.VERSION = 'v3.14.1-flat';
+AA.VERSION = 'v3.14.2-flat';
 AA.Store = Store;
 })(window.AA);

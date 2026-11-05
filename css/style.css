@@ -672,6 +672,16 @@ body.is-fullscreen .settings-panel.active {
   border-bottom: none;
 }
 
+.settings-row.is-hidden,
+.slider-row.is-hidden {
+  display: none !important;
+}
+
+.settings-row.is-last-visible,
+.slider-row.is-last-visible {
+  border-bottom: none;
+}
+
 .row-label {
   font-size: 14px;
   font-weight: 500;

@@ -128,7 +128,7 @@
     },
     {
       key: 'clockMaterial',
-      default: 0,
+      default: 2,
       validate: isInt(0, 3),
       type: 'segmented',
       tab: 0,
@@ -141,7 +141,7 @@
     // ---- Tab 0: Clock / Block 1 ----
     {
       key: 'clockSize',
-      default: 15,
+      default: 12,
       validate: isNum(5, 20),
       type: 'slider',
       tab: 0,
@@ -158,7 +158,7 @@
     },
     {
       key: 'clockWeight',
-      default: 200,
+      default: 500,
       validate: isNum(100, 900),
       type: 'slider',
       tab: 0,
@@ -175,7 +175,7 @@
     },
     {
       key: 'clockOpacity',
-      default: 1,
+      default: 0.75,
       validate: isNum(0.1, 1),
       type: 'slider',
       tab: 0,
@@ -213,7 +213,7 @@
     },
     {
       key: 'showSeconds',
-      default: false,
+      default: true,
       validate: isBool,
       type: 'toggle',
       tab: 0,
@@ -223,7 +223,7 @@
     },
     {
       key: 'clockTickAnim',
-      default: 0,
+      default: 1,
       validate: isInt(0, 3),
       type: 'segmented',
       tab: 0,
@@ -245,7 +245,7 @@
     },
     {
       key: 'showYear',
-      default: false,
+      default: true,
       validate: isBool,
       type: 'mtg-item',
       tab: 0,
@@ -326,7 +326,8 @@
       id: 'ctrl-customtext',
       maxLength: 30,
       label: { en: 'Custom Text', zh: '自定義文字' },
-      placeholder: { en: 'Enter text...', zh: '輸入文字...' }
+      placeholder: { en: 'Enter text...', zh: '輸入文字...' },
+      dependsOn: 'showCustomText'
     },
     // ---- Tab 0: Clock / Block 5 ----
     {
@@ -377,7 +378,7 @@
     // ---- Tab 1: Background / Block 0 ----
     {
       key: 'bgMode',
-      default: 'silk',
+      default: 'horizon',
       validate: oneOf(BG_MODES),
       type: 'segmented',
       tab: 1,
@@ -388,7 +389,7 @@
     },
     {
       key: 'bgColor',
-      default: [0.21, 0.11, 0.47],
+      default: [0.06, 0.36, 0.27],
       validate: isRgb,
       type: 'theme',
       tab: 1,
@@ -408,7 +409,7 @@
     },
     {
       key: 'bgHueShift',
-      default: 42,
+      default: 67,
       validate: isNum(-180, 180),
       type: 'slider',
       tab: 1,
@@ -426,7 +427,7 @@
     // ---- Tab 1: Background / Block 1 ----
     {
       key: 'isBgHueDrift',
-      default: false,
+      default: true,
       validate: isBool,
       type: 'toggle',
       tab: 1,
@@ -436,7 +437,7 @@
     },
     {
       key: 'isBgModeCycle',
-      default: false,
+      default: true,
       validate: isBool,
       type: 'toggle',
       tab: 1,
@@ -446,7 +447,7 @@
     },
     {
       key: 'bgCycleInterval',
-      default: 0,
+      default: 1,
       validate: isInt(0, 2),
       type: 'segmented',
       tab: 1,
@@ -459,7 +460,7 @@
     // ---- Tab 1: Background / Block 2 ----
     {
       key: 'bgSpeed',
-      default: 1,
+      default: 2,
       validate: isNum(0.1, 4),
       type: 'slider',
       tab: 1,
@@ -515,7 +516,7 @@
     // ---- Tab 2: System / Block 0 ----
     {
       key: 'lang',
-      default: 'en',
+      default: 'zh',
       validate: oneOf(['en', 'zh']),
       type: 'segmented',
       tab: 2,
@@ -528,7 +529,7 @@
     },
     {
       key: 'idleTimeout',
-      default: 0,
+      default: 1,
       validate: isInt(0, 2),
       type: 'segmented',
       tab: 2,
@@ -595,7 +596,7 @@
     },
     {
       key: 'showSliderVal',
-      default: false,
+      default: true,
       validate: isBool,
       type: 'toggle',
       tab: 2,
