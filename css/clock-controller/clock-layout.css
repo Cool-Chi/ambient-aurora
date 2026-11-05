@@ -1,0 +1,52 @@
+/* Clock layer positioning, smart evasion variables, idle/exit states, and FLIP lock */
+body.is-dragging .clock-layer,
+body.is-dragging .clock-layer * {
+  transition: none !important;
+}
+
+.clock-layer {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: var(--clock-blend,normal);
+  display: flex;
+  flex-direction: column;
+  align-items: var(--pos-x,center);
+  justify-content: var(--pos-y,center);
+  padding: 4vmin;
+  pointer-events: none;
+  opacity: 1;
+  --evade-x: 0px;
+  --evade-y: 0px;
+  --evade-scale: 1;
+  --idle-scale: 1;
+  transform-origin: var(--ox,50%) var(--oy,50%);
+  transform: translate(calc(var(--evade-x) + var(--off-x,0vw)),calc(var(--evade-y) + var(--off-y,0vh))) scale(calc(var(--evade-scale) * var(--idle-scale)));
+  will-change: transform,opacity;
+  transition: transform 400ms var(--ease-out),opacity 400ms var(--ease-out);
+}
+
+body.is-idle .clock-layer {
+  opacity: .35;
+  --idle-scale: .96;
+  transition: opacity 1500ms var(--ease-in-out),transform 1500ms var(--ease-in-out);
+}
+
+body.is-idle.no-idle-dim .clock-layer:not(.exiting) {
+  opacity: 1;
+}
+
+body .clock-layer.exiting {
+  transition: opacity 2s linear,transform 2s linear;
+  opacity: .1;
+  --idle-scale: .9;
+}
+
+.clock-layer.is-flipping {
+  transition: none !important;
+}
+
+#clock-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}

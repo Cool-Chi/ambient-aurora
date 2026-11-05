@@ -1,0 +1,54 @@
+/* Date display and custom text styles */
+.date-display {
+  position: relative;
+  z-index: 1;
+  font-size: calc(var(--clock-size) * .22);
+  font-weight: var(--clock-weight);
+  color: var(--date-color);
+  letter-spacing: .02em;
+  text-shadow: 0 2px 12px rgba(0,0,0,.3);
+  overflow: visible;
+  transition: max-height 300ms var(--ease-out),margin 300ms var(--ease-out),opacity 300ms var(--ease-out);
+  max-height: 2em;
+  order: 1;
+  margin-top: .25em;
+  margin-bottom: 0;
+  font-family: var(--clock-font);
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.date-display.is-above {
+  order: -1;
+  margin-top: 0;
+  margin-bottom: .25em;
+}
+
+.date-display.is-hidden {
+  max-height: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+#custom-text {
+  max-width: 90vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--custom-text-color);
+}
+
+#date:empty,
+#custom-text:empty {
+  margin: 0;
+}
+
+.date-display {
+  max-width: 90vw;
+  text-align: center;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}

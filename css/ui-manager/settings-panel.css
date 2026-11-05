@@ -1,0 +1,253 @@
+/* Settings panel shell, tab navigation, scrollable panes, and row layout */
+.settings-panel {
+  pointer-events: none;
+  position: absolute;
+  z-index: 30;
+  left: 24px;
+  bottom: calc(env(safe-area-inset-bottom,24px) + 84px);
+  width: 340px;
+  background: rgba(30,30,30,.55);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: none;
+  border-radius: 24px;
+  padding: 16px;
+  box-sizing: border-box;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.25),inset 0 0 0 1px rgba(255,255,255,.05),0 32px 64px rgba(0,0,0,.4);
+  opacity: 0;
+  transform: scale(.95);
+  transform-origin: bottom left;
+  visibility: hidden;
+  transition: opacity 250ms var(--ease-out),transform 250ms var(--ease-out),visibility 250ms;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 480px;
+  max-height: calc(100dvh - var(--badge-top-reserve,120px));
+  overflow: hidden;
+}
+
+.settings-panel::-webkit-scrollbar {
+  display: none;
+}
+
+.settings-panel.active {
+  opacity: 1;
+  transform: scale(1);
+  visibility: visible;
+  pointer-events: auto;
+}
+
+body.is-fullscreen .settings-panel.active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@media (max-width:600px) {
+  .settings-panel {
+    left: 16px;
+    right: auto;
+    width: calc(100vw - 32px);
+    max-width: 340px;
+    max-height: min(55dvh,calc(100dvh - var(--badge-top-reserve,110px)));
+    bottom: calc(env(safe-area-inset-bottom,16px) + 72px);
+    transform-origin: bottom left;
+  }
+}
+
+.settings-block {
+  background: rgba(255,255,255,.06);
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.settings-block:has(.slider-row) {
+  overflow: visible;
+}
+
+.tab-header {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid rgba(255,255,255,.1);
+  padding-bottom: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+
+.tab-header::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-nav-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,.5);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: color 200ms,transform 160ms var(--ease-out);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tab-nav-btn.active {
+  color: #fff;
+}
+
+.tab-nav-btn:active {
+  transform: scale(.96);
+}
+
+.tab-panes {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  padding-right: 4px;
+  margin-right: -4px;
+  overscroll-behavior: contain;
+}
+
+.tab-panes::-webkit-scrollbar {
+  width: 12px;
+}
+
+.tab-panes::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tab-panes::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.4);
+  border: 4px solid transparent;
+  background-clip: padding-box;
+  border-radius: 10px;
+}
+
+@supports (-moz-appearance:none) {
+  .tab-panes {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,.4) transparent;
+  }
+}
+
+.tab-pane {
+  position: absolute;
+  inset: 0 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: opacity 250ms var(--ease-out),visibility 250ms,transform 250ms var(--ease-out);
+}
+
+.tab-pane.active {
+  position: relative;
+  inset: auto;
+  overflow: visible;
+  opacity: 1;
+  visibility: inherit;
+  transform: translateY(0);
+}
+
+@media (max-width:600px) {
+  .tab-nav-btn {
+    padding: 4px 6px;
+  }
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-bottom: .5px solid rgba(255,255,255,.12);
+  transition: border-bottom-color 220ms var(--ease-out);
+}
+
+.settings-row:last-child {
+  border-bottom: none;
+}
+
+.settings-row.is-hidden {
+  display: none !important;
+}
+
+.settings-row.is-last-visible {
+  border-bottom-color: transparent;
+}
+
+.settings-row.is-animating-row {
+  overflow: hidden !important;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.row-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255,255,255,.85);
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
+  white-space: nowrap;
+  min-width: auto;
+  overflow: visible;
+}
+
+.settings-row.col-layout {
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 12px 16px;
+  gap: 12px;
+}
+
+.settings-row.col-layout .row-label {
+  width: 100%;
+}
+
+.settings-row.col-layout .segmented-control {
+  align-self: stretch;
+  width: auto;
+  flex: none;
+  height: 32px;
+}
+
+.settings-row.col-layout .segment-btn {
+  padding: 0 4px;
+  font-size: 13px;
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .settings-panel,
+  .settings-panel.active,
+  body.is-fullscreen .settings-panel.active {
+    transform: none;
+  }
+
+  .tab-pane,
+  .tab-pane.active {
+    transform: none;
+  }
+
+  .tab-nav-btn:active {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-transparency:reduce) {
+  .settings-panel {
+    background: rgba(30,30,30,.94);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

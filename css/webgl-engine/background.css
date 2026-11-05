@@ -1,0 +1,19 @@
+/* WebGL background layer, canvas, and exit scale transition */
+.background-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: transform 1500ms var(--ease-in-out);
+}
+
+body .background-layer.exiting {
+  transition: transform 2s linear;
+  transform: scale(1.15);
+}
+
+.gl-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

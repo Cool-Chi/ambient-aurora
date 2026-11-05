@@ -1,0 +1,54 @@
+/* Base shell layout, document states, fullscreen cursor, and global touch rules */
+body.no-transitions * {
+  transition: none !important;
+  animation: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100dvh;
+  background-color: var(--bg-color);
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: -apple-system,BlinkMacSystemFont,"SF Pro Display","San Francisco","Inter",system-ui,sans-serif;
+  color: #fff;
+  transition: opacity 800ms var(--ease-out);
+}
+
+body.disconnected {
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.is-fullscreen {
+  cursor: none;
+}
+
+body.is-fullscreen .settings-panel {
+  cursor: default;
+}
+
+#app-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transition: transform 60s linear;
+}
+
+button,
+[role="button"],
+.tc-chip,
+.swatch-wrapper {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}

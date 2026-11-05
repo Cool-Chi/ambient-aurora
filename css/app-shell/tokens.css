@@ -1,0 +1,17 @@
+/* Root design tokens and CSS custom properties */
+:root {
+  --ease-out: cubic-bezier(.23,1,.32,1);
+  --ease-in-out: cubic-bezier(.77,0,.175,1);
+  --clock-size: clamp(4rem,15vw,20vw);
+  --clock-weight: 200;
+  --bg-color: #000;
+  --clock-font: -apple-system,BlinkMacSystemFont,"SF Pro Display","San Francisco","Inter",system-ui,sans-serif;
+  --clock-color: rgba(255,255,255,.9);
+  --ampm-color: rgba(179,179,179,.9);
+  --date-color: rgba(179,179,179,.9);
+  --custom-text-color: rgba(179,179,179,.9);
+  --clock-shadow-color: rgba(255,255,255,.2);
+  --clock-filter: drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 4px var(--clock-shadow-color));
+  --digit-filter: none;
+  --glass-press: 1;
+}
