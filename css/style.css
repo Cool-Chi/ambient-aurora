@@ -498,6 +498,7 @@ body.is-fullscreen .exit-hint {
 .settings-panel {
   pointer-events: none;
   position: absolute;
+  z-index: 30;
   left: 24px;
   bottom: calc(env(safe-area-inset-bottom,24px) + 84px);
   width: 340px;
@@ -518,7 +519,7 @@ body.is-fullscreen .exit-hint {
   flex-direction: column;
   gap: 16px;
   height: 480px;
-  max-height: calc(100svh - 120px);
+  max-height: calc(100dvh - var(--badge-top-reserve,120px));
   overflow: hidden;
 }
 
@@ -544,7 +545,7 @@ body.is-fullscreen .settings-panel.active {
     right: auto;
     width: calc(100vw - 32px);
     max-width: 340px;
-    max-height: 55dvh;
+    max-height: min(55dvh,calc(100dvh - var(--badge-top-reserve,110px)));
     bottom: calc(env(safe-area-inset-bottom,16px) + 72px);
     transform-origin: bottom left;
   }
@@ -666,6 +667,7 @@ body.is-fullscreen .settings-panel.active {
   min-height: 44px;
   padding: 0 16px;
   border-bottom: .5px solid rgba(255,255,255,.12);
+  transition: border-bottom-color 220ms var(--ease-out);
 }
 
 .settings-row:last-child {
@@ -679,7 +681,14 @@ body.is-fullscreen .settings-panel.active {
 
 .settings-row.is-last-visible,
 .slider-row.is-last-visible {
-  border-bottom: none;
+  border-bottom-color: transparent;
+}
+
+.settings-row.is-animating-row,
+.slider-row.is-animating-row {
+  overflow: hidden !important;
+  pointer-events: none;
+  box-sizing: border-box;
 }
 
 .row-label {
@@ -781,6 +790,7 @@ body.is-fullscreen .settings-panel.active {
   min-height: 44px;
   padding: 0 16px;
   border-bottom: .5px solid rgba(255,255,255,.12);
+  transition: border-bottom-color 220ms var(--ease-out);
 }
 
 .slider-row:last-child {
@@ -1266,6 +1276,16 @@ button,
 }
 
 .toggle-switch {
+  touch-action: pan-y;
+}
+
+.settings-panel button,
+.settings-panel [role="button"],
+.settings-panel .tc-chip,
+.settings-panel .swatch-wrapper,
+.settings-panel .anchor-grid,
+.settings-panel .anchor-btn,
+.settings-panel input[type=range] {
   touch-action: pan-y;
 }
 

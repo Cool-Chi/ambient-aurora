@@ -132,10 +132,14 @@
       this.tgStart = null;
       this.tgTarget = null;
       this.tgDragged = false;
+      this.tgOrigChecked = false;
+      this.tgFlipped = false;
       this.segTarget = null;
       this.segProp = null;
       this.segDragged = false;
       this.typoAnim = null;
+      this._rowAnims = new Map();
+      this._scrollGuardUntil = 0;
       this.lAngle = Math.atan2(0.75, 0.65);
       this.lMag = Math.hypot(0.65, 0.75);
       this.clockEl = $('clock');
@@ -309,6 +313,19 @@
       if (this.fpsBadge) this.fpsBadge.classList.toggle('is-visible', !!on);
       if (this.scaleBadge) this.scaleBadge.classList.toggle('is-visible', !!showScale);
       if (showScale) this.updateScaleText();
+
+      const badgeCount = (on ? 1 : 0) + (showScale ? 1 : 0);
+      document.documentElement.style.setProperty(
+        '--badge-top-reserve',
+        badgeCount === 2
+          ? 'calc(env(safe-area-inset-top, 16px) + 172px)'
+          : badgeCount === 1
+            ? 'calc(env(safe-area-inset-top, 16px) + 140px)'
+            : '120px'
+      );
+      if (this._cp && this._cp.isOpen()) {
+        requestAnimationFrame(() => this._cp.reposition());
+      }
     }
 
     fpsTick() {
@@ -507,6 +524,11 @@
       const root = document.documentElement;
       const sp = (k, v) => root.style.setProperty(k, v);
 
+      if (full && this._rowAnims.size) {
+        this._rowAnims.forEach(a => a.cancel());
+        this._rowAnims.clear();
+      }
+
       if (!full && !skipAnim && ap && ap.typoTarget) {
         const targetEl = ap.typoTarget === 'wrapper' ? this.clockWrapperEl : this.clockEl;
         if (this.typoAnim) {
@@ -562,8 +584,9 @@
         const rows = Array.from(blockEl.children);
         rows.forEach(r => r.classList.remove('is-last-visible'));
         for (let i = rows.length - 1; i >= 0; i--) {
-          if (!rows[i].classList.contains('is-hidden')) {
-            rows[i].classList.add('is-last-visible');
+          const r = rows[i];
+          if (!r.classList.contains('is-hidden') && !r.dataset.hiding) {
+            r.classList.add('is-last-visible');
             break;
           }
         }
@@ -573,16 +596,123 @@
         const ctrl = e.type === 'segmented' ? qs(this.panel, `.segmented-control[data-prop="${e.key}"]`) : $(e.id);
         const rowEl = ctrl && ctrl.closest(e.type === 'slider' ? '.slider-row' : '.settings-row');
         if (!rowEl) return;
+        const blockEl = rowEl.parentElement && rowEl.parentElement.classList.contains('settings-block') ? rowEl.parentElement : null;
+        const refreshBlock = () => {
+          if (blockEl) updateBlockLastVisible(blockEl);
+        };
         const vis = Boolean(st[e.dependsOn]);
-        const wasHidden = rowEl.classList.contains('is-hidden');
-        rowEl.classList.toggle('is-hidden', !vis);
-        rowEl.style.display = vis ? '' : 'none';
-        if (rowEl.parentElement && rowEl.parentElement.classList.contains('settings-block')) {
-          updateBlockLastVisible(rowEl.parentElement);
+        const running = this._rowAnims.get(rowEl);
+
+        // Instant switch: cancels any running animation and settles the final state
+        const settle = () => {
+          if (running) {
+            running.cancel();
+            this._rowAnims.delete(rowEl);
+          }
+          delete rowEl.dataset.hiding;
+          rowEl.classList.remove('is-animating-row');
+          rowEl.classList.toggle('is-hidden', !vis);
+          rowEl.style.display = vis ? '' : 'none';
+          refreshBlock();
+          if (vis && e.type === 'segmented') this.updateSegmentHighlight(ctrl, st[e.key], true);
+        };
+
+        if (isFull || skipAnim) {
+          settle();
+          return;
         }
-        if (vis && e.type === 'segmented' && (isFull || wasHidden)) {
-          this.updateSegmentHighlight(ctrl, st[e.key], true);
+
+        const curVis = !rowEl.classList.contains('is-hidden') && rowEl.dataset.hiding !== '1';
+        if (vis === curVis) return;
+
+        const panes = qs(this.panel, '.tab-panes');
+        const savedScroll = panes ? panes.scrollTop : 0;
+        const restoreScroll = () => {
+          if (!panes) return;
+          this._scrollGuardUntil = performance.now() + 150;
+          panes.scrollTop = savedScroll;
+        };
+
+        if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+          this._scrollGuardUntil = performance.now() + 150;
+          settle();
+          restoreScroll();
+          return;
         }
+
+        // Capture the in-flight state so the animation can reverse from where it is
+        let startH = 0;
+        let startOp = vis ? 0 : 1;
+        let startPT = 0;
+        let startPB = 0;
+        if (running) {
+          const cs0 = getComputedStyle(rowEl);
+          startH = rowEl.getBoundingClientRect().height;
+          const op = parseFloat(cs0.opacity);
+          startOp = Number.isNaN(op) ? startOp : op;
+          startPT = parseFloat(cs0.paddingTop) || 0;
+          startPB = parseFloat(cs0.paddingBottom) || 0;
+          running.cancel();
+          this._rowAnims.delete(rowEl);
+        }
+
+        this._scrollGuardUntil = performance.now() + 400;
+        const opts = { duration: 220, easing: EASE_OUT };
+        let anim;
+
+        if (vis) {
+          delete rowEl.dataset.hiding;
+          rowEl.classList.remove('is-hidden', 'is-animating-row');
+          rowEl.style.display = '';
+          refreshBlock();
+          const cs = getComputedStyle(rowEl);
+          const natPT = parseFloat(cs.paddingTop) || 0;
+          const natPB = parseFloat(cs.paddingBottom) || 0;
+          const targetH = rowEl.getBoundingClientRect().height || rowEl.scrollHeight || 44;
+          if (e.type === 'segmented') this.updateSegmentHighlight(ctrl, st[e.key], true);
+          rowEl.classList.add('is-animating-row');
+          anim = rowEl.animate([
+            { height: `${startH}px`, minHeight: '0px', paddingTop: `${startPT}px`, paddingBottom: `${startPB}px`, opacity: startOp },
+            { height: `${targetH}px`, minHeight: `${targetH}px`, paddingTop: `${natPT}px`, paddingBottom: `${natPB}px`, opacity: 1 }
+          ], opts);
+          this._rowAnims.set(rowEl, anim);
+          anim.onfinish = () => {
+            if (this._rowAnims.get(rowEl) !== anim) return;
+            this._rowAnims.delete(rowEl);
+            rowEl.classList.remove('is-animating-row');
+            if (e.type === 'segmented') this.updateSegmentHighlight(ctrl, this.store.getState()[e.key], true);
+            restoreScroll();
+          };
+        } else {
+          rowEl.dataset.hiding = '1';
+          refreshBlock();
+          if (!running) {
+            const cs = getComputedStyle(rowEl);
+            startH = rowEl.getBoundingClientRect().height;
+            startOp = 1;
+            startPT = parseFloat(cs.paddingTop) || 0;
+            startPB = parseFloat(cs.paddingBottom) || 0;
+          }
+          rowEl.classList.add('is-animating-row');
+          anim = rowEl.animate([
+            { height: `${startH}px`, minHeight: `${startH}px`, paddingTop: `${startPT}px`, paddingBottom: `${startPB}px`, opacity: startOp },
+            { height: '0px', minHeight: '0px', paddingTop: '0px', paddingBottom: '0px', opacity: 0 }
+          ], opts);
+          this._rowAnims.set(rowEl, anim);
+          anim.onfinish = () => {
+            if (this._rowAnims.get(rowEl) !== anim) return;
+            this._rowAnims.delete(rowEl);
+            if (rowEl.dataset.hiding === '1') {
+              delete rowEl.dataset.hiding;
+              rowEl.classList.remove('is-animating-row');
+              rowEl.classList.add('is-hidden');
+              rowEl.style.display = 'none';
+              refreshBlock();
+            }
+            restoreScroll();
+          };
+        }
+        restoreScroll();
       };
 
       if (full) {
@@ -603,11 +733,28 @@
       let lastHap = 0;
       let anchorHold = null;
       let holdFired = false;
-      let anchorX = 0;
-      let anchorY = 0;
       let slideEl = null;
       let slideTimer = null;
       let slideHeld = false;
+
+      // Pointer gesture state (touch intent lock / click guard)
+      let pId = null;
+      let pType = '';
+      let startX = 0;
+      let startY = 0;
+      let intent = null;
+      let maxMove = 0;
+      let startScrollTop = 0;
+      let lastPanelScrollTime = 0;
+      let suppressNextClick = false;
+      let gestureEnd = 0;
+      let gestureInPanel = false;
+      let downTarget = null;
+      let rangeEl = null;
+      let rangeOrigVal = null;
+      let rangeCommitted = false;
+
+      const getPanes = () => qs(this.panel, '.tab-panes');
 
       const setSlide = (range, active) => {
         const w = range && range.parentElement;
@@ -655,6 +802,62 @@
         this.segProp = null;
       };
 
+      const revertToggle = () => {
+        const tg = this.tgTarget;
+        if (!tg || !this.tgFlipped) return;
+        this.tgFlipped = false;
+        tg.checked = this.tgOrigChecked;
+        const entry = UIManager.BINDING_BY_ID[tg.id];
+        if (entry) this.store.setState(entry[0], this.tgOrigChecked);
+      };
+
+      const commitRange = () => {
+        if (!rangeEl) return;
+        const hit = UIManager.BINDING_BY_ID[rangeEl.id];
+        if (hit) this.store.setState(hit[0], parseFloat(rangeEl.value));
+        rangeCommitted = true;
+      };
+
+      const rollbackRange = () => {
+        const el = rangeEl;
+        if (!el || rangeOrigVal === null) return;
+        const hit = UIManager.BINDING_BY_ID[el.id];
+        if (rangeCommitted && hit) this.store.setState(hit[0], parseFloat(rangeOrigVal));
+        if (el.value !== rangeOrigVal) {
+          el.value = rangeOrigVal;
+          this.updateSliderFill(el);
+        }
+        rangeCommitted = false;
+      };
+
+      const cancelGestureForScroll = () => {
+        if (pId === null || !gestureInPanel) return;
+        intent = 'scroll';
+        suppressNextClick = true;
+        clearAnchorHold();
+        resetSeg();
+        revertToggle();
+        this.tgStart = null;
+        this.tgTarget = null;
+        rollbackRange();
+        endSlide();
+        document.body.classList.remove('is-dragging');
+      };
+
+      const shouldBlockPanelTap = e => {
+        if (!this.panel.contains(e.target)) return false;
+        if (e.type === 'click' && e.detail === 0) return false;
+        if (e.type === 'change' && !e.isTrusted) return false;
+        const now = performance.now();
+        if (pType === 'touch' && now - lastPanelScrollTime < 100) return true;
+        if (pId === null && now - gestureEnd > 600) return false;
+        if (intent === 'drag') return false;
+        if (intent === 'scroll' || suppressNextClick) return true;
+        if (maxMove > 10) return true;
+        const panes = getPanes();
+        return !!(panes && Math.abs(panes.scrollTop - startScrollTop) > 4);
+      };
+
       const scrubSeg = e => {
         if (e.pointerType === 'mouse' && e.buttons === 0) {
           resetSeg();
@@ -696,12 +899,40 @@
         this.ptrActiveUntil = performance.now() + 900;
       };
 
+      // Panel scroll (capture: scroll events do not bubble) cancels any pending control gesture
+      on(this.panel, 'scroll', () => {
+        const now = performance.now();
+        if (now < this._scrollGuardUntil) return;
+        lastPanelScrollTime = now;
+        cancelGestureForScroll();
+      }, { capture: true, passive: true });
+
       on(document, 'pointerdown', e => {
+        if (e.isPrimary) {
+          pId = e.pointerId;
+          pType = e.pointerType;
+          startX = e.clientX;
+          startY = e.clientY;
+          intent = null;
+          maxMove = 0;
+          suppressNextClick = false;
+          downTarget = e.target;
+          gestureInPanel = this.panel.contains(e.target);
+          const panes = getPanes();
+          startScrollTop = panes ? panes.scrollTop : 0;
+          rangeEl = null;
+          rangeOrigVal = null;
+          rangeCommitted = false;
+          if (gestureInPanel && pType === 'touch' && e.target.type === 'range') {
+            rangeEl = e.target;
+            rangeOrigVal = e.target.value;
+          }
+        }
         if (this.store.getState().clockMaterial === 3) {
           trackGlassPtr(e);
           this.tryRequestGyro();
         }
-        if (e.target.type === 'range') {
+        if (e.target.type === 'range' && e.pointerType !== 'touch') {
           document.body.classList.add('is-dragging');
           showSlide(e.target, true);
         }
@@ -716,13 +947,13 @@
           this.tgStart = e.clientX;
           this.tgTarget = tg;
           this.tgDragged = false;
+          this.tgOrigChecked = tg.checked;
+          this.tgFlipped = false;
         }
         const btn = e.target.closest('.anchor-btn');
         if (btn) {
           clearAnchorHold();
           holdFired = false;
-          anchorX = e.clientX;
-          anchorY = e.clientY;
           anchorHold = setTimeout(() => {
             holdFired = true;
             anchorHold = null;
@@ -745,10 +976,35 @@
       }, { passive: true });
 
       on(document, 'pointermove', e => {
-        if (anchorHold && (Math.abs(e.clientX - anchorX) > 12 || Math.abs(e.clientY - anchorY) > 12)) {
-          clearAnchorHold();
-        }
         const state = this.store.getState();
+        const own = e.pointerId === pId;
+        const touchGesture = own && gestureInPanel && pType === 'touch';
+
+        if (own) {
+          const adx = Math.abs(e.clientX - startX);
+          const ady = Math.abs(e.clientY - startY);
+          const dist = Math.hypot(adx, ady);
+          if (dist > maxMove) maxMove = dist;
+          if (anchorHold && maxMove > 10) clearAnchorHold();
+
+          if (touchGesture && intent === null && dist >= 10) {
+            const dragEl = downTarget && downTarget.closest
+              ? downTarget.closest('.toggle-switch, .segmented-control, input[type="range"]')
+              : null;
+            if (dragEl && adx > ady * 1.5 && adx >= 10) {
+              intent = 'drag';
+              if (rangeEl) {
+                document.body.classList.add('is-dragging');
+                commitRange();
+                showSlide(rangeEl, true);
+              }
+            } else {
+              intent = 'scroll';
+              cancelGestureForScroll();
+            }
+          }
+        }
+
         if (
           state.isHolding &&
           this.touchStartX !== null &&
@@ -757,6 +1013,10 @@
           this.exitApp(false);
         }
         if (state.clockMaterial === 3) trackGlassPtr(e);
+
+        // Touch: no scrubbing / toggle dragging until horizontal intent is confirmed
+        if (touchGesture && intent !== 'drag') return;
+
         if (this.segTarget) scrubSeg(e);
         if (this.tgTarget && this.tgStart !== null) {
           const dx = e.clientX - this.tgStart;
@@ -766,24 +1026,47 @@
             if (this.tgTarget.checked !== checkedState) {
               this.tgTarget.checked = checkedState;
               this.tgTarget.dispatchEvent(new Event('change', { bubbles: true }));
+              this.tgFlipped = !!this.tgTarget && this.tgTarget.checked !== this.tgOrigChecked;
             }
           }
         }
       }, { passive: true });
 
-      const endPointer = () => {
+      const endGesture = () => {
         clearAnchorHold();
         this.exitApp(false);
         document.body.classList.remove('is-dragging');
         endSlide();
         resetSeg();
         this.tgStart = null;
+        gestureEnd = performance.now();
+        pId = null;
         setTimeout(() => {
           this.tgTarget = null;
         }, 0);
       };
 
-      ['pointerup', 'pointercancel'].forEach(t => on(document, t, endPointer, { passive: true }));
+      on(document, 'pointerup', e => {
+        if (rangeEl && e.pointerId === pId && pType === 'touch' && intent === null && maxMove <= 10) {
+          // Plain tap on a touch slider: commit the value it landed on
+          const hit = UIManager.BINDING_BY_ID[rangeEl.id];
+          if (hit) {
+            const v = parseFloat(rangeEl.value);
+            if (this.store.getState()[hit[0]] !== v) this.store.setState(hit[0], v);
+          }
+        }
+        endGesture();
+      }, { passive: true });
+
+      on(document, 'pointercancel', e => {
+        if (e.pointerId === pId) {
+          revertToggle();
+          rollbackRange();
+          suppressNextClick = true;
+          intent = 'scroll';
+        }
+        endGesture();
+      }, { passive: true });
 
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission !== 'function') {
         on(window, 'deviceorientation', e => this.handleGyro(e), { passive: true });
@@ -797,6 +1080,8 @@
 
       on(document, 'input', e => {
         if (e.target.type === 'range') {
+          // Touch slider: ignore until horizontal intent is confirmed (tap commit happens on pointerup)
+          if (pId !== null && pType === 'touch' && gestureInPanel && intent !== 'drag') return;
           document.body.classList.add('is-dragging');
           showSlide(e.target, false);
           const t = e.target;
@@ -818,6 +1103,22 @@
         }
       });
 
+      // Capture-phase guards: registered before every other click/change listener
+      on(document, 'click', e => {
+        const dragged = (e.target.closest('.toggle-switch') && this.tgDragged) ||
+          (this.segDragged && e.target.closest('.segmented-control'));
+        if (dragged || shouldBlockPanelTap(e)) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      }, { capture: true });
+
+      on(document, 'change', e => {
+        if (!shouldBlockPanelTap(e)) return;
+        e.stopImmediatePropagation();
+        if (e.target.type === 'checkbox') e.target.checked = !e.target.checked;
+      }, { capture: true });
+
       on(document, 'change', e => {
         if (e.target.classList.contains('tc-input')) haptic(10);
         if (e.target.type === 'checkbox') {
@@ -826,16 +1127,6 @@
           if (entry) this.store.setState(entry[0], e.target.checked);
         }
       });
-
-      on(document, 'click', e => {
-        if (
-          (e.target.closest('.toggle-switch') && this.tgDragged) ||
-          (this.segDragged && e.target.closest('.segmented-control'))
-        ) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      }, { capture: true });
 
       on(document, 'click', e => {
         const t = e.target;
