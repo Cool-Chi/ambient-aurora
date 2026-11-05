@@ -22,7 +22,9 @@
   }
 
   // NOTE: hue `h` is normalized turns [0, 1) (see rgbToHsv).
-  function hsvToRgb(h, s, v) {
+  // `out` is an optional pre-allocated 3-element array that receives the result.
+  function hsvToRgb(h, s, v, out) {
+    const o = out || [0, 0, 0];
     const hh = ((h % 1) + 1) % 1 * 6;
     const i = Math.floor(hh);
     const f = hh - i;
@@ -30,33 +32,65 @@
     const q = v * (1 - s * f);
     const t = v * (1 - s * (1 - f));
     switch (i % 6) {
-      case 0: return [v, t, p];
-      case 1: return [q, v, p];
-      case 2: return [p, v, t];
-      case 3: return [p, q, v];
-      case 4: return [t, p, v];
-      default: return [v, p, q];
+      case 0:
+        o[0] = v;
+        o[1] = t;
+        o[2] = p;
+        break;
+      case 1:
+        o[0] = q;
+        o[1] = v;
+        o[2] = p;
+        break;
+      case 2:
+        o[0] = p;
+        o[1] = v;
+        o[2] = t;
+        break;
+      case 3:
+        o[0] = p;
+        o[1] = q;
+        o[2] = v;
+        break;
+      case 4:
+        o[0] = t;
+        o[1] = p;
+        o[2] = v;
+        break;
+      default:
+        o[0] = v;
+        o[1] = p;
+        o[2] = q;
+        break;
     }
+    return o;
   }
 
-  function applyHueDrift(rgb, driftOffset) {
+  // `out` is an optional pre-allocated 3-element array that receives the result.
+  function applyHueDrift(rgb, driftOffset, out) {
+    const o = out || [0, 0, 0];
     const r = clamp(Number(rgb[0]) || 0, 0, 1);
     const g = clamp(Number(rgb[1]) || 0, 0, 1);
     const b = clamp(Number(rgb[2]) || 0, 0, 1);
-    if (!driftOffset) return [r, g, b];
+    if (!driftOffset) {
+      o[0] = r;
+      o[1] = g;
+      o[2] = b;
+      return o;
+    }
     let [h, s, v] = rgbToHsv(r, g, b);
     if (s < 0.02) s = 0.18;
-    return hsvToRgb((h + driftOffset) % 1, s, v);
+    return hsvToRgb((h + driftOffset) % 1, s, v, o);
   }
 
-  function deriveSecondaryColor(rgb, nightMode, colorMix = true, hueShift = 42) {
+  function deriveSecondaryColor(rgb, nightMode, colorMix, hueShift) {
     if (nightMode) return colorMix ? NIGHT_COLOR2.slice() : NIGHT_COLOR.slice();
-    const r = clamp(Number(rgb[0]) || 0, 0, 1);
-    const g = clamp(Number(rgb[1]) || 0, 0, 1);
-    const b = clamp(Number(rgb[2]) || 0, 0, 1);
+    const r = rgb[0];
+    const g = rgb[1];
+    const b = rgb[2];
     if (!colorMix) return [r, g, b];
     const [h, s, v] = rgbToHsv(r, g, b);
-    const shift = (((Number(hueShift) || 0) / 360 % 1) + 1) % 1;
+    const shift = ((hueShift / 360 % 1) + 1) % 1;
     let h2 = (h + shift) % 1;
     let s2;
     let v2;

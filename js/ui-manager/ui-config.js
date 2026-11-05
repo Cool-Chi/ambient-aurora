@@ -63,6 +63,14 @@
    * One setting = one entry: key, default, validate, type, tab, block, id, label, ...
    * Entries are listed in render order (tab, then block, then position inside the block).
    * dependsOn: key of a boolean setting that controls this row's visibility.
+   * normalize: optional (v => v), applied by Store.validate / Store.setState after validate() passes.
+   *
+   * How to add a standard setting:
+   *   1. Pick a key name following Rule 1 / 2 / 3.
+   *   2. Add one entry in SETTINGS_SCHEMA with key, default, validate, type, tab, block, id, label
+   *      (plus optional dependsOn / apply / normalize).
+   *   3. If the engine or clock controller needs it, subscribe to the key in webgl-engine.js
+   *      or clock-controller.js.
    */
   const SETTINGS_SCHEMA = [
     // ---- Tab 0: Clock / Block 0 ----
@@ -319,7 +327,8 @@
     {
       key: 'clockCustomText',
       default: 'Ambient Aurora',
-      validate: v => typeof v === 'string' && v.length <= 30,
+      validate: v => typeof v === 'string',
+      normalize: v => v.slice(0, 30),
       type: 'custom-text',
       tab: 0,
       block: 4,
@@ -387,6 +396,7 @@
       options: { en: ['Silk', 'Glow', 'Dust', 'Liquid', 'Horizon'], zh: ['絲綢', '光暈', '星塵', '液態', '天沿'] },
       values: BG_MODES
     },
+    // Dedicated RGB float array [0..1] for WebGL background theme; unrelated to CSS --bg-color (pure black #000 body background).
     {
       key: 'bgColor',
       default: [0.06, 0.36, 0.27],
@@ -627,10 +637,6 @@
     }
   });
 
-  const SLIDERS = SETTINGS_SCHEMA
-    .filter(e => e.type === 'slider')
-    .map(e => ({ id: e.id, key: e.key, min: e.min, max: e.max, step: e.step, svgMin: e.svgMin, svgMax: e.svgMax }));
-
   const BOUND_PROP = { slider: 'value', toggle: 'checked', 'custom-text': 'value' };
 
   const UI_BINDINGS = Object.fromEntries(
@@ -668,7 +674,6 @@
     SETTINGS_SCHEMA,
     SCHEMA_BY_KEY,
     DEPENDENTS_BY_KEY,
-    SLIDERS,
     UI_BINDINGS,
     BINDING_BY_ID,
     buildDefaultState

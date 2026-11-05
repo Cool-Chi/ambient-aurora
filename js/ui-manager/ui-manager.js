@@ -2,7 +2,7 @@
   const { $, qs, on, clamp } = AA.util;
   const { EASE_OUT } = AA.CONST;
   const { DICT } = AA;
-  const { FONTS, THEMES, SLIDERS, UI_BINDINGS, BINDING_BY_ID, SETTINGS_SCHEMA, SCHEMA_BY_KEY, DEPENDENTS_BY_KEY } = AA.UI_CONFIG;
+  const { FONTS, THEMES, UI_BINDINGS, BINDING_BY_ID, SETTINGS_SCHEMA, SCHEMA_BY_KEY, DEPENDENTS_BY_KEY } = AA.UI_CONFIG;
 
   const qsa = (el, sel) => el.querySelectorAll(sel);
 
@@ -86,10 +86,6 @@
 
     static get THEMES() {
       return THEMES;
-    }
-
-    static get SLIDERS() {
-      return SLIDERS;
     }
 
     static get UI_BINDINGS() {

@@ -6,7 +6,7 @@
 
   // Central tunables for the engine (no other magic numbers for these behaviors)
   const ENGINE_CFG = {
-    PIXEL_BUDGET: 2500000,          // Max rendered pixels (SD-7)
+    PIXEL_BUDGET: 2500000,          // Max rendered pixels
     LOW_POWER_DPR: 0.75,            // DPR in low-power mode
     MAX_DPR: 2,                     // Max DPR in standard mode
     PANEL_SCALE_CAP: 0.75,          // Max Auto render scale while settings panel is open
@@ -40,8 +40,16 @@
     AUTO_COOLDOWN_DOWN_MS: 5000,    // Cooldown after stepping scale down
     AUTO_COOLDOWN_UP_MS: 8000,      // Cooldown after stepping scale up
     AUTO_FLAP_WINDOW_MS: 30000,     // Downgrade within this window after an upgrade doubles the next upgrade threshold
-    AUTO_UP_MAX_MS: 80000,          // Cap for the doubled upgrade threshold (80s)
-    AUTO_STABLE_RESET_MS: 60000     // Continuous stable time that resets the upgrade threshold to AUTO_UP_MS
+    AUTO_UP_MAX_MS: 80000,          // Cap for the doubled upgrade threshold (80s); must stay below AUTO_UP_RESET_MS
+    AUTO_UP_RESET_MS: 120000,       // Time since the last upgrade (without a downgrade) before the upgrade threshold resets to AUTO_UP_MS (2 min)
+    FRAME_JITTER_MS: 2,             // Frame-clock tolerance margin in scheduleFrame
+    MAX_DT_MS: 100,                 // Clamped frame delta ceiling in scheduleFrame
+    REF_FRAME_MS: 16.666,           // 60fps reference frame duration for smoothing and time step
+    SMOOTH_BASE: 0.033,             // Per-reference-frame exponential smoothing factor
+    TIME_STEP_BASE: 0.01,           // Base shader time advance per reference frame
+    ACTIVE_MODE_EPS: 0.001,         // Minimum mode weight counted as active in stepAutoScale
+    AUTO_OVERLOAD_DECAY: 0.5,       // Overload timer decay rate during stable frames in stepAutoScale
+    DRIFT_STEP_EPS: 0.0005          // Minimum driftPhase delta (~0.18°) before recomputing drifted RGB
   };
 
   const SCALE_TIERS = [0.25, 0.5, 0.75, 1.0];
@@ -80,20 +88,23 @@
         isNightMode: state.isNightMode,
         bgColor: state.bgColor,
         isHolding: state.isHolding,
-        bgBrightness: state.bgBrightness ?? 1,
-        isDimOnIdle: state.isDimOnIdle ?? true,
-        bgVignette: state.bgVignette ?? 1,
+        bgBrightness: state.bgBrightness,
+        isDimOnIdle: state.isDimOnIdle,
+        bgVignette: state.bgVignette,
         bgRenderScale: state.bgRenderScale,
         isPanelOpen: state.isPanelOpen,
-        isBgColorMix: state.isBgColorMix ?? true,
-        bgHueShift: state.bgHueShift ?? 42,
-        isBgHueDrift: state.isBgHueDrift ?? false,
-        isBgModeCycle: state.isBgModeCycle ?? false,
-        bgCycleInterval: state.bgCycleInterval ?? 0
+        isBgColorMix: state.isBgColorMix,
+        bgHueShift: state.bgHueShift,
+        isBgHueDrift: state.isBgHueDrift,
+        isBgModeCycle: state.isBgModeCycle,
+        bgCycleInterval: state.bgCycleInterval
       };
       AA._activeScale = state.bgRenderScale === 'auto' ? 1 : state.bgRenderScale;
       this.colorLive = [...state.bgColor];
       this.cachedColor2 = null;
+      this.driftedPrimary = [0, 0, 0];
+      this.driftedColor2 = [0, 0, 0];
+      this.lastDriftCalcPhase = -1;
       this.updateCachedColor2();
       this.color2Live = [...this.cachedColor2];
       this.driftPhase = 0;
@@ -105,7 +116,7 @@
       this.currentWeights[modeIdx] = 1.0;
       this.targetWeights[modeIdx] = 1.0;
       this.currentBrightness = 1.0;
-      this.currentVignette = ENGINE_CFG.VIGNETTE_MAP[state.bgVignette] ?? 0;
+      this.currentVignette = ENGINE_CFG.VIGNETTE_MAP[state.bgVignette];
       this.globalTime = 0;
       this.lastTime = performance.now();
       this.renderBound = this.render.bind(this);
@@ -266,6 +277,8 @@
     updateCachedColor2() {
       const { bgColor, isNightMode, isBgColorMix, bgHueShift } = this.params;
       this.cachedColor2 = deriveSecondaryColor(bgColor, isNightMode, isBgColorMix, bgHueShift);
+      // Force the drifted colors to be recomputed on the next frame
+      this.lastDriftCalcPhase = -1;
     }
 
     showFallback() {
@@ -391,13 +404,13 @@
         this.stableTime = 0;
       }
 
-      if (timestamp < this.frameClock + minInterval - 2) return null;
+      if (timestamp < this.frameClock + minInterval - ENGINE_CFG.FRAME_JITTER_MS) return null;
       this.frameClock += minInterval;
       if (timestamp - this.frameClock > minInterval) this.frameClock = timestamp;
 
       const rawDt = timestamp - this.lastTime;
-      const dt = clamp(rawDt, 0, 100);
-      const k = 1 - Math.pow(1 - 0.033, dt / 16.666);
+      const dt = clamp(rawDt, 0, ENGINE_CFG.MAX_DT_MS);
+      const k = 1 - Math.pow(1 - ENGINE_CFG.SMOOTH_BASE, dt / ENGINE_CFG.REF_FRAME_MS);
       this.lastTime = timestamp;
 
       return { rawDt, dt, k, minInterval, effectiveSpeed };
@@ -405,7 +418,7 @@
 
     // Advance shader time and run the seamless dual-time wrap
     stepTimeAndWrap(dt, effectiveSpeed) {
-      const step = 0.01 * effectiveSpeed * (dt / 16.666);
+      const step = ENGINE_CFG.TIME_STEP_BASE * effectiveSpeed * (dt / ENGINE_CFG.REF_FRAME_MS);
       this.globalTime += step;
 
       if (!this.isWrapping && this.globalTime >= ENGINE_CFG.WRAP_THRESHOLD) {
@@ -429,7 +442,7 @@
       const { isBgModeCycle, bgCycleInterval } = this.params;
       if (!isBgModeCycle) return;
       this.cycleElapsed += dt;
-      const limit = ENGINE_CFG.CYCLE_INTERVALS_MS[bgCycleInterval] || ENGINE_CFG.CYCLE_INTERVALS_MS[0];
+      const limit = ENGINE_CFG.CYCLE_INTERVALS_MS[bgCycleInterval];
       if (this.cycleElapsed >= limit) {
         this.cycleElapsed = 0;
         const nextIdx = (BG_MODES.indexOf(this.displayMode) + 1) % BG_MODES.length;
@@ -456,14 +469,20 @@
         this.driftPhase = (this.driftPhase + dt / ENGINE_CFG.DRIFT_PERIOD_MS) % 1;
       }
 
+      // Recompute drifted RGB (into reused arrays) only when the phase moved enough
+      const drifting = isBgHueDrift && !isNightMode;
+      if (drifting && Math.abs(this.driftPhase - this.lastDriftCalcPhase) >= ENGINE_CFG.DRIFT_STEP_EPS) {
+        applyHueDrift(bgColor, this.driftPhase, this.driftedPrimary);
+        applyHueDrift(this.cachedColor2, this.driftPhase, this.driftedColor2);
+        this.lastDriftCalcPhase = this.driftPhase;
+      }
+
       const target = isNightMode
         ? NIGHT_COLOR
-        : (isBgHueDrift ? applyHueDrift(bgColor, this.driftPhase) : bgColor);
+        : (isBgHueDrift ? this.driftedPrimary : bgColor);
       for (let i = 0; i < 3; i++) this.colorLive[i] += (target[i] - this.colorLive[i]) * k;
 
-      const target2 = (isBgHueDrift && !isNightMode)
-        ? applyHueDrift(this.cachedColor2, this.driftPhase)
-        : this.cachedColor2;
+      const target2 = drifting ? this.driftedColor2 : this.cachedColor2;
       for (let i = 0; i < 3; i++) this.color2Live[i] += (target2[i] - this.color2Live[i]) * k;
 
       this.currentBrightness += (
@@ -474,7 +493,7 @@
             : bgBrightness) - this.currentBrightness
       ) * k;
 
-      const targetVignette = ENGINE_CFG.VIGNETTE_MAP[bgVignette] ?? 0;
+      const targetVignette = ENGINE_CFG.VIGNETTE_MAP[bgVignette];
       this.currentVignette += (targetVignette - this.currentVignette) * k;
     }
 
@@ -497,7 +516,7 @@
       const { bgRenderScale, isIdle, isPanelOpen } = this.params;
 
       let activeModes = 0;
-      for (let i = 0; i < 5; i++) if (this.currentWeights[i] > 0.001) activeModes++;
+      for (let i = 0; i < 5; i++) if (this.currentWeights[i] > ENGINE_CFG.ACTIVE_MODE_EPS) activeModes++;
 
       const autoActive = bgRenderScale === 'auto' && !isIdle && !isPanelOpen;
       if (
@@ -519,10 +538,13 @@
         this.stableTime = 0;
       } else if (this.emaFrameDt <= minInterval * ENGINE_CFG.AUTO_STABLE_RATIO) {
         this.stableTime += rawDt;
-        if (this.autoUpRequiredMs > ENGINE_CFG.AUTO_UP_MS && this.stableTime >= ENGINE_CFG.AUTO_STABLE_RESET_MS) {
-          this.autoUpRequiredMs = ENGINE_CFG.AUTO_UP_MS;
-        }
-        this.overloadTime = Math.max(0, this.overloadTime - rawDt * 0.5);
+        this.overloadTime = Math.max(0, this.overloadTime - rawDt * ENGINE_CFG.AUTO_OVERLOAD_DECAY);
+      }
+
+      // Two full minutes since the last upgrade without a downgrade: forget the doubled upgrade threshold
+      if (this.lastAutoUpTime > 0 && (timestamp - this.lastAutoUpTime) >= ENGINE_CFG.AUTO_UP_RESET_MS) {
+        this.autoUpRequiredMs = ENGINE_CFG.AUTO_UP_MS;
+        this.lastAutoUpTime = 0;
       }
 
       if (timestamp >= this.autoCooldownUntil) {
@@ -531,6 +553,7 @@
           if (this.lastAutoUpTime > 0 && (timestamp - this.lastAutoUpTime) <= ENGINE_CFG.AUTO_FLAP_WINDOW_MS) {
             this.autoUpRequiredMs = Math.min(this.autoUpRequiredMs * 2, ENGINE_CFG.AUTO_UP_MAX_MS);
           }
+          this.lastAutoUpTime = 0;
           this.autoScale = SCALE_TIERS[Math.max(0, ti - 1)];
           this.autoCooldownUntil = timestamp + ENGINE_CFG.AUTO_COOLDOWN_DOWN_MS;
           this.overloadTime = 0;

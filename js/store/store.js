@@ -1,5 +1,5 @@
 window.AA = window.AA || {};
-// Ambient Aurora v3.14.3-flat | Store / WebGLEngine / ClockController / UIManager
+// Ambient Aurora v3.14.4-flat | Store / WebGLEngine / ClockController / UIManager
 (function (AA) {
 const $ = id => document.getElementById(id);
 const qs = (el, sel) => el.querySelector(sel);
@@ -21,6 +21,16 @@ class Store {
     return this.state;
   }
   setState(key, value) {
+    const cfg = AA.UI_CONFIG;
+    const entry = cfg && cfg.SCHEMA_BY_KEY && cfg.SCHEMA_BY_KEY[key];
+    if (
+      entry &&
+      typeof entry.normalize === 'function' &&
+      typeof entry.validate === 'function' &&
+      entry.validate(value) === true
+    ) {
+      value = entry.normalize(value);
+    }
     if (this.state[key] === value) return;
     this.state = Object.freeze({ ...this.state, [key]: value });
     this.scheduleSave(key);
@@ -58,6 +68,7 @@ class Store {
     } catch(e){}
   }
   // Schema-driven validation: returns an object holding only the keys whose value passes SETTINGS_SCHEMA[k].validate
+  // (values are passed through SETTINGS_SCHEMA[k].normalize when defined, e.g. clockCustomText truncation)
   static validate(raw, def) {
     const out = {};
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
@@ -71,7 +82,10 @@ class Store {
       const entry = byKey[k];
       if (!entry || typeof entry.validate !== 'function') continue;
       const v = raw[k];
-      if (entry.validate(v) === true) out[k] = Array.isArray(v) ? v.slice() : v;
+      if (entry.validate(v) === true) {
+        const n = typeof entry.normalize === 'function' ? entry.normalize(v) : v;
+        out[k] = Array.isArray(n) ? n.slice() : n;
+      }
     }
     return out;
   }
@@ -108,6 +122,6 @@ class Store {
 }
 AA.util = { $, qs, on, clamp };
 AA.CONST = { EASE_OUT };
-AA.VERSION = 'v3.14.3-flat';
+AA.VERSION = 'v3.14.4-flat';
 AA.Store = Store;
 })(window.AA);
