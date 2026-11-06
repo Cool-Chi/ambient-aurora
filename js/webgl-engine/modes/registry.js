@@ -12,7 +12,8 @@
  *   Uniforms available to every mode: u_color (vec3), u_color2 (vec3), u_resolution (vec2), u_octaves (int).
  *   Return value: un-exposed vec3 linear color (exposure scaling is applied by evalScene).
  *
- * Registration order defines the mode index (u_weights[i]) and must match UI_CONFIG.BG_MODES.
+ * Registration order defines the mode index (u_weights[i]). UI_CONFIG, the shader assembly and the engine
+ * all read it from AA.MODES / AA.MODE_IDS / AA.MODE_INDEX_BY_ID; AA.nextMode(id) steps through it in order.
  */
 (function (AA) {
   const modes = [];
@@ -37,7 +38,6 @@
     if (typeof def.exposure !== 'number' || !Number.isFinite(def.exposure) || !(def.exposure > 0)) {
       return fail('exposure must be a finite positive number');
     }
-    if (typeof def.heavy !== 'boolean') return fail('heavy must be a boolean');
     if (!isNonEmptyString(def.glsl)) return fail('glsl must be a non-empty string');
     if (def.id in modeIndexById) return fail(`id "${def.id}" is already registered`);
 
@@ -53,7 +53,6 @@
       expConst: 'EXP_' + def.id.toUpperCase(),
       label: Object.freeze({ en: def.label.en, zh: def.label.zh }),
       exposure: def.exposure,
-      heavy: def.heavy,
       glsl: def.glsl.trim()
     });
     modeIndexById[def.id] = modes.length;
@@ -62,7 +61,17 @@
     return true;
   }
 
+  // Next mode id in registration order, wrapping from the last entry back to the first
+  function nextMode(currentId) {
+    const count = modeIds.length;
+    if (count === 0) return '';
+    if (count === 1) return modeIds[0];
+    if (!(currentId in modeIndexById)) return modeIds[0];
+    return modeIds[(modeIndexById[currentId] + 1) % count];
+  }
+
   AA.registerMode = registerMode;
+  AA.nextMode = nextMode;
   Object.defineProperties(AA, {
     MODES: { get: () => modes, enumerable: true, configurable: true },
     MODE_IDS: { get: () => modeIds, enumerable: true, configurable: true },

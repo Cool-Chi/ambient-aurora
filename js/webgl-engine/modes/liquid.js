@@ -3,7 +3,6 @@
     id: 'liquid',
     label: { en: 'Liquid', zh: '液態' },
     exposure: 0.92,
-    heavy: false,
     glsl: `
 vec3 renderLiquid(vec2 uv,float u_time){
   vec2 p=uv*2.0-1.0;

@@ -3,7 +3,6 @@
     id: 'glow',
     label: { en: 'Glow', zh: '光暈' },
     exposure: 0.72,
-    heavy: false,
     glsl: `
 vec3 renderGlow(vec2 uv,float u_time){
   vec2 dc=abs(uv-0.5)*2.0;

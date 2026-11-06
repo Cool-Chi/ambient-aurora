@@ -48,7 +48,7 @@
     REF_FRAME_MS: 16.666,           // 60fps reference frame duration for smoothing and time step
     SMOOTH_BASE: 0.033,             // Per-reference-frame exponential smoothing factor
     TIME_STEP_BASE: 0.01,           // Base shader time advance per reference frame
-    ACTIVE_MODE_EPS: 0.001,         // Minimum mode weight counted as active (shader evalScene and stepAutoScale)
+    ACTIVE_MODE_EPS: 0.001,         // Minimum mode weight counted as active (shader evalScene and stepWeights)
     AUTO_OVERLOAD_DECAY: 0.5,       // Overload timer decay rate during stable frames in stepAutoScale
     DRIFT_STEP_EPS: 0.0005          // Minimum driftPhase delta (~0.18°) before recomputing drifted RGB
   };
@@ -114,6 +114,8 @@
       const modeCount = AA.MODES.length;
       this.currentWeights = new Array(modeCount).fill(0);
       this.targetWeights = new Array(modeCount).fill(0);
+      this.activeModeCount = modeCount > 0 ? 1 : 0;
+      this.invalidateUniformCache();
       if (modeCount > 0) {
         let initIdx = AA.MODE_INDEX_BY_ID[state.bgMode];
         if (initIdx === undefined) {
@@ -168,6 +170,7 @@
         this.glReady = false;
         this.program = null;
         this.vao = null;
+        this.invalidateUniformCache();
         this.pause();
         this.showFallback();
       }, false);
@@ -226,6 +229,16 @@
       on(window, 'resize', () => this.resize());
     }
 
+    // Forget the last uploaded u_weights / u_octaves so the next draw() uploads them again
+    invalidateUniformCache() {
+      this.lastUploadedOctaves = -1;
+      if (!this.lastUploadedWeights || this.lastUploadedWeights.length !== this.currentWeights.length) {
+        this.lastUploadedWeights = new Array(this.currentWeights.length).fill(-1);
+      } else {
+        this.lastUploadedWeights.fill(-1);
+      }
+    }
+
     compileShader(gl, source, type) {
       const shader = gl.createShader(type);
       gl.shaderSource(shader, source);
@@ -279,6 +292,7 @@
           this.vao = gl.createVertexArray();
           gl.bindVertexArray(this.vao);
           this.glReady = true;
+          this.invalidateUniformCache();
           this.hideFallback();
           this.resize();
         } else {
@@ -340,6 +354,8 @@
     }
 
     resize() {
+      // Every resize re-uploads u_weights / u_octaves on the next draw
+      this.invalidateUniformCache();
       if (!this.glReady || !this.gl || this.gl.isContextLost()) return;
       const { isLowPower, bgRenderScale, isPanelOpen } = this.params;
       // Panel cap applies to Auto only; manual scales are used as-is
@@ -371,10 +387,29 @@
       this.gl.uniform1f(this.uniforms.u_timeMix, this.isWrapping ? this.wrapProgress : 0.0);
       this.gl.uniform3f(this.uniforms.u_color, this.colorLive[0], this.colorLive[1], this.colorLive[2]);
       this.gl.uniform3f(this.uniforms.u_color2, this.color2Live[0], this.color2Live[1], this.color2Live[2]);
-      this.gl.uniform1fv(this.uniforms.u_weights, this.currentWeights);
+
+      // u_weights: upload only when a weight changed since the last upload
+      const cw = this.currentWeights;
+      const lw = this.lastUploadedWeights;
+      let weightsChanged = false;
+      for (let i = 0; i < cw.length; i++) {
+        if (cw[i] !== lw[i]) {
+          weightsChanged = true;
+          lw[i] = cw[i];
+        }
+      }
+      if (weightsChanged) this.gl.uniform1fv(this.uniforms.u_weights, cw);
+
       this.gl.uniform1f(this.uniforms.u_brightness, this.currentBrightness);
       this.gl.uniform1f(this.uVignetteLoc, this.currentVignette);
-      this.gl.uniform1i(this.uniforms.u_octaves, this.params.isLowPower ? ENGINE_CFG.OCTAVES_LOW : ENGINE_CFG.OCTAVES_STD);
+
+      // u_octaves: upload only when the octave count changed
+      const octaves = this.params.isLowPower ? ENGINE_CFG.OCTAVES_LOW : ENGINE_CFG.OCTAVES_STD;
+      if (octaves !== this.lastUploadedOctaves) {
+        this.gl.uniform1i(this.uniforms.u_octaves, octaves);
+        this.lastUploadedOctaves = octaves;
+      }
+
       this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
       AA._glFrames = (AA._glFrames || 0) + 1;
     }
@@ -468,16 +503,12 @@
     // Automatic mode cycling via engine-internal displayMode
     stepModeCycle(dt) {
       const { isBgModeCycle, bgCycleInterval } = this.params;
-      if (!isBgModeCycle) return;
-      const count = AA.MODE_IDS.length;
-      if (count === 0) return;
+      if (!isBgModeCycle || AA.MODE_IDS.length === 0) return;
       this.cycleElapsed += dt;
       const limit = ENGINE_CFG.CYCLE_INTERVALS_MS[bgCycleInterval];
       if (this.cycleElapsed >= limit) {
         this.cycleElapsed = 0;
-        const curIdx = AA.MODE_INDEX_BY_ID[this.displayMode] ?? 0;
-        const nextIdx = (curIdx + 1) % count;
-        this.setDisplayMode(AA.MODE_IDS[nextIdx]);
+        this.setDisplayMode(AA.nextMode(this.displayMode));
       }
     }
 
@@ -528,7 +559,7 @@
       this.currentVignette += (targetVignette - this.currentVignette) * k;
     }
 
-    // Mode weight crossfade with early snap-to-zero and normalization
+    // Mode weight crossfade with early snap-to-zero and normalization (also counts active modes in the same pass)
     stepWeights(k) {
       const len = this.currentWeights.length;
       let wSum = 0;
@@ -539,7 +570,15 @@
         wSum += w;
       }
       if (wSum > 0) {
-        for (let i = 0; i < len; i++) this.currentWeights[i] /= wSum;
+        let active = 0;
+        for (let i = 0; i < len; i++) {
+          const nw = this.currentWeights[i] / wSum;
+          this.currentWeights[i] = nw;
+          if (nw > ENGINE_CFG.ACTIVE_MODE_EPS) active++;
+        }
+        this.activeModeCount = active;
+      } else {
+        this.activeModeCount = 0;
       }
     }
 
@@ -547,14 +586,11 @@
     stepAutoScale(timestamp, rawDt, minInterval) {
       const { bgRenderScale, isIdle, isPanelOpen } = this.params;
 
-      let activeModes = 0;
-      for (let i = 0, len = this.currentWeights.length; i < len; i++) if (this.currentWeights[i] > ENGINE_CFG.ACTIVE_MODE_EPS) activeModes++;
-
       const autoActive = bgRenderScale === 'auto' && !isIdle && !isPanelOpen;
       if (
         rawDt > ENGINE_CFG.AUTO_MAX_RAW_DT ||
         timestamp < this.autoIgnoreUntil ||
-        activeModes > 1 ||
+        this.activeModeCount > 1 ||
         this.isWrapping ||
         !autoActive
       ) {

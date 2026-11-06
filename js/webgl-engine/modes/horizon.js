@@ -3,7 +3,6 @@
     id: 'horizon',
     label: { en: 'Horizon', zh: '天沿' },
     exposure: 1.18,
-    heavy: false,
     glsl: `
 vec3 renderHorizon(vec2 uv,float u_time){
   vec2 p=uv*2.0-1.0;

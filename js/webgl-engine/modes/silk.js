@@ -3,7 +3,6 @@
     id: 'silk',
     label: { en: 'Silk', zh: '絲綢' },
     exposure: 1.05,
-    heavy: false,
     glsl: `
 vec3 renderSilk(vec2 uv,float u_time){
   vec2 p=uv*2.0-1.0;

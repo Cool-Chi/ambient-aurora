@@ -3,7 +3,6 @@
     id: 'dust',
     label: { en: 'Dust', zh: '星塵' },
     exposure: 1.48,
-    heavy: true,
     glsl: `
 vec3 renderDust(vec2 uv,float u_time){
   vec2 p=(uv-0.5)*2.0;
