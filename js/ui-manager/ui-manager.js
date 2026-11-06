@@ -3,7 +3,7 @@
  *   1. Module Helpers & Control Sync Dispatch (SYNC_BY_TYPE)
  *   2. Static Accessors & Color/Icon Utilities
  *   3. Lifecycle & Initialization (constructor, init)
- *   4. HUD Badges (FPS, Render Scale & Top Reserve)
+ *   4. HUD Delegation (FPS, Render Scale & Top Reserve; logic in hud.js)
  *   5. Panel Rendering & Tab Navigation
  *   6. Slider, Toast & Segment Highlight Helpers
  *   7. Declarative UI Sync & Dependent Row Animations
@@ -13,7 +13,7 @@
   const { $, qs, on, clamp } = AA.util;
   const { EASE_OUT } = AA.CONST;
   const { DICT } = AA;
-  const { FONTS, THEMES, UI_BINDINGS, BINDING_BY_ID, SETTINGS_SCHEMA, SCHEMA_BY_KEY, DEPENDENTS_BY_KEY, UI_ICONS, GLASS_FX_IDS } = AA.UI_CONFIG;
+  const { FONTS, THEMES, UI_BINDINGS, BINDING_BY_ID, SETTINGS_SCHEMA, SCHEMA_BY_KEY, DEPENDENTS_BY_KEY, GLASS_FX_IDS } = AA.UI_CONFIG;
 
   // === Module Helpers & Control Sync Dispatch (SYNC_BY_TYPE) ===
   const qsa = (el, sel) => el.querySelectorAll(sel);
@@ -30,7 +30,6 @@
   };
   const ANCHOR_KEY = keyOfType('anchor');
   const THEME_KEY = keyOfType('theme');
-  const LOWPOWER_KEY = keyOfType('button');
 
   // Per-type control syncing: (entry, value, state, ui, skipAnim)
   const syncBoundValue = (e, val) => {
@@ -125,11 +124,9 @@
       this.panel = $('settings-panel');
       this.activeTab = 0;
       this.appContainer = $('app-container');
-      this.hudToast = $('hud-toast');
       this.bgLayer = $('bg-layer');
       this.clockLayerObj = $('clock-layer');
       this.pixelShiftTimer = null;
-      this.hudTimer = null;
       this.idleTimer = null;
       this.lastWake = 0;
       this.wakeLock = null;
@@ -170,12 +167,8 @@
       this.glassEls = null;
       this._kCache = {};
       this.tickGlassBound = this.tickGlass.bind(this);
-      this.fpsRaf = null;
-      this.fpsLast = 0;
-      this.fpsBadge = null;
-      this.fpsDot = null;
-      this.fpsText = null;
-      this.fpsTickBound = this.fpsTick.bind(this);
+      this._hud = AA.createHUD(this);
+      this._chrome = AA.createChrome(this);
 
       this.store.subscribe(SETTINGS_SCHEMA.map(e => e.key), prop => {
         let skipAnim = false;
@@ -188,48 +181,12 @@
     }
 
     init() {
-      UI_ICONS.forEach(([id, size, cls, paths]) => {
-        $(id).innerHTML = UIManager.renderIcon(paths, cls, size);
-      });
+      this._chrome.initIcons();
 
       this.glassEls = {};
       for (const [k, id] of Object.entries(GLASS_FX_IDS)) this.glassEls[k] = $(id);
 
-      const host = this.appContainer || document.body;
-
-      if (!$('fps-badge')) {
-        const fb = document.createElement('div');
-        fb.id = 'fps-badge';
-        fb.className = 'fps-badge';
-        fb.setAttribute('aria-hidden', 'true');
-        fb.innerHTML = '<span class="fps-dot"></span><span class="fps-text">-- FPS</span>';
-        host.appendChild(fb);
-      }
-      this.fpsBadge = $('fps-badge');
-      this.fpsDot = qs(this.fpsBadge, '.fps-dot');
-      this.fpsText = qs(this.fpsBadge, '.fps-text');
-
-      if (!$('scale-badge')) {
-        const sb = document.createElement('div');
-        sb.id = 'scale-badge';
-        sb.className = 'fps-badge scale-badge';
-        sb.setAttribute('aria-hidden', 'true');
-        sb.innerHTML = '<span class="fps-dot"></span><span class="fps-text">--</span>';
-        host.appendChild(sb);
-      }
-      this.scaleBadge = $('scale-badge');
-      this.scaleDot = qs(this.scaleBadge, '.fps-dot');
-      this.scaleText = qs(this.scaleBadge, '.fps-text');
-      this._scaleTxt = '';
-
-      if (/flat/i.test(AA.VERSION || '') && !$('version-badge')) {
-        const vb = document.createElement('div');
-        vb.id = 'version-badge';
-        vb.className = 'version-badge';
-        vb.setAttribute('aria-hidden', 'true');
-        vb.textContent = AA.VERSION;
-        host.appendChild(vb);
-      }
+      this._hud.init();
 
       this.renderPanel();
       this.syncUI(true);
@@ -240,75 +197,17 @@
       window.dispatchEvent(new Event('resize'));
     }
 
-    // === HUD Badges (FPS, Render Scale & Top Reserve) ===
+    // === HUD Delegation (FPS, Render Scale & Top Reserve; logic in hud.js) ===
     updateScaleText() {
-      if (!this.scaleText) return;
-      const { bgRenderScale } = this.store.getState();
-      const fmt = s => {
-        const n = Number(s) || 1;
-        return (n === 1 ? '1.0' : String(n)) + 'x';
-      };
-      const text = bgRenderScale === 'auto' ? `AUTO · ${fmt(AA._activeScale || 1)}` : fmt(bgRenderScale);
-      if (this._scaleTxt !== text) {
-        this._scaleTxt = text;
-        this.scaleText.textContent = text;
-      }
-      if (this.scaleDot) this.scaleDot.style.background = bgRenderScale === 'auto' ? '#0a84ff' : '';
+      this._hud.updateScaleText();
     }
 
     syncFps(on) {
-      const { showScale } = this.store.getState();
-      const needLoop = !!on || !!showScale;
-
-      if (needLoop) {
-        if (this.fpsRaf === null) {
-          if (this.fpsText) this.fpsText.textContent = '-- FPS';
-          if (this.fpsDot) this.fpsDot.style.background = '';
-          this._lastGlFrames = AA._glFrames || 0;
-          this.fpsLast = performance.now();
-          this.fpsRaf = requestAnimationFrame(this.fpsTickBound);
-        }
-      } else if (this.fpsRaf !== null) {
-        cancelAnimationFrame(this.fpsRaf);
-        this.fpsRaf = null;
-      }
-
-      if (this.fpsBadge) this.fpsBadge.classList.toggle('is-visible', !!on);
-      if (this.scaleBadge) this.scaleBadge.classList.toggle('is-visible', !!showScale);
-      if (showScale) this.updateScaleText();
-
-      const badgeCount = (on ? 1 : 0) + (showScale ? 1 : 0);
-      document.documentElement.style.setProperty(
-        '--badge-top-reserve',
-        badgeCount === 2
-          ? 'calc(env(safe-area-inset-top, 16px) + 172px)'
-          : badgeCount === 1
-            ? 'calc(env(safe-area-inset-top, 16px) + 140px)'
-            : '120px'
-      );
-      if (this._cp && this._cp.isOpen()) {
-        requestAnimationFrame(() => this._cp.reposition());
-      }
+      this._hud.syncFps(on);
     }
 
     fpsTick() {
-      this.fpsRaf = requestAnimationFrame(this.fpsTickBound);
-      const now = performance.now();
-      const dt = now - this.fpsLast;
-      if (dt < 500) return;
-
-      const gf = AA._glFrames || 0;
-      const { showFps, showScale } = this.store.getState();
-
-      if (showFps && dt <= 2000) {
-        const fps = Math.round((gf - (this._lastGlFrames || 0)) * 1000 / dt);
-        this.fpsText.textContent = `${fps} FPS`;
-        this.fpsDot.style.background = fps >= 50 ? '#30d158' : fps >= 30 ? '#ffd60a' : '#ff453a';
-      }
-
-      this._lastGlFrames = gf;
-      this.fpsLast = now;
-      if (showScale) this.updateScaleText();
+      this._hud.fpsTick();
     }
 
     // === Panel Rendering & Tab Navigation ===
@@ -450,10 +349,7 @@
     }
 
     showHUD(text) {
-      this.hudToast.textContent = text;
-      this.hudToast.classList.add('is-visible');
-      clearTimeout(this.hudTimer);
-      this.hudTimer = setTimeout(() => this.hudToast.classList.remove('is-visible'), 2000);
+      this._hud.showHUD(text);
     }
 
     updateSegmentHighlight(container, val, skipAnim = false) {
@@ -1116,10 +1012,6 @@
         cp.close();
       }, { passive: true });
 
-      on(document, 'keydown', e => {
-        if (e.key === 'Escape' && cp.isOpen()) cp.close();
-      });
-
       this.store.subscribe('isPanelOpen', (_, val) => {
         if (!val) {
           cp.close();
@@ -1131,7 +1023,6 @@
       on(window, 'resize', () => cp.reposition());
 
       on(document, 'click', e => {
-        const state = this.store.getState();
         const segBtn = e.target.closest('.segment-btn');
         const swatch = e.target.closest('.swatch-wrapper[data-rgb]');
         const tabBtn = e.target.closest('.tab-nav-btn');
@@ -1161,58 +1052,18 @@
         } else if (swatch) {
           haptic(10);
           this.store.setState(THEME_KEY, swatch.dataset.rgb.split(',').map(Number));
-        } else if (e.target.closest('#btn-lowpower')) {
-          const newState = !state[LOWPOWER_KEY];
-          this.store.setState(LOWPOWER_KEY, newState);
-          this.showHUD(newState ? UIManager.DICT[state.lang].lpOn : UIManager.DICT[state.lang].lpOff);
-        } else if (e.target.closest('#btn-settings')) {
-          this.panel.classList.toggle('active');
-          this.store.setState('isPanelOpen', this.panel.classList.contains('active'));
-        } else if (e.target.closest('#btn-fullscreen')) {
-          if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(() => {});
-          } else if (document.exitFullscreen) {
-            document.exitFullscreen();
-          }
-        } else if (
-          !e.target.closest('.settings-panel') &&
-          !e.target.closest('#custom-color-input') &&
-          this.panel.classList.contains('active')
-        ) {
-          this.panel.classList.remove('active');
-          this.store.setState('isPanelOpen', false);
+        } else {
+          this._chrome.handleShellClick(e);
         }
 
         this.wakeUp();
         this.requestWakeLock();
       });
 
-      on(window, 'resize', () => {
-        document.body.classList.toggle(
-          'is-fullscreen',
-          (window.innerHeight >= window.screen.height - 1) || !!document.fullscreenElement
-        );
-        this.wakeUp();
-      });
-
-      on(document, 'fullscreenchange', () => window.dispatchEvent(new Event('resize')));
+      this._chrome.bindEvents();
 
       ['mousemove', 'pointermove', 'touchstart', 'keydown'].forEach(evt => {
         on(window, evt, () => this.wakeUp(), { passive: true });
-      });
-
-      on(document, 'keydown', e => {
-        if (e.target.tagName !== 'INPUT' && (e.code === 'Space' || e.key === ' ')) {
-          e.preventDefault();
-          if (!e.repeat) {
-            this.touchStartX = null;
-            this.exitApp(true);
-          }
-        }
-      });
-
-      on(document, 'keyup', e => {
-        if (e.code === 'Space' || e.key === ' ') this.exitApp(false);
       });
 
       on(window, 'blur', () => {
