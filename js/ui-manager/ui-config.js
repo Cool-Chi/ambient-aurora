@@ -14,7 +14,17 @@
     { rgb: '0.02,0.35,0.45', grad: '#0a82a8, #0a0a0a', label: 'Cyber Cyan' }
   ];
 
-  const BG_MODES = ['silk', 'glow', 'dust', 'liquid', 'horizon'];
+  // Background modes come from the mode registry (js/webgl-engine/modes/*.js), which loads before this file
+  const MODES = AA.MODES || [];
+  const MODE_IDS = AA.MODE_IDS || [];
+
+  let DEFAULT_BG_MODE = 'horizon';
+  if (MODE_IDS.length === 0) {
+    DEFAULT_BG_MODE = '';
+  } else if (!MODE_IDS.includes('horizon')) {
+    console.warn('[AA.UI_CONFIG] Default bgMode "horizon" is not in registered MODE_IDS; falling back to:', MODE_IDS[0]);
+    DEFAULT_BG_MODE = MODE_IDS[0];
+  }
 
   const isBool = v => typeof v === 'boolean';
   const isInt = (lo, hi) => v => typeof v === 'number' && Number.isInteger(v) && v >= lo && v <= hi;
@@ -71,6 +81,9 @@
    *      (plus optional dependsOn / apply / normalize).
    *   3. If the engine or clock controller needs it, subscribe to the key in webgl-engine.js
    *      or clock-controller.js.
+   *
+   * The bgMode entry is generated from the mode registry (AA.MODES / AA.MODE_IDS); add a new background
+   * mode by registering it in js/webgl-engine/modes/ rather than editing this file.
    */
   const SETTINGS_SCHEMA = [
     // ---- Tab 0: Clock / Block 0 ----
@@ -387,14 +400,14 @@
     // ---- Tab 1: Background / Block 0 ----
     {
       key: 'bgMode',
-      default: 'horizon',
-      validate: oneOf(BG_MODES),
+      default: DEFAULT_BG_MODE,
+      validate: oneOf(MODE_IDS),
       type: 'segmented',
       tab: 1,
       block: 0,
       label: { en: 'Mode', zh: '背景模式' },
-      options: { en: ['Silk', 'Glow', 'Dust', 'Liquid', 'Horizon'], zh: ['絲綢', '光暈', '星塵', '液態', '天沿'] },
-      values: BG_MODES
+      options: { en: MODES.map(m => m.label.en), zh: MODES.map(m => m.label.zh) },
+      values: MODE_IDS
     },
     // Dedicated RGB float array [0..1] for WebGL background theme; unrelated to CSS --bg-color (pure black #000 body background).
     {
@@ -670,7 +683,6 @@
   AA.UI_CONFIG = {
     FONTS,
     THEMES,
-    BG_MODES,
     SETTINGS_SCHEMA,
     SCHEMA_BY_KEY,
     DEPENDENTS_BY_KEY,

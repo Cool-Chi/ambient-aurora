@@ -1,14 +1,15 @@
 (function (AA) {
   const { on, clamp } = AA.util;
-  const { vsSource, fsSource } = AA.SHADERS;
+  const { vsSource, buildFragmentSource } = AA.SHADERS;
   const { NIGHT_COLOR, applyHueDrift, deriveSecondaryColor } = AA.COLOR_UTILS;
-  const { BG_MODES } = AA.UI_CONFIG;
 
   // Central tunables for the engine (no other magic numbers for these behaviors)
   const ENGINE_CFG = {
     PIXEL_BUDGET: 2500000,          // Max rendered pixels
     LOW_POWER_DPR: 0.75,            // DPR in low-power mode
     MAX_DPR: 2,                     // Max DPR in standard mode
+    OCTAVES_STD: 4,                 // fbm octave count in standard mode
+    OCTAVES_LOW: 2,                 // fbm octave count in low-power mode
     PANEL_SCALE_CAP: 0.75,          // Max Auto render scale while settings panel is open
     FPS_HIGH_MS: 16.6,              // ~60fps frame interval (speed > 1.05)
     FPS_BASE_MS: 33.3,              // ~30fps frame interval (speed <= 1.0 or panel open)
@@ -47,7 +48,7 @@
     REF_FRAME_MS: 16.666,           // 60fps reference frame duration for smoothing and time step
     SMOOTH_BASE: 0.033,             // Per-reference-frame exponential smoothing factor
     TIME_STEP_BASE: 0.01,           // Base shader time advance per reference frame
-    ACTIVE_MODE_EPS: 0.001,         // Minimum mode weight counted as active in stepAutoScale
+    ACTIVE_MODE_EPS: 0.001,         // Minimum mode weight counted as active (shader evalScene and stepAutoScale)
     AUTO_OVERLOAD_DECAY: 0.5,       // Overload timer decay rate during stable frames in stepAutoScale
     DRIFT_STEP_EPS: 0.0005          // Minimum driftPhase delta (~0.18°) before recomputing drifted RGB
   };
@@ -110,11 +111,19 @@
       this.driftPhase = 0;
       this.displayMode = state.bgMode;
       this.cycleElapsed = 0;
-      this.currentWeights = [0, 0, 0, 0, 0];
-      this.targetWeights = [0, 0, 0, 0, 0];
-      const modeIdx = Math.max(0, BG_MODES.indexOf(state.bgMode));
-      this.currentWeights[modeIdx] = 1.0;
-      this.targetWeights[modeIdx] = 1.0;
+      const modeCount = AA.MODES.length;
+      this.currentWeights = new Array(modeCount).fill(0);
+      this.targetWeights = new Array(modeCount).fill(0);
+      if (modeCount > 0) {
+        let initIdx = AA.MODE_INDEX_BY_ID[state.bgMode];
+        if (initIdx === undefined) {
+          console.warn('[AA.WebGLEngine] Unknown mode id "' + state.bgMode + '", falling back to "' + AA.MODE_IDS[0] + '".');
+          initIdx = 0;
+        }
+        this.displayMode = AA.MODE_IDS[initIdx];
+        this.currentWeights[initIdx] = 1.0;
+        this.targetWeights[initIdx] = 1.0;
+      }
       this.currentBrightness = 1.0;
       this.currentVignette = ENGINE_CFG.VIGNETTE_MAP[state.bgVignette];
       this.globalTime = 0;
@@ -146,7 +155,13 @@
       this.fallbackEl = canvas.parentElement;
       this.fallbackActive = false;
       this.vsSource = vsSource;
-      this.fsSource = fsSource;
+      if (modeCount > 0) {
+        // Built once; reused by initGL() on every (re)creation of the GL context
+        this.fsSource = buildFragmentSource({ activeEps: ENGINE_CFG.ACTIVE_MODE_EPS });
+      } else {
+        console.error('[AA.WebGLEngine] No background modes registered; activating CSS fallback.');
+        this.fsSource = '';
+      }
 
       on(this.canvas, 'webglcontextlost', (e) => {
         e.preventDefault();
@@ -224,6 +239,13 @@
     }
 
     initGL() {
+      if (!AA.MODES.length) {
+        this.glReady = false;
+        this.program = null;
+        this.vao = null;
+        this.showFallback();
+        return;
+      }
       this.gl = this.canvas.getContext('webgl2', {
         antialias: false,
         alpha: false,
@@ -296,7 +318,13 @@
     }
 
     setDisplayMode(m) {
-      const idx = Math.max(0, BG_MODES.indexOf(m));
+      if (!AA.MODES.length) return;
+      let idx = AA.MODE_INDEX_BY_ID[m];
+      if (idx === undefined) {
+        console.warn('[AA.WebGLEngine] Unknown mode id "' + m + '", falling back to "' + AA.MODE_IDS[0] + '".');
+        idx = 0;
+        m = AA.MODE_IDS[0];
+      }
       this.displayMode = m;
       this.targetWeights.fill(0);
       this.targetWeights[idx] = 1.0;
@@ -346,7 +374,7 @@
       this.gl.uniform1fv(this.uniforms.u_weights, this.currentWeights);
       this.gl.uniform1f(this.uniforms.u_brightness, this.currentBrightness);
       this.gl.uniform1f(this.uVignetteLoc, this.currentVignette);
-      this.gl.uniform1i(this.uniforms.u_octaves, this.params.isLowPower ? 2 : 4);
+      this.gl.uniform1i(this.uniforms.u_octaves, this.params.isLowPower ? ENGINE_CFG.OCTAVES_LOW : ENGINE_CFG.OCTAVES_STD);
       this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
       AA._glFrames = (AA._glFrames || 0) + 1;
     }
@@ -441,12 +469,15 @@
     stepModeCycle(dt) {
       const { isBgModeCycle, bgCycleInterval } = this.params;
       if (!isBgModeCycle) return;
+      const count = AA.MODE_IDS.length;
+      if (count === 0) return;
       this.cycleElapsed += dt;
       const limit = ENGINE_CFG.CYCLE_INTERVALS_MS[bgCycleInterval];
       if (this.cycleElapsed >= limit) {
         this.cycleElapsed = 0;
-        const nextIdx = (BG_MODES.indexOf(this.displayMode) + 1) % BG_MODES.length;
-        this.setDisplayMode(BG_MODES[nextIdx]);
+        const curIdx = AA.MODE_INDEX_BY_ID[this.displayMode] ?? 0;
+        const nextIdx = (curIdx + 1) % count;
+        this.setDisplayMode(AA.MODE_IDS[nextIdx]);
       }
     }
 
@@ -499,15 +530,16 @@
 
     // Mode weight crossfade with early snap-to-zero and normalization
     stepWeights(k) {
+      const len = this.currentWeights.length;
       let wSum = 0;
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < len; i++) {
         let w = this.currentWeights[i] + (this.targetWeights[i] - this.currentWeights[i]) * k;
         if (this.targetWeights[i] === 0 && w < ENGINE_CFG.WEIGHT_SNAP_EPS) w = 0;
         this.currentWeights[i] = w;
         wSum += w;
       }
       if (wSum > 0) {
-        for (let i = 0; i < 5; i++) this.currentWeights[i] /= wSum;
+        for (let i = 0; i < len; i++) this.currentWeights[i] /= wSum;
       }
     }
 
@@ -516,7 +548,7 @@
       const { bgRenderScale, isIdle, isPanelOpen } = this.params;
 
       let activeModes = 0;
-      for (let i = 0; i < 5; i++) if (this.currentWeights[i] > ENGINE_CFG.ACTIVE_MODE_EPS) activeModes++;
+      for (let i = 0, len = this.currentWeights.length; i < len; i++) if (this.currentWeights[i] > ENGINE_CFG.ACTIVE_MODE_EPS) activeModes++;
 
       const autoActive = bgRenderScale === 'auto' && !isIdle && !isPanelOpen;
       if (

@@ -6,13 +6,6 @@ void main(){
   gl_Position=vec4(pos*2.0-1.0,0.0,1.0);
 }`;
 
-  // One-time consistency check: registration order must match UI_CONFIG.BG_MODES (u_weights[i] <-> BG_MODES[i])
-  const cfgModes = AA.UI_CONFIG && AA.UI_CONFIG.BG_MODES;
-  const modeIds = AA.MODE_IDS;
-  if (!cfgModes || modeIds.length !== cfgModes.length || modeIds.some((id, i) => id !== cfgModes[i])) {
-    console.warn('[AA.SHADERS] MODE_IDS does not match UI_CONFIG.BG_MODES:', modeIds, cfgModes);
-  }
-
   // Always yields a valid GLSL float literal (contains a decimal point)
   const fmtFloat = n => (Number.isInteger(n) ? n.toFixed(1) : String(n));
 
