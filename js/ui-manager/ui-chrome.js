@@ -1,15 +1,24 @@
 /*
- * ui-chrome.js — App Shell Buttons, SVG Icons, Keyboard Shortcuts & Outside-Panel Close
- *   Factory: AA.createChrome(ui) -> mounted at ui._chrome
- *   Returned API: { initIcons, handleShellClick, bindEvents }
- *   Reads / writes on ui:
- *     - Reads: ui.store, ui.panel, ui._cp (isOpen, close)
- *     - Writes: ui.touchStartX (sets to null on Space keydown hold-to-exit)
- *     - Calls: ui.showHUD(text), ui.wakeUp(), ui.exitApp(isStarting), AA.UIManager.renderIcon(...)
- *   Private state: LOWPOWER_KEY (resolved from SETTINGS_SCHEMA)
- *   Globals: AA.util ($, on), AA.DICT, AA.UI_CONFIG (SETTINGS_SCHEMA, UI_ICONS)
- *   Co-change guide: Bottom shell buttons / shortcuts -> ui-chrome.js + css/ui-manager/hud.css
- *     (+ ui-config.js if UI_ICONS change)
+ * ui-chrome.js - shell buttons, shortcuts and fullscreen/resize chrome
+ *
+ * Responsibility
+ *   Renders the shell icon buttons, handles the shell click branches (low power, settings, fullscreen,
+ *   outside-panel close) and binds global chrome events (Escape closes the color picker, window resize
+ *   and fullscreenchange sync, Space hold-to-exit).
+ *
+ * Returned API: { initIcons, handleShellClick, bindEvents }
+ *
+ * ui.* usage
+ *   Reads:  ui.store, ui.panel, ui._cp
+ *   Writes: ui.touchStartX
+ *   Calls:  ui.showHUD(text), ui.wakeUp(), ui.exitApp(isStarting)
+ *
+ * Global dependencies
+ *   AA.util ($, on); AA.DICT; AA.UI_CONFIG (SETTINGS_SCHEMA, UI_ICONS); AA.UIManager.renderIcon
+ *
+ * Co-change guide
+ *   Shell buttons / shortcuts -> ui-chrome.js + index.html + css/ui-manager/hud.css
+ *   (+ ui-assets.js if UI_ICONS change, or schema/system.js if the low-power button schema entry changes)
  */
 (function (AA) {
   const { $, on } = AA.util;

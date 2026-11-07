@@ -5,8 +5,12 @@
  *   Owns the shared DOM/state fields, constructs and initializes every UI subsystem in a fixed
  *   order, runs the declarative syncUI (schema -> CSS vars / hooks / controls / dependent rows,
  *   including the typoAnim crossfade), and keeps the thin delegation methods that other modules
- *   (ui-config.js hooks, main.js, color-picker.js, ui-chrome.js, gesture-manager.js, panel-view.js)
+ *   (schema/*.js hooks, main.js, color-picker.js, ui-chrome.js, gesture-manager.js, panel-view.js)
  *   still call on the UIManager instance.
+ *
+ * Statics
+ *   FONTS (font-family stacks), hexToRgb, rgbToHex, renderIcon. Everything else is read directly from
+ *   AA.DICT / AA.UI_CONFIG by the modules that need it (no forwarding getters on UIManager).
  *
  * Subsystem construction order (constructor)
  *   _hud            <- AA.createHUD            (hud.js)
@@ -41,28 +45,13 @@
 (function (AA) {
   const { $, clamp } = AA.util;
   const { EASE_OUT } = AA.CONST;
-  const { DICT } = AA;
-  const { FONTS, THEMES, UI_BINDINGS, BINDING_BY_ID, SETTINGS_SCHEMA, SCHEMA_BY_KEY } = AA.UI_CONFIG;
+  const { FONTS, SETTINGS_SCHEMA, SCHEMA_BY_KEY } = AA.UI_CONFIG;
 
   class UIManager {
     // === Static Accessors & Color/Icon Utilities ===
-    static get DICT() {
-      return DICT;
-    }
-
     static get FONTS() {
       return FONTS;
     }
-
-    static get THEMES() {
-      return THEMES;
-    }
-
-    static get UI_BINDINGS() {
-      return UI_BINDINGS;
-    }
-
-    static BINDING_BY_ID = BINDING_BY_ID;
 
     static hexToRgb(h) {
       return [
