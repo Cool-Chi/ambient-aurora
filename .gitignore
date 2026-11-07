@@ -23,6 +23,7 @@ orig.html
 diff.patch
 diff_v*.patch
 dist/
+diff/
 
 *.sh
 *.ps1
