@@ -31,89 +31,12 @@
       const d = DICT[lang];
       const I = ui.activeTab;
 
-      const row = (label, ctrl) => {
-        return `<div class="settings-row"><span class="row-label" title="${label}">${label}</span>${ctrl}</div>`;
-      };
-
-      const tg = e => {
-        return row(e.label[lang], `<input type="checkbox" id="${e.id}" class="toggle-switch">`);
-      };
-
-      const seg = e => {
-        const label = e.label[lang];
-        const options = e.options[lang];
-        const isCol = options.length > 3;
-        const style = e.style ? ` style="${e.style}"` : '';
-        const btns = options.map((t, i) => {
-          const act = !!e.prerender && String(e.values[i]) === String(state[e.key]);
-          return `<button class="segment-btn${act ? ' active' : ''}" role="radio" aria-checked="${act}" data-value="${e.values[i]}">${t}</button>`;
-        }).join('');
-        return `<div class="settings-row${isCol ? ' col-layout' : ''}"><span class="row-label" title="${label}">${label}</span><div class="segmented-control${isCol ? '' : ' inline-seg'}" data-prop="${e.key}" role="radiogroup" aria-label="${label}"${style}><div class="segmented-highlight"></div>${btns}</div></div>`;
-      };
-
-      const mtg = grp => {
-        return row(d[grp[0].group], `<div class="mtg-control">${grp.map(e => `<button class="mtg-btn" aria-pressed="false" data-prop="${e.key}">${e.label[lang]}</button>`).join('')}</div>`);
-      };
-
-      const chips = grp => {
-        return row(
-          d[grp[0].group],
-          `<div class="tc-group">${grp.map(e => `<label class="tc-chip"><span class="tc-dot" id="swatch-${e.key}" style="background:${state[e.key]}"></span><span class="tc-lbl">${e.label[lang]}</span><input type="color" class="tc-input" id="${e.id}" data-prop="${e.key}" value="${state[e.key]}" aria-label="${d[e.group]} ${e.label[lang]}"></label>`).join('')}</div>`
-        );
-      };
-
-      const slider = e => {
-        return `<div class="slider-row" aria-label="${e.label[lang]}">${AA.UIManager.renderIcon(e.svgMin, 'slider-icon min-icon')}<div class="range-container slider-wrap"><input type="range" id="${e.id}" min="${e.min}" max="${e.max}" step="${e.step}"><output class="slider-bubble" aria-hidden="true"></output></div>${AA.UIManager.renderIcon(e.svgMax, 'slider-icon max-icon')}</div>`;
-      };
-
-      const theme = e => {
-        return row(
-          e.label[lang],
-          `<div class="swatches-container">${AA.UIManager.THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}<div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div></div>`
-        );
-      };
-
-      const anchorRow = e => {
-        const label = e.label[lang];
-        return `<div class="settings-row anchor-row"><span class="row-label" title="${label}">${label}</span><div class="anchor-grid" data-prop="${e.key}" role="radiogroup" aria-label="${label}">${[...Array(9)].map((_, i) => `<button class="anchor-btn" data-value="${i}" role="radio" aria-checked="false" aria-label="${label} ${i + 1}"></button>`).join('')}</div></div>`;
-      };
-
-      const ctRow = e => {
-        return `<div class="settings-row"><input type="text" id="${e.id}" class="ct-input" maxlength="${e.maxLength}" placeholder="${e.placeholder[lang]}" enterkeyhint="done" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="${e.label[lang]}"></div>`;
-      };
-
-      const RENDER = {
-        toggle: tg,
-        segmented: seg,
-        slider,
-        theme,
-        anchor: anchorRow,
-        'custom-text': ctRow
-      };
-
-      const renderBlock = list => {
-        const out = [];
-        for (let i = 0; i < list.length; i++) {
-          const e = list[i];
-          if (e.type === 'color-chip' || e.type === 'mtg-item') {
-            const grp = [e];
-            while (i + 1 < list.length && list[i + 1].type === e.type && list[i + 1].group === e.group) {
-              grp.push(list[++i]);
-            }
-            out.push(e.type === 'color-chip' ? chips(grp) : mtg(grp));
-          } else if (RENDER[e.type]) {
-            out.push(RENDER[e.type](e));
-          }
-        }
-        return out;
-      };
-
       const tabs = d.tabs.map((_, t) => {
         const blocks = [];
         SETTINGS_SCHEMA.filter(e => e.tab === t).forEach(e => {
           (blocks[e.block] = blocks[e.block] || []).push(e);
         });
-        return blocks.filter(Boolean).map(renderBlock);
+        return blocks.filter(Boolean).map(b => ui.controls.renderBlock(b, lang, state));
       });
 
       if (ui._cp) ui._cp.close();

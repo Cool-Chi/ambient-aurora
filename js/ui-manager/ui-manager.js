@@ -1,11 +1,11 @@
 /*
  * ui-manager.js - responsibility index (sections appear in this order)
- *   1. Module Helpers & Control Sync Dispatch (SYNC_BY_TYPE)
+ *   1. Module Helpers
  *   2. Static Accessors & Color/Icon Utilities
  *   3. Lifecycle & Initialization (constructor, init)
  *   4. HUD, FX & Display Lifecycle Delegation (logic in hud.js, ui-fx.js, display-lifecycle.js)
  *   5. Panel Rendering & Tab Navigation (delegated to panel-view.js)
- *   6. Slider, Toast & Segment Highlight Helpers
+ *   6. Slider, Toast & Segment Highlight Delegation (logic in controls-registry.js)
  *   7. Declarative UI Sync (dependent row animations in panel-view.js)
  *   8. Event Binding, Touch Intent Lock & Click Dispatch
  */
@@ -15,9 +15,7 @@
   const { DICT } = AA;
   const { FONTS, THEMES, UI_BINDINGS, BINDING_BY_ID, SETTINGS_SCHEMA, SCHEMA_BY_KEY } = AA.UI_CONFIG;
 
-  // === Module Helpers & Control Sync Dispatch (SYNC_BY_TYPE) ===
-  const qsa = (el, sel) => el.querySelectorAll(sel);
-
+  // === Module Helpers ===
   const haptic = p => {
     try {
       navigator.vibrate?.(p);
@@ -30,61 +28,6 @@
   };
   const ANCHOR_KEY = keyOfType('anchor');
   const THEME_KEY = keyOfType('theme');
-
-  // Per-type control syncing: (entry, value, state, ui, skipAnim)
-  const syncBoundValue = (e, val) => {
-    const b = UI_BINDINGS[e.key];
-    const el = b && $(b.id);
-    if (el && String(el[b.prop]) !== String(val)) el[b.prop] = val;
-    return el;
-  };
-
-  const SYNC_BY_TYPE = {
-    slider: (e, val, state, ui) => {
-      const el = syncBoundValue(e, val);
-      if (el && el.type === 'range') ui.updateSliderFill(el);
-    },
-    toggle: (e, val) => {
-      syncBoundValue(e, val);
-    },
-    'custom-text': (e, val) => {
-      syncBoundValue(e, val);
-    },
-    segmented: (e, val, state, ui, skipAnim) => {
-      const c = qs(document, `.segmented-control[data-prop="${e.key}"]`);
-      if (c && val !== undefined) {
-        requestAnimationFrame(() => ui.updateSegmentHighlight(c, val, skipAnim));
-      }
-    },
-    'color-chip': (e, val) => {
-      const inp = $(e.id);
-      const dot = $(`swatch-${e.key}`);
-      if (inp) inp.value = val;
-      if (dot) dot.style.background = val;
-    },
-    'mtg-item': (e, val) => {
-      const btn = qs(document, `.mtg-btn[data-prop="${e.key}"]`);
-      if (!btn) return;
-      const act = !!val;
-      btn.classList.toggle('active', act);
-      btn.setAttribute('aria-pressed', act ? 'true' : 'false');
-    },
-    theme: (e, val) => {
-      qsa(document, '.swatches-container .swatch-wrapper').forEach(s => s.classList.remove('active'));
-      const activeSwatch = qs(document, `.swatch-wrapper[data-rgb="${val.join(',')}"]`);
-      const customEl = $('custom-swatch-color');
-      if (activeSwatch) {
-        activeSwatch.classList.add('active');
-        customEl.style.background = '';
-        customEl.classList.remove('has-color');
-      } else {
-        $('custom-swatch-wrapper').classList.add('active');
-        $('custom-color-input').value = UIManager.rgbToHex(...val);
-        customEl.style.background = UIManager.rgbToHex(...val);
-        customEl.classList.add('has-color');
-      }
-    }
-  };
 
   class UIManager {
     // === Static Accessors & Color/Icon Utilities ===
@@ -148,6 +91,7 @@
       this._chrome = AA.createChrome(this);
       this.displayLifecycle = AA.createDisplayLifecycle(this);
       this.fx = AA.createUIFx(this);
+      this.controls = AA.createControlsRegistry(this);
       this.panelView = AA.createPanelView(this);
 
       this.store.subscribe(SETTINGS_SCHEMA.map(e => e.key), prop => {
@@ -264,22 +208,9 @@
       this.panelView.setTab(i);
     }
 
-    // === Slider, Toast & Segment Highlight Helpers ===
+    // === Slider, Toast & Segment Highlight Delegation (controls-registry.js) ===
     updateSliderFill(el) {
-      const p = (el.value - (el.min || 0)) / ((el.max || 100) - (el.min || 0));
-      el.style.setProperty('--val', `${p * 100}%`);
-
-      const w = el.parentElement;
-      if (w && w.classList.contains('slider-wrap')) {
-        w.style.setProperty('--p', p);
-        const b = qs(w, '.slider-bubble');
-        if (b) {
-          const hit = UIManager.BINDING_BY_ID[el.id];
-          const ent = hit && SCHEMA_BY_KEY[hit[0]];
-          const v = Number(el.value);
-          b.textContent = ent && ent.formatVal ? ent.formatVal(v) : String(v);
-        }
-      }
+      this.controls.updateSliderFill(el);
     }
 
     showHUD(text) {
@@ -287,27 +218,7 @@
     }
 
     updateSegmentHighlight(container, val, skipAnim = false) {
-      const btn = Array.from(qsa(container, '.segment-btn')).find(b => {
-        return String(b.dataset.value) === String(val);
-      });
-
-      if (btn) {
-        qsa(container, '.segment-btn').forEach(b => {
-          const act = b === btn;
-          b.classList.toggle('active', act);
-          b.setAttribute('aria-checked', act ? 'true' : 'false');
-        });
-
-        const highlight = qs(container, '.segmented-highlight');
-        if (skipAnim) highlight.style.transition = 'none';
-        highlight.style.width = `${btn.offsetWidth}px`;
-        highlight.style.transform = `translateX(${btn.offsetLeft}px)`;
-        if (skipAnim) {
-          requestAnimationFrame(() => requestAnimationFrame(() => {
-            highlight.style.transition = '';
-          }));
-        }
-      }
+      this.controls.updateSegmentHighlight(container, val, skipAnim);
     }
 
     // === Declarative UI Sync (dependent row animations in panel-view.js) ===
@@ -370,7 +281,7 @@
             a.hook(val, state, this);
           }
         }
-        SYNC_BY_TYPE[e.type]?.(e, val, state, this, skipAnim);
+        this.controls.syncEntry(e, val, state, skipAnim);
       });
 
       this.panelView.syncDependents(state, full, changedKey, skipAnim);
