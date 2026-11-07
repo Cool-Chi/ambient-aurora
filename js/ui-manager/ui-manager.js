@@ -4,16 +4,16 @@
  *   2. Static Accessors & Color/Icon Utilities
  *   3. Lifecycle & Initialization (constructor, init)
  *   4. HUD, FX & Display Lifecycle Delegation (logic in hud.js, ui-fx.js, display-lifecycle.js)
- *   5. Panel Rendering & Tab Navigation
+ *   5. Panel Rendering & Tab Navigation (delegated to panel-view.js)
  *   6. Slider, Toast & Segment Highlight Helpers
- *   7. Declarative UI Sync & Dependent Row Animations
+ *   7. Declarative UI Sync (dependent row animations in panel-view.js)
  *   8. Event Binding, Touch Intent Lock & Click Dispatch
  */
 (function (AA) {
   const { $, qs, on, clamp } = AA.util;
   const { EASE_OUT } = AA.CONST;
   const { DICT } = AA;
-  const { FONTS, THEMES, UI_BINDINGS, BINDING_BY_ID, SETTINGS_SCHEMA, SCHEMA_BY_KEY, DEPENDENTS_BY_KEY } = AA.UI_CONFIG;
+  const { FONTS, THEMES, UI_BINDINGS, BINDING_BY_ID, SETTINGS_SCHEMA, SCHEMA_BY_KEY } = AA.UI_CONFIG;
 
   // === Module Helpers & Control Sync Dispatch (SYNC_BY_TYPE) ===
   const qsa = (el, sel) => el.querySelectorAll(sel);
@@ -137,8 +137,6 @@
       this.segProp = null;
       this.segDragged = false;
       this.typoAnim = null;
-      this._rowAnims = new Map();
-      this._scrollGuardUntil = 0;
       this.clockEl = $('clock');
       this.clockWrapperEl = $('clock-wrapper');
       this.btnLowpower = $('btn-lowpower');
@@ -150,6 +148,7 @@
       this._chrome = AA.createChrome(this);
       this.displayLifecycle = AA.createDisplayLifecycle(this);
       this.fx = AA.createUIFx(this);
+      this.panelView = AA.createPanelView(this);
 
       this.store.subscribe(SETTINGS_SCHEMA.map(e => e.key), prop => {
         let skipAnim = false;
@@ -256,124 +255,13 @@
       this.displayLifecycle.runPixelShift();
     }
 
-    // === Panel Rendering & Tab Navigation ===
+    // === Panel Rendering & Tab Navigation (delegated to panel-view.js) ===
     renderPanel() {
-      const state = this.store.getState();
-      const { lang } = state;
-      const d = UIManager.DICT[lang];
-      const I = this.activeTab;
-
-      const row = (label, ctrl) => {
-        return `<div class="settings-row"><span class="row-label" title="${label}">${label}</span>${ctrl}</div>`;
-      };
-
-      const tg = e => {
-        return row(e.label[lang], `<input type="checkbox" id="${e.id}" class="toggle-switch">`);
-      };
-
-      const seg = e => {
-        const label = e.label[lang];
-        const options = e.options[lang];
-        const isCol = options.length > 3;
-        const style = e.style ? ` style="${e.style}"` : '';
-        const btns = options.map((t, i) => {
-          const act = !!e.prerender && String(e.values[i]) === String(state[e.key]);
-          return `<button class="segment-btn${act ? ' active' : ''}" role="radio" aria-checked="${act}" data-value="${e.values[i]}">${t}</button>`;
-        }).join('');
-        return `<div class="settings-row${isCol ? ' col-layout' : ''}"><span class="row-label" title="${label}">${label}</span><div class="segmented-control${isCol ? '' : ' inline-seg'}" data-prop="${e.key}" role="radiogroup" aria-label="${label}"${style}><div class="segmented-highlight"></div>${btns}</div></div>`;
-      };
-
-      const mtg = grp => {
-        return row(d[grp[0].group], `<div class="mtg-control">${grp.map(e => `<button class="mtg-btn" aria-pressed="false" data-prop="${e.key}">${e.label[lang]}</button>`).join('')}</div>`);
-      };
-
-      const chips = grp => {
-        return row(
-          d[grp[0].group],
-          `<div class="tc-group">${grp.map(e => `<label class="tc-chip"><span class="tc-dot" id="swatch-${e.key}" style="background:${state[e.key]}"></span><span class="tc-lbl">${e.label[lang]}</span><input type="color" class="tc-input" id="${e.id}" data-prop="${e.key}" value="${state[e.key]}" aria-label="${d[e.group]} ${e.label[lang]}"></label>`).join('')}</div>`
-        );
-      };
-
-      const slider = e => {
-        return `<div class="slider-row" aria-label="${e.label[lang]}">${UIManager.renderIcon(e.svgMin, 'slider-icon min-icon')}<div class="range-container slider-wrap"><input type="range" id="${e.id}" min="${e.min}" max="${e.max}" step="${e.step}"><output class="slider-bubble" aria-hidden="true"></output></div>${UIManager.renderIcon(e.svgMax, 'slider-icon max-icon')}</div>`;
-      };
-
-      const theme = e => {
-        return row(
-          e.label[lang],
-          `<div class="swatches-container">${UIManager.THEMES.map(t => `<button class="swatch-wrapper" data-rgb="${t.rgb}" aria-label="${t.label}"><div class="swatch-color" style="background: linear-gradient(135deg, ${t.grad});"></div></button>`).join('')}<div class="swatch-wrapper" id="custom-swatch-wrapper" aria-label="Custom Color"><div class="swatch-color custom-swatch-color" id="custom-swatch-color"></div><input type="color" id="custom-color-input" value="#ffffff"></div></div>`
-        );
-      };
-
-      const anchorRow = e => {
-        const label = e.label[lang];
-        return `<div class="settings-row anchor-row"><span class="row-label" title="${label}">${label}</span><div class="anchor-grid" data-prop="${e.key}" role="radiogroup" aria-label="${label}">${[...Array(9)].map((_, i) => `<button class="anchor-btn" data-value="${i}" role="radio" aria-checked="false" aria-label="${label} ${i + 1}"></button>`).join('')}</div></div>`;
-      };
-
-      const ctRow = e => {
-        return `<div class="settings-row"><input type="text" id="${e.id}" class="ct-input" maxlength="${e.maxLength}" placeholder="${e.placeholder[lang]}" enterkeyhint="done" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="${e.label[lang]}"></div>`;
-      };
-
-      const RENDER = {
-        toggle: tg,
-        segmented: seg,
-        slider,
-        theme,
-        anchor: anchorRow,
-        'custom-text': ctRow
-      };
-
-      const renderBlock = list => {
-        const out = [];
-        for (let i = 0; i < list.length; i++) {
-          const e = list[i];
-          if (e.type === 'color-chip' || e.type === 'mtg-item') {
-            const grp = [e];
-            while (i + 1 < list.length && list[i + 1].type === e.type && list[i + 1].group === e.group) {
-              grp.push(list[++i]);
-            }
-            out.push(e.type === 'color-chip' ? chips(grp) : mtg(grp));
-          } else if (RENDER[e.type]) {
-            out.push(RENDER[e.type](e));
-          }
-        }
-        return out;
-      };
-
-      const tabs = d.tabs.map((_, t) => {
-        const blocks = [];
-        SETTINGS_SCHEMA.filter(e => e.tab === t).forEach(e => {
-          (blocks[e.block] = blocks[e.block] || []).push(e);
-        });
-        return blocks.filter(Boolean).map(renderBlock);
-      });
-
-      if (this._cp) this._cp.close();
-
-      this.panel.innerHTML = `<div class="tab-header" role="tablist">${d.tabs.map((t, i) => `<button class="tab-nav-btn${i === I ? ' active' : ''}" data-tab="${i}" role="tab">${t}</button>`).join('')}</div><div class="tab-panes">${tabs.map((blocks, i) => `<div class="tab-pane${i === I ? ' active' : ''}">${blocks.map(b => `<div class="settings-block">${b.join('')}</div>`).join('')}</div>`).join('')}</div>`;
+      this.panelView.renderPanel();
     }
 
     setTab(i) {
-      if (this._cp) this._cp.close();
-
-      const tp = qs(this.panel, '.tab-panes');
-      if (tp) tp.scrollTop = 0;
-
-      this.activeTab = i;
-      const state = this.store.getState();
-
-      qsa(this.panel, '.tab-nav-btn').forEach((b, j) => {
-        b.classList.toggle('active', j === i);
-      });
-
-      qsa(this.panel, '.tab-pane').forEach((p, j) => {
-        p.classList.toggle('active', j === i);
-        if (j === i) {
-          qsa(p, '.segmented-control').forEach(c => {
-            this.updateSegmentHighlight(c, state[c.dataset.prop], true);
-          });
-        }
-      });
+      this.panelView.setTab(i);
     }
 
     // === Slider, Toast & Segment Highlight Helpers ===
@@ -422,7 +310,7 @@
       }
     }
 
-    // === Declarative UI Sync & Dependent Row Animations ===
+    // === Declarative UI Sync (dependent row animations in panel-view.js) ===
     syncUI(skipAnim = false, changedKey = null) {
       const state = this.store.getState();
       const full = changedKey === null;
@@ -432,10 +320,7 @@
       const root = document.documentElement;
       const sp = (k, v) => root.style.setProperty(k, v);
 
-      if (full && this._rowAnims.size) {
-        this._rowAnims.forEach(a => a.cancel());
-        this._rowAnims.clear();
-      }
+      if (full) this.panelView.cancelRowAnims();
 
       if (!full && !skipAnim && ap && ap.typoTarget) {
         const targetEl = ap.typoTarget === 'wrapper' ? this.clockWrapperEl : this.clockEl;
@@ -488,149 +373,7 @@
         SYNC_BY_TYPE[e.type]?.(e, val, state, this, skipAnim);
       });
 
-      const updateBlockLastVisible = blockEl => {
-        const rows = Array.from(blockEl.children);
-        rows.forEach(r => r.classList.remove('is-last-visible'));
-        for (let i = rows.length - 1; i >= 0; i--) {
-          const r = rows[i];
-          if (!r.classList.contains('is-hidden') && !r.dataset.hiding) {
-            r.classList.add('is-last-visible');
-            break;
-          }
-        }
-      };
-
-      const syncDependentRow = (e, st, isFull) => {
-        const ctrl = e.type === 'segmented' ? qs(this.panel, `.segmented-control[data-prop="${e.key}"]`) : $(e.id);
-        const rowEl = ctrl && ctrl.closest(e.type === 'slider' ? '.slider-row' : '.settings-row');
-        if (!rowEl) return;
-        const blockEl = rowEl.parentElement && rowEl.parentElement.classList.contains('settings-block') ? rowEl.parentElement : null;
-        const refreshBlock = () => {
-          if (blockEl) updateBlockLastVisible(blockEl);
-        };
-        const vis = Boolean(st[e.dependsOn]);
-        const running = this._rowAnims.get(rowEl);
-
-        // Instant switch: cancels any running animation and settles the final state
-        const settle = () => {
-          if (running) {
-            running.cancel();
-            this._rowAnims.delete(rowEl);
-          }
-          delete rowEl.dataset.hiding;
-          rowEl.classList.remove('is-animating-row');
-          rowEl.classList.toggle('is-hidden', !vis);
-          rowEl.style.display = vis ? '' : 'none';
-          refreshBlock();
-          if (vis && e.type === 'segmented') this.updateSegmentHighlight(ctrl, st[e.key], true);
-        };
-
-        if (isFull || skipAnim) {
-          settle();
-          return;
-        }
-
-        const curVis = !rowEl.classList.contains('is-hidden') && rowEl.dataset.hiding !== '1';
-        if (vis === curVis) return;
-
-        const panes = qs(this.panel, '.tab-panes');
-        const savedScroll = panes ? panes.scrollTop : 0;
-        const restoreScroll = () => {
-          if (!panes) return;
-          this._scrollGuardUntil = performance.now() + 150;
-          panes.scrollTop = savedScroll;
-        };
-
-        if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-          this._scrollGuardUntil = performance.now() + 150;
-          settle();
-          restoreScroll();
-          return;
-        }
-
-        // Capture the in-flight state so the animation can reverse from where it is
-        let startH = 0;
-        let startOp = vis ? 0 : 1;
-        let startPT = 0;
-        let startPB = 0;
-        if (running) {
-          const cs0 = getComputedStyle(rowEl);
-          startH = rowEl.getBoundingClientRect().height;
-          const op = parseFloat(cs0.opacity);
-          startOp = Number.isNaN(op) ? startOp : op;
-          startPT = parseFloat(cs0.paddingTop) || 0;
-          startPB = parseFloat(cs0.paddingBottom) || 0;
-          running.cancel();
-          this._rowAnims.delete(rowEl);
-        }
-
-        this._scrollGuardUntil = performance.now() + 400;
-        const opts = { duration: 220, easing: EASE_OUT };
-        let anim;
-
-        if (vis) {
-          delete rowEl.dataset.hiding;
-          rowEl.classList.remove('is-hidden', 'is-animating-row');
-          rowEl.style.display = '';
-          refreshBlock();
-          const cs = getComputedStyle(rowEl);
-          const natPT = parseFloat(cs.paddingTop) || 0;
-          const natPB = parseFloat(cs.paddingBottom) || 0;
-          const targetH = rowEl.getBoundingClientRect().height || rowEl.scrollHeight || 44;
-          if (e.type === 'segmented') this.updateSegmentHighlight(ctrl, st[e.key], true);
-          rowEl.classList.add('is-animating-row');
-          anim = rowEl.animate([
-            { height: `${startH}px`, minHeight: '0px', paddingTop: `${startPT}px`, paddingBottom: `${startPB}px`, opacity: startOp },
-            { height: `${targetH}px`, minHeight: `${targetH}px`, paddingTop: `${natPT}px`, paddingBottom: `${natPB}px`, opacity: 1 }
-          ], opts);
-          this._rowAnims.set(rowEl, anim);
-          anim.onfinish = () => {
-            if (this._rowAnims.get(rowEl) !== anim) return;
-            this._rowAnims.delete(rowEl);
-            rowEl.classList.remove('is-animating-row');
-            if (e.type === 'segmented') this.updateSegmentHighlight(ctrl, this.store.getState()[e.key], true);
-            restoreScroll();
-          };
-        } else {
-          rowEl.dataset.hiding = '1';
-          refreshBlock();
-          if (!running) {
-            const cs = getComputedStyle(rowEl);
-            startH = rowEl.getBoundingClientRect().height;
-            startOp = 1;
-            startPT = parseFloat(cs.paddingTop) || 0;
-            startPB = parseFloat(cs.paddingBottom) || 0;
-          }
-          rowEl.classList.add('is-animating-row');
-          anim = rowEl.animate([
-            { height: `${startH}px`, minHeight: `${startH}px`, paddingTop: `${startPT}px`, paddingBottom: `${startPB}px`, opacity: startOp },
-            { height: '0px', minHeight: '0px', paddingTop: '0px', paddingBottom: '0px', opacity: 0 }
-          ], opts);
-          this._rowAnims.set(rowEl, anim);
-          anim.onfinish = () => {
-            if (this._rowAnims.get(rowEl) !== anim) return;
-            this._rowAnims.delete(rowEl);
-            if (rowEl.dataset.hiding === '1') {
-              delete rowEl.dataset.hiding;
-              rowEl.classList.remove('is-animating-row');
-              rowEl.classList.add('is-hidden');
-              rowEl.style.display = 'none';
-              refreshBlock();
-            }
-            restoreScroll();
-          };
-        }
-        restoreScroll();
-      };
-
-      if (full) {
-        SETTINGS_SCHEMA.forEach(e => {
-          if (e.dependsOn) syncDependentRow(e, state, true);
-        });
-        qsa(this.panel, '.settings-block').forEach(updateBlockLastVisible);
-      } else if (DEPENDENTS_BY_KEY[changedKey]) {
-        DEPENDENTS_BY_KEY[changedKey].forEach(e => syncDependentRow(e, state, false));
-      }
+      this.panelView.syncDependents(state, full, changedKey, skipAnim);
     }
 
     static renderIcon(paths, cls = '', size = 0) {
@@ -811,7 +554,7 @@
       // Panel scroll (capture: scroll events do not bubble) cancels any pending control gesture
       on(this.panel, 'scroll', () => {
         const now = performance.now();
-        if (now < this._scrollGuardUntil) return;
+        if (this.panelView.isScrollGuarded(now)) return;
         lastPanelScrollTime = now;
         cancelGestureForScroll();
       }, { capture: true, passive: true });
