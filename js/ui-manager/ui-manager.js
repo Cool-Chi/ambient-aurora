@@ -3,7 +3,7 @@
  *   1. Module Helpers & Control Sync Dispatch (SYNC_BY_TYPE)
  *   2. Static Accessors & Color/Icon Utilities
  *   3. Lifecycle & Initialization (constructor, init)
- *   4. HUD Delegation (FPS, Render Scale & Top Reserve; logic in hud.js)
+ *   4. HUD, FX & Display Lifecycle Delegation (logic in hud.js, ui-fx.js, display-lifecycle.js)
  *   5. Panel Rendering & Tab Navigation
  *   6. Slider, Toast & Segment Highlight Helpers
  *   7. Declarative UI Sync & Dependent Row Animations
@@ -13,7 +13,7 @@
   const { $, qs, on, clamp } = AA.util;
   const { EASE_OUT } = AA.CONST;
   const { DICT } = AA;
-  const { FONTS, THEMES, UI_BINDINGS, BINDING_BY_ID, SETTINGS_SCHEMA, SCHEMA_BY_KEY, DEPENDENTS_BY_KEY, GLASS_FX_IDS } = AA.UI_CONFIG;
+  const { FONTS, THEMES, UI_BINDINGS, BINDING_BY_ID, SETTINGS_SCHEMA, SCHEMA_BY_KEY, DEPENDENTS_BY_KEY } = AA.UI_CONFIG;
 
   // === Module Helpers & Control Sync Dispatch (SYNC_BY_TYPE) ===
   const qsa = (el, sel) => el.querySelectorAll(sel);
@@ -126,14 +126,6 @@
       this.appContainer = $('app-container');
       this.bgLayer = $('bg-layer');
       this.clockLayerObj = $('clock-layer');
-      this.pixelShiftTimer = null;
-      this.idleTimer = null;
-      this.lastWake = 0;
-      this.wakeLock = null;
-      this.wakeLockPending = false;
-      this.holdTimeout = null;
-      this.exitCloseTimer = null;
-      this.exitRecoverTimer = null;
       this.touchStartX = 0;
       this.touchStartY = 0;
       this.tgStart = null;
@@ -147,28 +139,17 @@
       this.typoAnim = null;
       this._rowAnims = new Map();
       this._scrollGuardUntil = 0;
-      this.lAngle = Math.atan2(0.75, 0.65);
-      this.lMag = Math.hypot(0.65, 0.75);
       this.clockEl = $('clock');
       this.clockWrapperEl = $('clock-wrapper');
       this.btnLowpower = $('btn-lowpower');
       this.ptrX = -0.65;
       this.ptrY = -0.75;
       this.ptrActiveUntil = 0;
-      this.ptrW = 0;
-      this.gyroX = 0;
-      this.gyroY = 0;
-      this.hasGyro = false;
-      this.gyroAsked = false;
-      this.gyroPending = false;
-      this.glassPress = 0;
-      this.glassRaf = null;
-      this.lastGlassTick = 0;
       this.glassEls = null;
-      this._kCache = {};
-      this.tickGlassBound = this.tickGlass.bind(this);
       this._hud = AA.createHUD(this);
       this._chrome = AA.createChrome(this);
+      this.displayLifecycle = AA.createDisplayLifecycle(this);
+      this.fx = AA.createUIFx(this);
 
       this.store.subscribe(SETTINGS_SCHEMA.map(e => e.key), prop => {
         let skipAnim = false;
@@ -183,8 +164,7 @@
     init() {
       this._chrome.initIcons();
 
-      this.glassEls = {};
-      for (const [k, id] of Object.entries(GLASS_FX_IDS)) this.glassEls[k] = $(id);
+      this.fx.init();
 
       this._hud.init();
 
@@ -197,7 +177,7 @@
       window.dispatchEvent(new Event('resize'));
     }
 
-    // === HUD Delegation (FPS, Render Scale & Top Reserve; logic in hud.js) ===
+    // === HUD, FX & Display Lifecycle Delegation (logic in hud.js, ui-fx.js, display-lifecycle.js) ===
     updateScaleText() {
       this._hud.updateScaleText();
     }
@@ -208,6 +188,72 @@
 
     fpsTick() {
       this._hud.fpsTick();
+    }
+
+    // === FX Delegation (ui-fx.js) ===
+    applyVisualVars(full) {
+      this.fx.applyVisualVars(full);
+    }
+
+    startGlassLoop() {
+      this.fx.startGlassLoop();
+    }
+
+    stopGlassLoop() {
+      this.fx.stopGlassLoop();
+    }
+
+    tickGlass(now) {
+      this.fx.tickGlass(now);
+    }
+
+    updateGlassVectors(force) {
+      this.fx.updateGlassVectors(force);
+    }
+
+    tryRequestGyro() {
+      this.fx.tryRequestGyro();
+    }
+
+    handleGyro(e) {
+      this.fx.handleGyro(e);
+    }
+
+    // === Display Lifecycle Delegation (display-lifecycle.js) ===
+    scheduleIdle() {
+      this.displayLifecycle.scheduleIdle();
+    }
+
+    setIdle() {
+      this.displayLifecycle.setIdle();
+    }
+
+    wakeUp() {
+      this.displayLifecycle.wakeUp();
+    }
+
+    exitApp(isStarting) {
+      this.displayLifecycle.exitApp(isStarting);
+    }
+
+    clearExitSequence() {
+      this.displayLifecycle.clearExitSequence();
+    }
+
+    recoverFromExit() {
+      this.displayLifecycle.recoverFromExit();
+    }
+
+    requestWakeLock() {
+      return this.displayLifecycle.requestWakeLock();
+    }
+
+    releaseWakeLock() {
+      this.displayLifecycle.releaseWakeLock();
+    }
+
+    runPixelShift() {
+      this.displayLifecycle.runPixelShift();
     }
 
     // === Panel Rendering & Tab Navigation ===
@@ -931,10 +977,6 @@
         endGesture();
       }, { passive: true });
 
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission !== 'function') {
-        on(window, 'deviceorientation', e => this.handleGyro(e), { passive: true });
-      }
-
       on(document, 'contextmenu', e => {
         if (e.target.closest('.anchor-grid, .icon-btn') || this.store.getState().isHolding) {
           e.preventDefault();
@@ -1062,9 +1104,7 @@
 
       this._chrome.bindEvents();
 
-      ['mousemove', 'pointermove', 'touchstart', 'keydown'].forEach(evt => {
-        on(window, evt, () => this.wakeUp(), { passive: true });
-      });
+      this.displayLifecycle.bindEvents();
 
       on(window, 'blur', () => {
         this.exitApp(false);
@@ -1073,6 +1113,5 @@
     }
   }
 
-  Object.assign(UIManager.prototype, AA.UI_FX);
   AA.UIManager = UIManager;
 })(window.AA);
