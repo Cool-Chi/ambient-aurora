@@ -32,18 +32,27 @@
     ├── store/
     │   └── store.js               # window.AA 初始化、Store 狀態管理（具版本 JSON 儲存與按鍵訂閱）
     ├── webgl-engine/
-    │   ├── shaders.js             # WebGL2 (GLSL ES 3.00) 著色器原始碼、PCG 整數 Hash
+    │   ├── modes/                 # 獨立背景模式與註冊表 (registry.js, *.js)
+    │   ├── shaders.js             # WebGL2 (GLSL ES 3.00) 著色器動態組裝、PCG 整數 Hash
     │   ├── color-utils.js         # 色彩推導 (HSV/RGB)、夜間配色、無記憶體配置緩漂推算
     │   └── webgl-engine.js        # WebGLEngine（管線排程、自適應倍率防震盪、集中常數 ENGINE_CFG）
     ├── clock-controller/
     │   ├── animations.js          # 跳秒貝茲曲線與動效預設 (AA.CLOCK_ANIMS)
     │   └── clock-controller.js    # ClockController（時鐘 Diff DOM、佈局翻轉動畫、智慧避讓）
     ├── ui-manager/
+    │   ├── schema/                # 依分頁拆分的設定定義 (helpers.js, clock.js, background.js, system.js)
     │   ├── locales.js             # 多國語系通用字典（AA.DICT）
-    │   ├── ui-config.js           # SETTINGS_SCHEMA 單一真相來源、主題色票、衍生綁定
-    │   ├── color-picker.js        # 自訂色盤元件工廠（AA.createColorPicker）
-    │   ├── ui-fx.js               # 玻璃動態反光、SVG 濾鏡向量運算、閒置/防烙印/休眠喚醒
-    │   └── ui-manager.js          # UIManager（面板渲染、控制項狀態同步、觸控滾動手勢防誤觸）
+    │   ├── ui-assets.js           # 靜態視覺資產 (字體堆疊、色彩主題、SVG 圖示與玻璃濾鏡 ID)
+    │   ├── ui-config.js           # 動態組裝 SETTINGS_SCHEMA 單一真相來源與衍生綁定
+    │   ├── color-picker.js        # 自訂色盤彈出元件
+    │   ├── hud.js                 # FPS / 渲染倍率徽章與 Toast 氣泡提示
+    │   ├── ui-chrome.js           # 介面外殼 (全螢幕、低功耗按鈕、快捷鍵、面板外點擊)
+    │   ├── display-lifecycle.js   # 顯示生命週期 (閒置、喚醒、長按退出、常亮鎖、OLED 防烙印)
+    │   ├── ui-fx.js               # 玻璃動態反光、SVG 濾鏡向量運算、陀螺儀追蹤與材質套用
+    │   ├── controls-registry.js   # 控制項渲染策略與雙向狀態鏡射 (SYNC_BY_TYPE)
+    │   ├── panel-view.js          # 設定面板 DOM 骨架渲染、分頁切換與依賴列過渡動畫
+    │   ├── gesture-manager.js     # 觸控意圖鎖定、手勢狀態機與 Capture 階段防誤觸攔截
+    │   └── ui-manager.js          # UIManager (頂層介面協調器，掛載子系統與初始化流程)
     └── main.js                    # 應用程式啟動序列、PWA 註冊與可見度切換監聽
 ```
 
@@ -54,24 +63,34 @@
 ### 1. 全域命名空間與載入相依性
 - 所有模組皆掛載於唯一的全域命名空間 `window.AA`，不使用 ES Modules 的 `import` / `export`，以確保能零建置成本直接在瀏覽器執行。
 - `index.html` 內以原生 `<script src>` 與 `<link rel="stylesheet">` 載入，相依關係嚴格維持單向。
-- **JS 載入順序**：
+- **JS 載入順序（29 檔）**：
   1. `store.js`
   2. `locales.js`
-  3. `ui-config.js`（確保 `SETTINGS_SCHEMA` 與預設狀態在引擎與介面啟動前就緒）
-  4. `shaders.js`
-  5. `color-utils.js`
-  6. `webgl-engine.js`
-  7. `animations.js`
-  8. `clock-controller.js`
-  9. `color-picker.js`
-  10. `ui-fx.js`
-  11. `ui-manager.js`
-  12. `main.js`（最後掛載並啟動各控制器）
+  3. `modes/registry.js`
+  4~8. `modes/*.js` (silk, glow, dust, liquid, horizon)
+  9~12. `schema/*.js` (helpers, clock, background, system)
+  13. `ui-assets.js`
+  14. `ui-config.js`（確保 `SETTINGS_SCHEMA` 與預設狀態在引擎與介面啟動前就緒）
+  15. `shaders.js`
+  16. `color-utils.js`
+  17. `webgl-engine.js`
+  18. `animations.js`
+  19. `clock-controller.js`
+  20. `color-picker.js`
+  21. `hud.js`
+  22. `ui-chrome.js`
+  23. `display-lifecycle.js`
+  24. `ui-fx.js`
+  25. `controls-registry.js`
+  26. `panel-view.js`
+  27. `gesture-manager.js`
+  28. `ui-manager.js`
+  29. `main.js`（最後掛載並啟動各控制器）
 
 ### 2. 設定系統（Schema-Driven Settings）
-- `js/ui-manager/ui-config.js` 中的 `SETTINGS_SCHEMA` 為所有設定項目的**單一真相來源**（Single Source of Truth）。
+- `js/ui-manager/ui-config.js` 中的 `SETTINGS_SCHEMA` 為所有設定項目的**單一真相來源**（Single Source of Truth），由 `schema/` 目錄下的各個分頁定義動態組裝而成。
 - 預設值（`buildDefaultState`）、數值驗證（`Store.validate`）、控制項綁定（`UI_BINDINGS`）、動態條件顯隱（`dependsOn`）與面板渲染均由 Schema 自動衍生。
-- 新增設定項目只需在 `SETTINGS_SCHEMA` 中追加一筆定義並補上多語系文案，不再需要跨多個檔案手寫重複的 `if` 判斷。
+- 新增設定項目只需在對應分頁的 `schema/*.js` 中追加一筆定義並補上多語系文案，不再需要跨多個檔案手寫重複的 `if` 判斷。
 
 ### 3. 按鍵訂閱與狀態持久化
 - `Store.subscribe(keys, callback)` 採精確鍵值訂閱（Keyed Subscription），僅在關注的設定變更時觸發對應模組，避免全域廣播重算。
@@ -80,6 +99,7 @@
 ### 4. WebGL2 渲染引擎規範
 - 全螢幕由 `gl_VertexID` 繪製單一大三角形（無須頂點緩衝與 Attribute 綁定）。
 - 雜湊運算全面改用 1D/2D PCG 整數 Hash 演算法，改善噪訊與星點分佈品質。
+- 背景模式拆分為獨立模組（`modes/*.js`）並依賴註冊表動態組合 Fragment Shader。
 - 運算參數、升降級門檻與動畫週期集中由 `ENGINE_CFG` 管理，不保留除錯全域覆寫物件。
 
 ---
@@ -88,7 +108,7 @@
 
 本專案無需 Node.js、npm 或任何打包工具建置環境：
 1. 複製專案後，以任何靜態檔案伺服器（例如 VS Code 的 Live Server，或 Python 指令：`python -m http.server 8080`）開啟根目錄。
-2. 開發期間若版本號帶有 `-flat` 尾綴（例如 `v3.15.1-flat`），畫面右下角會自動顯示版本資訊徽章以利追溯。
+2. 開發期間若版本號帶有 `-flat` 尾綴（例如 `v3.18.2-flat`），畫面右下角會自動顯示版本資訊徽章以利追溯。
 
 ---
 
@@ -104,7 +124,7 @@
 2. **輸出位置**：
    輸出檔案將存放於專案根目錄下的 `dist/`，命名規則為 `index_vX.Y.Z.html`。
 3. **發布至 main 分支**：
-   將生成出的單一 HTML 內容替換至 `main` 分支的 `index.html` 並打上正式標籤（例如 `v3.15.1`），將自動觸發 GitHub Pages 部署。
+   將生成出的單一 HTML 內容替換至 `main` 分支的 `index.html` 並打上正式標籤（例如 `v3.18.2`），將自動觸發 GitHub Pages 部署。
 
 ---
 
