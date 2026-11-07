@@ -1,3 +1,17 @@
+/*
+ * controls-registry.js — Control HTML Generators, SYNC_BY_TYPE Dispatch, Slider Fill & Segment Highlight
+ *   Factory: AA.createControlsRegistry(ui) -> mounted at ui.controls
+ *   Returned API: { renderBlock, syncEntry, updateSliderFill, updateSegmentHighlight, SYNC_BY_TYPE }
+ *   Reads / calls on ui:
+ *     - Reads: ui.store
+ *     - Calls: AA.UIManager.renderIcon(...), AA.UIManager.rgbToHex(...)
+ *   Private helpers: qsa, syncBoundValue, buildRenderers (row, tg, seg, mtg, chips, slider, theme, anchorRow, ctRow)
+ *   Globals: AA.util ($, qs), AA.DICT, AA.UI_CONFIG (THEMES, UI_BINDINGS, BINDING_BY_ID, SCHEMA_BY_KEY)
+ *   Co-change guide:
+ *     - Tweaking existing control markup or sync -> controls-registry.js + css/ui-manager/settings-controls.css
+ *     - Adding a new control type -> controls-registry.js + gesture-manager.js (input/click dispatch)
+ *       + ui-config.js (BOUND_PROP / SETTINGS_SCHEMA) + css/ui-manager/settings-controls.css
+ */
 (function (AA) {
   const { $, qs } = AA.util;
   const { DICT } = AA;

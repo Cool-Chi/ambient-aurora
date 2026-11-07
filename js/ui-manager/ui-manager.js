@@ -1,12 +1,42 @@
 /*
- * ui-manager.js - responsibility index (sections appear in this order)
- *   1. Static Accessors & Color/Icon Utilities
- *   2. Lifecycle & Initialization (constructor, init)
- *   3. HUD, FX & Display Lifecycle Delegation (logic in hud.js, ui-fx.js, display-lifecycle.js)
- *   4. Panel Rendering & Tab Navigation (delegated to panel-view.js)
- *   5. Slider, Toast & Segment Highlight Delegation (logic in controls-registry.js)
- *   6. Declarative UI Sync (dependent row animations in panel-view.js)
- *   7. Event Binding Delegation (gestures, intent lock & click dispatch in gesture-manager.js)
+ * ui-manager.js - central UI coordinator
+ *
+ * Role
+ *   Owns the shared DOM/state fields, constructs and initializes every UI subsystem in a fixed
+ *   order, runs the declarative syncUI (schema -> CSS vars / hooks / controls / dependent rows,
+ *   including the typoAnim crossfade), and keeps the thin delegation methods that other modules
+ *   (ui-config.js hooks, main.js, color-picker.js, ui-chrome.js, gesture-manager.js, panel-view.js)
+ *   still call on the UIManager instance.
+ *
+ * Subsystem construction order (constructor)
+ *   _hud            <- AA.createHUD            (hud.js)
+ *   _chrome         <- AA.createChrome         (ui-chrome.js)
+ *   displayLifecycle<- AA.createDisplayLifecycle (display-lifecycle.js)
+ *   fx              <- AA.createUIFx           (ui-fx.js)
+ *   controls        <- AA.createControlsRegistry (controls-registry.js)
+ *   panelView       <- AA.createPanelView      (panel-view.js)
+ *   gestures        <- AA.createGestureManager (gesture-manager.js)
+ *
+ * Initialization order (init)
+ *   _chrome.initIcons() -> fx.init() -> _hud.init() -> renderPanel() -> syncUI(true)
+ *   -> this._cp = AA.createColorPicker(this) -> bindEvents() -> runPixelShift() -> wakeUp()
+ *   -> requestWakeLock() -> synthetic window 'resize'
+ *
+ * Event binding order (bindEvents)
+ *   1. gestures.bindEvents()          panel scroll (capture), pointer*, click/change capture guards,
+ *                                     color-picker triggers, main bubble click, window blur
+ *   2. _chrome.bindEvents()           Escape, window resize, fullscreenchange, Space hold-to-exit
+ *   3. displayLifecycle.bindEvents()  user-activity wake listeners
+ *
+ * Shared this.* fields (read/written across submodules)
+ *   store, panel
+ *   activeTab                  written by panelView.setTab; read by panelView.renderPanel, gestures
+ *   _cp                        created in init(); read by hud, ui-chrome, panelView, gestures
+ *   ptrX, ptrY, ptrActiveUntil written by gestures.trackGlassPtr; read by fx.tickGlass
+ *   touchStartX, touchStartY   written by gestures and ui-chrome; read by gestures
+ *   glassEls                   populated by fx.init(); read by fx
+ *   typoAnim                   managed by syncUI
+ *   appContainer, bgLayer, clockLayerObj, clockEl, clockWrapperEl, btnLowpower  cached DOM refs
  */
 (function (AA) {
   const { $, clamp } = AA.util;
@@ -92,6 +122,7 @@
 
       this.renderPanel();
       this.syncUI(true);
+      this._cp = AA.createColorPicker(this);
       this.bindEvents();
       this.runPixelShift();
       this.wakeUp();
@@ -100,16 +131,8 @@
     }
 
     // === HUD, FX & Display Lifecycle Delegation (logic in hud.js, ui-fx.js, display-lifecycle.js) ===
-    updateScaleText() {
-      this._hud.updateScaleText();
-    }
-
     syncFps(on) {
       this._hud.syncFps(on);
-    }
-
-    fpsTick() {
-      this._hud.fpsTick();
     }
 
     // === FX Delegation (ui-fx.js) ===
@@ -125,29 +148,13 @@
       this.fx.stopGlassLoop();
     }
 
-    tickGlass(now) {
-      this.fx.tickGlass(now);
-    }
-
-    updateGlassVectors(force) {
-      this.fx.updateGlassVectors(force);
-    }
-
     tryRequestGyro() {
       this.fx.tryRequestGyro();
-    }
-
-    handleGyro(e) {
-      this.fx.handleGyro(e);
     }
 
     // === Display Lifecycle Delegation (display-lifecycle.js) ===
     scheduleIdle() {
       this.displayLifecycle.scheduleIdle();
-    }
-
-    setIdle() {
-      this.displayLifecycle.setIdle();
     }
 
     wakeUp() {
@@ -160,10 +167,6 @@
 
     clearExitSequence() {
       this.displayLifecycle.clearExitSequence();
-    }
-
-    recoverFromExit() {
-      this.displayLifecycle.recoverFromExit();
     }
 
     requestWakeLock() {
@@ -273,6 +276,8 @@
     // === Event Binding Delegation (gesture-manager.js) ===
     bindEvents() {
       this.gestures.bindEvents();
+      this._chrome.bindEvents();
+      this.displayLifecycle.bindEvents();
     }
   }
 

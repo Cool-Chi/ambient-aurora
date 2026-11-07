@@ -1,3 +1,16 @@
+/*
+ * ui-chrome.js — App Shell Buttons, SVG Icons, Keyboard Shortcuts & Outside-Panel Close
+ *   Factory: AA.createChrome(ui) -> mounted at ui._chrome
+ *   Returned API: { initIcons, handleShellClick, bindEvents }
+ *   Reads / writes on ui:
+ *     - Reads: ui.store, ui.panel, ui._cp (isOpen, close)
+ *     - Writes: ui.touchStartX (sets to null on Space keydown hold-to-exit)
+ *     - Calls: ui.showHUD(text), ui.wakeUp(), ui.exitApp(isStarting), AA.UIManager.renderIcon(...)
+ *   Private state: LOWPOWER_KEY (resolved from SETTINGS_SCHEMA)
+ *   Globals: AA.util ($, on), AA.DICT, AA.UI_CONFIG (SETTINGS_SCHEMA, UI_ICONS)
+ *   Co-change guide: Bottom shell buttons / shortcuts -> ui-chrome.js + css/ui-manager/hud.css
+ *     (+ ui-config.js if UI_ICONS change)
+ */
 (function (AA) {
   const { $, on } = AA.util;
   const { DICT } = AA;

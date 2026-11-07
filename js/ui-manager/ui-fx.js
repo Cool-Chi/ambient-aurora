@@ -1,3 +1,21 @@
+/*
+ * ui-fx.js — Clock Material Visual Variables, SVG Glass Refraction Loop & Gyroscope Tracking
+ *   Factory: AA.createUIFx(ui) -> mounted at ui.fx
+ *   Returned API: {
+ *     init, applyVisualVars, startGlassLoop, stopGlassLoop,
+ *     tickGlass, updateGlassVectors, tryRequestGyro, handleGyro
+ *   }
+ *   Reads / writes on ui:
+ *     - Reads: ui.store, ui.clockEl, ui.clockLayerObj, ui.ptrX, ui.ptrY, ui.ptrActiveUntil
+ *     - Writes: ui.glassEls (populated in init() from GLASS_FX_IDS, read by applyVisualVars/updateGlassVectors)
+ *     - Calls: AA.UIManager.hexToRgb(hex), AA.UIManager.FONTS
+ *   Private state: lAngle, lMag, ptrW, gyroX, gyroY, hasGyro, gyroAsked, gyroPending,
+ *     glassPress, glassRaf, lastGlassTick, _lastGlassDom, _glassStaticSize, _lastMat,
+ *     _lastKx, _lastKy, _lastKp, _lastOpP, rp (SD 3 0.99 opacity repaint timer), _kCache
+ *   Globals: AA.util ($, on, clamp), AA.UI_CONFIG (GLASS_FX_IDS)
+ *   Co-change guide: Material appearance / glass light math -> ui-fx.js + index.html (SVG filters)
+ *     + css/app-shell/tokens.css + css/clock-controller/clock-face.css
+ */
 (function (AA) {
   const { $, on, clamp } = AA.util;
   const { GLASS_FX_IDS } = AA.UI_CONFIG;

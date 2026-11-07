@@ -1,3 +1,36 @@
+/*
+ * gesture-manager.js - pointer gesture state machine & control event dispatch
+ *
+ * Responsibility
+ *   Pointer gesture state machine; 10px touch intent lock ('drag' vs 'scroll'); capture-phase
+ *   scroll/click/change anti-misfire guards; slider bubble hold timer; 500ms anchor hold-to-reset;
+ *   color-picker trigger and outside-tap wiring; panel control and shell click dispatch.
+ *
+ * Returned API
+ *   { bindEvents, trackGlassPtr }
+ *
+ * ui.* usage
+ *   Reads:  ui.store, ui.panel, ui.activeTab, ui._cp (created in UIManager.init before bindEvents),
+ *           ui.panelView.isScrollGuarded(now), ui._chrome.handleShellClick(e)
+ *   Writes: ui.ptrX, ui.ptrY, ui.ptrActiveUntil, ui.touchStartX, ui.touchStartY
+ *   Calls:  ui.tryRequestGyro(), ui.updateSliderFill(el), ui.exitApp(isStarting), ui.setTab(i),
+ *           ui.wakeUp(), ui.requestWakeLock(), AA.UIManager.hexToRgb(hex)
+ *
+ * Private closure state
+ *   tgStart, tgTarget, tgDragged, tgOrigChecked, tgFlipped, segTarget, segProp, segDragged,
+ *   lastHap, anchorHold, holdFired, slideEl, slideTimer, slideHeld,
+ *   pId, pType, startX, startY, intent, maxMove, startScrollTop, lastPanelScrollTime,
+ *   suppressNextClick, gestureEnd, gestureInPanel, downTarget, rangeEl, rangeOrigVal, rangeCommitted
+ *
+ * Global dependencies
+ *   AA.util (qs, on, clamp); AA.UI_CONFIG (BINDING_BY_ID, SETTINGS_SCHEMA, SCHEMA_BY_KEY);
+ *   AA.UIManager.hexToRgb
+ *
+ * Co-change guide
+ *   Touch gesture tuning        -> gesture-manager.js only
+ *   Adding a new control type   -> controls-registry.js + gesture-manager.js + ui-config.js
+ *                                  + css/ui-manager/settings-controls.css
+ */
 (function (AA) {
   const { qs, on, clamp } = AA.util;
   const { BINDING_BY_ID, SETTINGS_SCHEMA, SCHEMA_BY_KEY } = AA.UI_CONFIG;
@@ -83,7 +116,7 @@
         if (!slideHeld) slideTimer = setTimeout(endSlide, 400);
       };
 
-      const cp = ui._cp = AA.createColorPicker(ui);
+      const cp = ui._cp;
 
       const clearAnchorHold = () => {
         if (anchorHold) {
@@ -489,10 +522,6 @@
         ui.wakeUp();
         ui.requestWakeLock();
       });
-
-      ui._chrome.bindEvents();
-
-      ui.displayLifecycle.bindEvents();
 
       on(window, 'blur', () => {
         ui.exitApp(false);

@@ -1,3 +1,18 @@
+/*
+ * hud.js — HUD Badges (FPS / Render Scale / Version) & Toast Controller
+ *   Factory: AA.createHUD(ui) -> mounted at ui._hud
+ *   Returned API: { init, updateScaleText, syncFps, fpsTick, showHUD }
+ *   Reads from ui:
+ *     - ui.store.getState() (bgRenderScale, showFps, showScale)
+ *     - ui.appContainer (mount host for badges)
+ *     - ui._cp (calls ui._cp.isOpen() & ui._cp.reposition() when --badge-top-reserve changes)
+ *   Private state: hudToast, hudTimer, fpsRaf, fpsLast, _lastGlFrames,
+ *     fpsBadge, fpsDot, fpsText, scaleBadge, scaleDot, scaleText, _scaleTxt
+ *   Globals & Telemetry: AA.util ($, qs), AA.VERSION, AA._glFrames, AA._activeScale,
+ *     CSS custom property :root `--badge-top-reserve`
+ *   Co-change guide: Badge/Toast visuals or layout -> hud.js + css/ui-manager/hud.css
+ *     (+ css/ui-manager/settings-panel.css if --badge-top-reserve math changes)
+ */
 (function (AA) {
   const { $, qs } = AA.util;
 

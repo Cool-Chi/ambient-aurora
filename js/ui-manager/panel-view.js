@@ -1,3 +1,19 @@
+/*
+ * panel-view.js — Settings Panel DOM Rendering, Tab Navigation & Dependent Row Animations
+ *   Factory: AA.createPanelView(ui) -> mounted at ui.panelView
+ *   Returned API: {
+ *     renderPanel, setTab, updateBlockLastVisible, syncDependentRow,
+ *     syncDependents, cancelRowAnims, setScrollGuard, isScrollGuarded
+ *   }
+ *   Reads / writes on ui:
+ *     - Reads: ui.store, ui.panel, ui._cp (calls ui._cp.close() on renderPanel/setTab)
+ *     - Reads & Writes: ui.activeTab (read in renderPanel, written in setTab, read by gesture-manager.js)
+ *     - Calls: ui.controls.renderBlock(block, lang, state), ui.updateSegmentHighlight(ctrl, val, true)
+ *   Private state: _rowAnims (Map<rowEl, Animation>), _scrollGuardUntil (timestamp guarding panel scroll)
+ *   Globals: AA.util ($, qs), AA.CONST (EASE_OUT), AA.DICT, AA.UI_CONFIG (SETTINGS_SCHEMA, DEPENDENTS_BY_KEY)
+ *   Co-change guide: Panel shell / tab layout / row expand animation -> panel-view.js
+ *     + css/ui-manager/settings-panel.css
+ */
 (function (AA) {
   const { $, qs } = AA.util;
   const { EASE_OUT } = AA.CONST;

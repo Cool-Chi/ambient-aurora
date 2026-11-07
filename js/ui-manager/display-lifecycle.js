@@ -1,3 +1,19 @@
+/*
+ * display-lifecycle.js — Idle / Wake Timer, Hold-to-Exit Sequence, Screen Wake Lock & Pixel Shift
+ *   Factory: AA.createDisplayLifecycle(ui) -> mounted at ui.displayLifecycle
+ *   Returned API: {
+ *     scheduleIdle, setIdle, wakeUp, exitApp, clearExitSequence,
+ *     recoverFromExit, requestWakeLock, releaseWakeLock, runPixelShift, bindEvents
+ *   }
+ *   Reads / calls on ui:
+ *     - Reads: ui.store, ui.appContainer, ui.panel, ui.bgLayer, ui.clockLayerObj
+ *     - Calls: ui.startGlassLoop() (when clockMaterial === 3 during exitApp)
+ *   Private state: pixelShiftTimer, idleTimer, lastWake, wakeLock, wakeLockPending,
+ *     holdTimeout, exitCloseTimer, exitRecoverTimer
+ *   Globals: AA.util (on), navigator.wakeLock, navigator.vibrate
+ *   Co-change guide: Idle / exit / burn-in behavior -> display-lifecycle.js
+ *     (+ css/clock-controller/clock-layout.css, css/webgl-engine/background.css, css/ui-manager/hud.css)
+ */
 (function (AA) {
   const { on } = AA.util;
 
