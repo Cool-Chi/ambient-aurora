@@ -1,5 +1,5 @@
 (function (AA) {
-  const { qs, clamp } = AA.util;
+  const { qs, on, clamp } = AA.util;
   const { EASE_OUT } = AA.CONST;
 
   class ClockController {
@@ -50,15 +50,35 @@
       this.ANIM_REGISTRY = AA.CLOCK_ANIMS.ANIM_REGISTRY;
 
       this.evadeRaf = null;
-      this.layoutObserver = new ResizeObserver(() => {
+      this.evadeDeferred = false;
+      const scheduleEvade = () => {
         if (this.evadeRaf) return;
         this.evadeRaf = requestAnimationFrame(() => {
           this.evadeRaf = null;
+          if (document.body.classList.contains('is-dragging')) {
+            this.evadeDeferred = true;
+            return;
+          }
+          this.evadeDeferred = false;
           this.updateEvasion();
         });
+      };
+      this.layoutObserver = new ResizeObserver(() => {
+        if (document.body.classList.contains('is-dragging')) {
+          this.evadeDeferred = true;
+          return;
+        }
+        scheduleEvade();
       });
       this.layoutObserver.observe(this.panel);
       [this.container, this.clockWrapper].forEach(e => this.layoutObserver.observe(e));
+
+      const flushDeferredEvade = () => {
+        if (this.evadeDeferred) scheduleEvade();
+      };
+      ['pointerup', 'pointercancel', 'keyup', 'change', 'blur'].forEach(evt => {
+        on(window, evt, flushDeferredEvade, { passive: true });
+      });
 
       const evade = () => this.updateEvasion();
       const retick = () => {
@@ -207,12 +227,12 @@
         }
         cl.classList.add('is-flipping');
         this.updateEvasion();
-        void cw.offsetWidth;
+        const bw = cw.offsetWidth;
         const last = cw.getBoundingClientRect();
         const rx = first.left - last.left;
         const ry = first.top - last.top;
         const dist = Math.sqrt(rx * rx + ry * ry);
-        const sc = cw.offsetWidth ? last.width / cw.offsetWidth : 1;
+        const sc = bw ? last.width / bw : 1;
         const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
         if (dist > 5) {
           const a = this.anchorAnim = cw.animate(
@@ -355,6 +375,13 @@
       const cw = this.clockWrapper;
       const bw = cw.offsetWidth;
       const bh = cw.offsetHeight;
+      const bl = cw.offsetLeft;
+      const bt = cw.offsetTop;
+      const p = isPanelOpen ? this.panel : null;
+      const pl = p ? p.offsetLeft : 0;
+      const pt = p ? p.offsetTop : 0;
+      const pw = p ? p.offsetWidth : 0;
+      const ph = p ? p.offsetHeight : 0;
 
       if (bw > 0 && bh > 0) {
         const m = 16;
@@ -362,13 +389,14 @@
         const edge = Math.min(pad, m);
         const maxW = Math.max(1, ww - pad * 2);
         const maxH = Math.max(1, wh - pad * 2);
-        k = clamp(Math.min(1, maxW / bw, maxH / bh), 0.35, 1);
+        const quantK = v => Math.floor(clamp(v, 0.35, 1) * 1000) / 1000;
+        k = quantK(Math.min(1, maxW / bw, maxH / bh));
 
         const B = {
-          l: cw.offsetLeft,
-          r: cw.offsetLeft + bw,
-          t: cw.offsetTop,
-          b: cw.offsetTop + bh
+          l: bl,
+          r: bl + bw,
+          t: bt,
+          b: bt + bh
         };
         const ox = [pad, ww / 2, ww - pad][clockAnchor % 3];
         const oy = [pad, wh / 2, wh - pad][Math.floor(clockAnchor / 3)];
@@ -382,42 +410,48 @@
         });
 
         let r = R(k);
+        if (r.r + x > ww - edge) x = ww - edge - r.r;
+        if (r.l + x < edge) x = edge - r.l;
+        if (r.b + y > wh - edge) y = wh - edge - r.b;
+        if (r.t + y < edge) y = edge - r.t;
+
         if (isPanelOpen) {
-          const p = this.panel;
           const P = {
-            l: p.offsetLeft - m,
-            r: p.offsetLeft + p.offsetWidth + m,
-            t: p.offsetTop - m,
-            b: p.offsetTop + p.offsetHeight + m
+            l: pl - m,
+            r: pl + pw + m,
+            t: pt - m,
+            b: pt + ph + m
           };
-          if (r.l < P.r && r.r > P.l && r.t < P.b && r.b > P.t) {
+          if (r.l + x < P.r && r.r + x > P.l && r.t + y < P.b && r.b + y > P.t) {
             if (ww <= 600) {
-              if (r.t + (P.t - r.b) < m) {
-                k = Math.min(k, clamp((P.t - m) / bh, 0.35, 1));
+              const availH = Math.max(1, P.t - edge);
+              if (r.b - r.t > availH) {
+                k = Math.min(k, quantK(availH / bh));
                 r = R(k);
+                if (r.r + x > ww - edge) x = ww - edge - r.r;
+                if (r.l + x < edge) x = edge - r.l;
               }
-              y = Math.min(0, P.t - r.b);
-            } else if (r.r + (P.r - r.l) <= ww - m) {
-              x = P.r - r.l;
-            } else if (r.t + (P.t - r.b) >= m) {
               y = P.t - r.b;
+              if (r.t + y < edge) y = edge - r.t;
             } else {
-              k = Math.min(k, clamp((ww - m - P.r) / bw, 0.35, 1));
-              r = R(k);
-              x = Math.max(0, P.r - r.l);
+              const availW = Math.max(1, ww - edge - P.r);
+              if (r.r - r.l > availW) {
+                k = Math.min(k, quantK(availW / bw));
+                r = R(k);
+                if (r.b + y > wh - edge) y = wh - edge - r.b;
+                if (r.t + y < edge) y = edge - r.t;
+              }
+              x = P.r - r.l;
+              if (r.r + x > ww - edge) x = ww - edge - r.r;
+              if (r.l + x < P.r) x = P.r - r.l;
             }
           }
         }
-
-        if (r.l + x < edge) x = edge - r.l;
-        else if (r.r + x > ww - edge) x = ww - edge - r.r;
-        if (r.t + y < edge) y = edge - r.t;
-        else if (r.b + y > wh - edge) y = wh - edge - r.b;
       }
 
       const st = this.container.style;
-      st.setProperty('--evade-x', `${x}px`);
-      st.setProperty('--evade-y', `${y}px`);
+      st.setProperty('--evade-x', `${Math.round(x * 100) / 100}px`);
+      st.setProperty('--evade-y', `${Math.round(y * 100) / 100}px`);
       st.setProperty('--evade-scale', k.toFixed(3));
     }
 

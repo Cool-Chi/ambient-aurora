@@ -159,6 +159,7 @@
       const endSlide = () => {
         clearTimeout(slideTimer);
         slideHeld = false;
+        if (pId === null) document.body.classList.remove('is-dragging');
         if (slideEl) {
           setSlide(slideEl, false);
           slideEl = null;
@@ -476,7 +477,7 @@
         if (e.target.type === 'range') {
           // Touch slider: ignore until horizontal intent is confirmed (tap commit happens on pointerup)
           if (pId !== null && pType === 'touch' && gestureInPanel && intent !== 'drag') return;
-          document.body.classList.add('is-dragging');
+          if (pId !== null) document.body.classList.add('is-dragging');
           showSlide(e.target, false);
           const t = e.target;
           const v = t.value;
@@ -597,6 +598,7 @@
 
       on(window, 'blur', () => {
         ui.exitApp(false);
+        document.body.classList.remove('is-dragging');
         endSlide();
       });
     }
