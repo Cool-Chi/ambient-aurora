@@ -13,8 +13,9 @@
   overflow-wrap: normal;
   font-size: var(--clock-size);
   font-weight: var(--clock-weight);
+  font-optical-sizing: auto;
   color: var(--clock-fill,var(--clock-color));
-  letter-spacing: 0;
+  letter-spacing: -.02em;
   display: flex;
   flex-direction: row;
   justify-content: center;

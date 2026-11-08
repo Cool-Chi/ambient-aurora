@@ -4,7 +4,7 @@
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  transition: transform 1500ms var(--ease-in-out);
+  transition: transform 280ms var(--ease-out);
 }
 
 body .background-layer.exiting {

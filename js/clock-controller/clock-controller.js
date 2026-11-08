@@ -35,6 +35,12 @@
 
       this.timer = null;
       this.running = false;
+      this.layoutAnim = null;
+      this.datePosAnims = [];
+      this.anchorAnim = null;
+      this.anchorRaf = null;
+      this.dateAnim = null;
+      this.targetDateStr = null;
       this.fmtCache = {
         zhW: new Intl.DateTimeFormat('zh-TW', { weekday: 'long' }),
         enM: new Intl.DateTimeFormat('en-US', { month: 'long' }),
@@ -123,17 +129,22 @@
         this.layoutAnim.cancel();
         this.layoutAnim = null;
       }
+      const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
       const out = this.layoutAnim = ce.animate(
-        [{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(0.95)' }],
-        { duration: 150, easing: EASE_OUT }
+        calm
+          ? [{ opacity: 1 }, { opacity: 0 }]
+          : [{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(0.95)' }],
+        { duration: 100, easing: EASE_OUT }
       );
       out.onfinish = () => {
         if (this.layoutAnim !== out) return;
         ce.classList.toggle('is-vertical', val === 1);
         this.updateEvasion();
         const inn = this.layoutAnim = ce.animate(
-          [{ opacity: 0, transform: 'scale(1.05)' }, { opacity: 1, transform: 'scale(1)' }],
-          { duration: 280, easing: EASE_OUT }
+          calm
+            ? [{ opacity: 0 }, { opacity: 1 }]
+            : [{ opacity: 0, transform: 'scale(1.05)' }, { opacity: 1, transform: 'scale(1)' }],
+          { duration: 180, easing: EASE_OUT }
         );
         inn.onfinish = inn.oncancel = () => {
           if (this.layoutAnim === inn) this.layoutAnim = null;
@@ -142,17 +153,35 @@
     }
 
     animateDatePosition(val) {
+      if (this.datePosAnims.length) {
+        this.datePosAnims.forEach(a => a.cancel());
+        this.datePosAnims = [];
+      }
+      const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      const batch = [];
+      this.datePosAnims = batch;
       [this.dateElement, this.customTextElement].forEach((el, i) => {
-        el.animate(
-          [{ opacity: 1, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(8px)' }],
-          { duration: 140, easing: EASE_OUT }
-        ).onfinish = () => {
+        const out = el.animate(
+          calm
+            ? [{ opacity: 1 }, { opacity: 0 }]
+            : [{ opacity: 1, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(6px)' }],
+          { duration: 100, easing: EASE_OUT }
+        );
+        batch.push(out);
+        out.onfinish = () => {
+          if (this.datePosAnims !== batch) return;
           el.classList.toggle('is-above', val === 1);
           if (i) this.updateEvasion();
-          el.animate(
-            [{ opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)' }],
-            { duration: 240, easing: EASE_OUT }
+          const inn = el.animate(
+            calm
+              ? [{ opacity: 0 }, { opacity: 1 }]
+              : [{ opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0px)' }],
+            { duration: 180, easing: EASE_OUT }
           );
+          batch[i] = inn;
+          inn.onfinish = inn.oncancel = () => {
+            if (this.datePosAnims === batch && i === 1) this.datePosAnims = [];
+          };
         };
       });
     }
@@ -161,12 +190,21 @@
       const cw = this.clockWrapper;
       const cl = this.container;
       const first = cw.getBoundingClientRect();
+      if (this.anchorRaf) {
+        cancelAnimationFrame(this.anchorRaf);
+        this.anchorRaf = null;
+      }
       if (this.anchorAnim) {
         this.anchorAnim.cancel();
+        this.anchorAnim = null;
         cl.classList.remove('is-flipping');
       }
-      requestAnimationFrame(() => {
-        if (this.anchorAnim) this.anchorAnim.cancel();
+      this.anchorRaf = requestAnimationFrame(() => {
+        this.anchorRaf = null;
+        if (this.anchorAnim) {
+          this.anchorAnim.cancel();
+          this.anchorAnim = null;
+        }
         cl.classList.add('is-flipping');
         this.updateEvasion();
         void cw.offsetWidth;
@@ -175,16 +213,22 @@
         const ry = first.top - last.top;
         const dist = Math.sqrt(rx * rx + ry * ry);
         const sc = cw.offsetWidth ? last.width / cw.offsetWidth : 1;
+        const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
         if (dist > 5) {
           const a = this.anchorAnim = cw.animate(
-            [
-              { transform: `translate(${rx / sc}px,${ry / sc}px)`, filter: `blur(${Math.min(12, dist * 0.05)}px)` },
-              { transform: 'translate(0px, 0px)', filter: 'blur(0px)' }
-            ],
-            { duration: 400, easing: EASE_OUT }
+            calm
+              ? [{ opacity: 0 }, { opacity: 1 }]
+              : [
+                { transform: `translate(${rx / sc}px,${ry / sc}px)`, filter: `blur(${Math.min(12, dist * 0.05)}px)` },
+                { transform: 'translate(0px, 0px)', filter: 'blur(0px)' }
+              ],
+            { duration: calm ? 180 : 280, easing: EASE_OUT }
           );
           a.onfinish = a.oncancel = () => {
-            if (this.anchorAnim === a) cl.classList.remove('is-flipping');
+            if (this.anchorAnim === a) {
+              this.anchorAnim = null;
+              cl.classList.remove('is-flipping');
+            }
           };
         } else {
           cl.classList.remove('is-flipping');
@@ -264,19 +308,35 @@
       lt.ampm = this.diffDOM(this.ampmCont, ampmStr, lt.ampm);
 
       const dateStr = this.formatDate(now, lang, showYear, showMonth, showDay, showWeekday);
-      if (de.textContent !== dateStr) {
-        if (de.textContent === "") {
+      const curTarget = this.dateAnim ? this.targetDateStr : de.textContent;
+      if (curTarget !== dateStr) {
+        this.targetDateStr = dateStr;
+        if (this.dateAnim) {
+          this.dateAnim.cancel();
+          this.dateAnim = null;
+        }
+        if (de.textContent === "" || dateStr === "") {
           de.textContent = dateStr;
         } else {
-          de.animate(
-            [{ opacity: 1, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(4px)' }],
-            { duration: 150, easing: EASE_OUT }
-          ).onfinish = () => {
+          const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+          const out = this.dateAnim = de.animate(
+            calm
+              ? [{ opacity: 1 }, { opacity: 0 }]
+              : [{ opacity: 1, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(4px)' }],
+            { duration: 100, easing: EASE_OUT }
+          );
+          out.onfinish = () => {
+            if (this.dateAnim !== out) return;
             de.textContent = dateStr;
-            de.animate(
-              [{ opacity: 0, filter: 'blur(4px)' }, { opacity: 1, filter: 'blur(0px)' }],
-              { duration: 250, easing: EASE_OUT }
+            const inn = this.dateAnim = de.animate(
+              calm
+                ? [{ opacity: 0 }, { opacity: 1 }]
+                : [{ opacity: 0, filter: 'blur(4px)' }, { opacity: 1, filter: 'blur(0px)' }],
+              { duration: 180, easing: EASE_OUT }
             );
+            inn.onfinish = inn.oncancel = () => {
+              if (this.dateAnim === inn) this.dateAnim = null;
+            };
           };
         }
       }

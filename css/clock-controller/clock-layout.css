@@ -22,7 +22,7 @@ body.is-dragging .clock-layer * {
   transform-origin: var(--ox,50%) var(--oy,50%);
   transform: translate(calc(var(--evade-x) + var(--off-x,0vw)),calc(var(--evade-y) + var(--off-y,0vh))) scale(calc(var(--evade-scale) * var(--idle-scale)));
   will-change: transform,opacity;
-  transition: transform 400ms var(--ease-out),opacity 400ms var(--ease-out);
+  transition: transform 280ms var(--ease-out),opacity 280ms var(--ease-out);
 }
 
 body.is-idle .clock-layer {

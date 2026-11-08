@@ -236,12 +236,6 @@
   }
 }
 
-@media (max-width:600px) {
-  .aa-color-picker {
-    transform-origin: bottom center;
-  }
-}
-
 @media (prefers-reduced-motion:reduce) {
   .aa-color-picker,
   .aa-color-picker.is-open {

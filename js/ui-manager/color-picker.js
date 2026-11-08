@@ -163,7 +163,7 @@
       const pw = pr.width;
       const ph = pr.height;
       const narrow = window.matchMedia('(max-width: 600px)').matches || !anchorEl;
-      const tr = narrow ? null : anchorEl.getBoundingClientRect();
+      const tr = anchorEl ? anchorEl.getBoundingClientRect() : null;
       let x;
       let y;
       if (narrow) {
@@ -178,10 +178,10 @@
       const fy = Math.round(clamp(y, pt + m, Math.max(pt + m, pt + ph - H - m)));
       el.style.left = `${fx}px`;
       el.style.top = `${fy}px`;
-      if (narrow) {
-        el.style.transformOrigin = '';
+      if (tr) {
+        el.style.transformOrigin = `${Math.round(clamp(tr.left + tr.width / 2 - hr.left - fx, 0, W))}px ${Math.round(clamp(tr.top + tr.height / 2 - hr.top - fy, 0, H))}px`;
       } else {
-        el.style.transformOrigin = `${clamp(tr.left + tr.width / 2 - hr.left - fx, 0, W)}px ${clamp(tr.top + tr.height / 2 - hr.top - fy, 0, H)}px`;
+        el.style.transformOrigin = '';
       }
     };
 

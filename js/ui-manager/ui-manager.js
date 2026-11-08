@@ -217,7 +217,7 @@
             calm
               ? [{ opacity: 1 }, { opacity: 0 }]
               : [{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(0.96)' }],
-            { duration: 120, easing: ease, fill: 'forwards' }
+            { duration: 100, easing: ease, fill: 'forwards' }
           );
           outAnim.onfinish = () => {
             if (this.typoAnim !== outAnim) return;
@@ -227,7 +227,7 @@
               calm
                 ? [{ opacity: 0 }, { opacity: 1 }]
                 : [{ opacity: 0, transform: 'scale(1.03)' }, { opacity: 1, transform: 'scale(1)' }],
-              { duration: 240, easing: ease }
+              { duration: 180, easing: ease }
             );
             outAnim.cancel();
             inAnim.onfinish = inAnim.oncancel = () => {
@@ -238,6 +238,10 @@
           this.applyVisualVars(false);
         }
       } else if (full || skipAnim || (ap && (ap.visual || ap.typoTarget))) {
+        if (this.typoAnim && (full || skipAnim || (ap && ap.typoTarget))) {
+          this.typoAnim.cancel();
+          this.typoAnim = null;
+        }
         this.applyVisualVars(full);
       }
 

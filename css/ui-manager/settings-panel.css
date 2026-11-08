@@ -146,8 +146,7 @@ body.is-fullscreen .settings-panel.active {
   overflow: hidden;
   opacity: 0;
   visibility: hidden;
-  transform: translateY(10px);
-  transition: opacity 250ms var(--ease-out),visibility 250ms,transform 250ms var(--ease-out);
+  transition: opacity 150ms var(--ease-out),visibility 150ms;
 }
 
 .tab-pane.active {
@@ -156,7 +155,6 @@ body.is-fullscreen .settings-panel.active {
   overflow: visible;
   opacity: 1;
   visibility: inherit;
-  transform: translateY(0);
 }
 
 @media (max-width:600px) {
@@ -236,11 +234,6 @@ body.is-fullscreen .settings-panel.active {
   .settings-panel,
   .settings-panel.active,
   body.is-fullscreen .settings-panel.active {
-    transform: none;
-  }
-
-  .tab-pane,
-  .tab-pane.active {
     transform: none;
   }
 
