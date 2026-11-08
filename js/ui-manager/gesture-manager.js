@@ -51,17 +51,20 @@
 
   // 2D hit test for a wrapped segmented control: nearest row for y, then nearest chip in that row for x
   // (a pointer above / below / beside the grid clamps to the first / last row and the first / last chip)
-  const pickWrappedBtn = (btns, x, y) => {
-    const rects = Array.from(btns, b => b.getBoundingClientRect());
-    const rows = [];
-    rects.forEach((r, i) => {
-      const row = rows.find(w => Math.abs(w.top - r.top) < 2);
-      if (row) {
-        row.items.push(i);
-      } else {
-        rows.push({ top: r.top, bottom: r.bottom, items: [i] });
-      }
-    });
+  const pickWrappedBtn = (btns, x, y, cache) => {
+    const rects = cache ? cache.rects : Array.from(btns, b => b.getBoundingClientRect());
+    let rows = cache && cache.rows;
+    if (!rows) {
+      rows = [];
+      rects.forEach((r, i) => {
+        const row = rows.find(w => Math.abs(w.top - r.top) < 2);
+        if (row) {
+          row.items.push(i);
+        } else {
+          rows.push({ top: r.top, bottom: r.bottom, items: [i] });
+        }
+      });
+    }
     let row = rows[0];
     let best = Infinity;
     for (const w of rows) {
@@ -84,6 +87,25 @@
     return hit;
   };
 
+  const buildSegCache = target => {
+    const btns = Array.from(target.querySelectorAll('.segment-btn'));
+    const rects = btns.map(b => b.getBoundingClientRect());
+    const wrapped = target.classList.contains('is-wrapped');
+    let rows = null;
+    if (wrapped) {
+      rows = [];
+      rects.forEach((r, i) => {
+        const row = rows.find(w => Math.abs(w.top - r.top) < 2);
+        if (row) {
+          row.items.push(i);
+        } else {
+          rows.push({ top: r.top, bottom: r.bottom, items: [i] });
+        }
+      });
+    }
+    return { target, btns, rects, wrapped, rows };
+  };
+
   AA.createGestureManager = function createGestureManager(ui) {
     // Toggle & segmented drag state
     let tgStart = null;
@@ -94,6 +116,7 @@
     let segTarget = null;
     let segProp = null;
     let segDragged = false;
+    let segCache = null;
 
     const trackGlassPtr = e => {
       ui.ptrX = clamp((e.clientX / Math.max(1, window.innerWidth) - 0.5) * 2, -1, 1);
@@ -172,6 +195,7 @@
       const resetSeg = () => {
         segTarget = null;
         segProp = null;
+        segCache = null;
       };
 
       const revertToggle = () => {
@@ -237,28 +261,32 @@
         }
         if (!segTarget.isConnected) {
           segTarget = ui.panel && ui.panel.querySelector(`.segmented-control[data-prop="${segProp}"]`);
+          segCache = null;
           if (!segTarget) {
             resetSeg();
             return;
           }
         }
-        const btns = segTarget.querySelectorAll('.segment-btn');
+        if (!segCache || segCache.target !== segTarget) {
+          segCache = buildSegCache(segTarget);
+        }
+        const { btns, rects, wrapped } = segCache;
         if (!btns.length) return;
         const x = e.clientX;
         let hit = null;
-        if (segTarget.classList.contains('is-wrapped')) {
-          hit = pickWrappedBtn(btns, x, e.clientY);
+        if (wrapped) {
+          hit = pickWrappedBtn(btns, x, e.clientY, segCache);
         } else {
-          const last = btns[btns.length - 1];
-          if (x < btns[0].getBoundingClientRect().left) {
+          const lastIdx = btns.length - 1;
+          if (x < rects[0].left) {
             hit = btns[0];
-          } else if (x > last.getBoundingClientRect().right) {
-            hit = last;
+          } else if (x > rects[lastIdx].right) {
+            hit = btns[lastIdx];
           } else {
-            for (const b of btns) {
-              const r = b.getBoundingClientRect();
+            for (let i = 0; i <= lastIdx; i++) {
+              const r = rects[i];
               if (x >= r.left && x <= r.right) {
-                hit = b;
+                hit = btns[i];
                 break;
               }
             }
@@ -523,7 +551,10 @@
         }
       });
 
-      on(window, 'resize', () => cp.reposition());
+      on(window, 'resize', () => {
+        segCache = null;
+        cp.reposition();
+      });
 
       on(document, 'click', e => {
         const segBtn = e.target.closest('.segment-btn');

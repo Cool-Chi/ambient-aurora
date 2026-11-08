@@ -85,7 +85,10 @@
 }
 
 .slider-row.is-animating-row {
+  min-height: 0 !important;
   overflow: hidden !important;
+  contain: layout paint;
+  will-change: height,opacity;
   pointer-events: none;
   box-sizing: border-box;
 }
@@ -116,11 +119,12 @@
 
 .slider-wrap {
   position: relative;
+  container-type: inline-size;
 }
 
 .slider-bubble {
   position: absolute;
-  left: calc(10px + (100% - 20px) * var(--p,0));
+  left: 0;
   bottom: calc(50% + 10px);
   z-index: 3;
   padding: 2px 8px;
@@ -138,14 +142,17 @@
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  transform: translate(-50%,2px) scale(.92);
+  will-change: transform,opacity;
+  transform: translate3d(calc(10px + (100cqw - 20px) * var(--p,0) - 50%),2px,0);
+  scale: .92;
   transform-origin: 50% 100%;
-  transition: opacity 160ms var(--ease-out),transform 180ms var(--ease-out);
+  transition: opacity 160ms var(--ease-out),scale 180ms var(--ease-out);
 }
 
 .slider-wrap.is-sliding .slider-bubble {
   opacity: 1;
-  transform: translate(-50%,-4px) scale(1);
+  transform: translate3d(calc(10px + (100cqw - 20px) * var(--p,0) - 50%),-4px,0);
+  scale: 1;
 }
 
 input[type=range] {
@@ -215,7 +222,8 @@ input[type=range]::-webkit-slider-thumb:active {
   left: 0;
   background: rgba(255,255,255,.15);
   border-radius: 4px;
-  transition: transform 250ms var(--ease-out),width 250ms var(--ease-out);
+  will-change: transform;
+  transition: transform 250ms var(--ease-out);
   pointer-events: none;
   box-shadow: 0 3px 8px rgba(0,0,0,.15),0 1px 2px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.1);
 }
@@ -268,7 +276,7 @@ input[type=range]::-webkit-slider-thumb:active {
 .segmented-control.is-wrapped .segmented-highlight {
   top: 0;
   bottom: auto;
-  transition: transform 250ms var(--ease-out),width 250ms var(--ease-out),height 250ms var(--ease-out);
+  transition: transform 250ms var(--ease-out);
 }
 
 .mtg-control {
@@ -614,7 +622,8 @@ input[type=range]::-webkit-slider-thumb:active {
 
   .slider-bubble,
   .slider-wrap.is-sliding .slider-bubble {
-    transform: translate(-50%,-4px);
+    transform: translate3d(calc(10px + (100cqw - 20px) * var(--p,0) - 50%),-4px,0);
+    scale: 1;
   }
 }
 

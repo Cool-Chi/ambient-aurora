@@ -59,11 +59,13 @@ body.is-fullscreen .settings-panel.active {
   background: rgba(255,255,255,.06);
   border-radius: 8px;
   overflow: hidden;
+  contain: layout paint;
   flex-shrink: 0;
 }
 
-.settings-block:has(.slider-row) {
+.settings-block:has(.slider-wrap.is-sliding) {
   overflow: visible;
+  contain: none;
 }
 
 .tab-header {
@@ -187,7 +189,10 @@ body.is-fullscreen .settings-panel.active {
 }
 
 .settings-row.is-animating-row {
+  min-height: 0 !important;
   overflow: hidden !important;
+  contain: layout paint;
+  will-change: height,opacity;
   pointer-events: none;
   box-sizing: border-box;
 }

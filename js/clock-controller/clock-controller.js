@@ -43,10 +43,14 @@
       this.ANIM_OPT = AA.CLOCK_ANIMS.ANIM_OPT;
       this.ANIM_REGISTRY = AA.CLOCK_ANIMS.ANIM_REGISTRY;
 
+      this.evadeRaf = null;
       this.layoutObserver = new ResizeObserver(() => {
-        if (this.store.getState().isPanelOpen) this.updateEvasion();
+        if (!this.store.getState().isPanelOpen || this.evadeRaf) return;
+        this.evadeRaf = requestAnimationFrame(() => {
+          this.evadeRaf = null;
+          if (this.store.getState().isPanelOpen) this.updateEvasion();
+        });
       });
-      this.layoutObserver.observe(this.clockElement);
       this.layoutObserver.observe(this.panel);
       [this.container, this.clockWrapper].forEach(e => this.layoutObserver.observe(e));
 

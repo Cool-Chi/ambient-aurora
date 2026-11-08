@@ -31,12 +31,12 @@
 
   const syncFpsHook = (v, s, ui) => ui.syncFps(!!s.showFps);
 
-  const anchorHook = val => {
+  const anchorHook = (val, s, ui) => {
     const ax = val % 3;
     const ay = Math.floor(val / 3);
     const F = ['flex-start', 'center', 'flex-end'];
     const O = ['4vmin', '50%', 'calc(100% - 4vmin)'];
-    const st = document.documentElement.style;
+    const st = (ui && ui.clockLayerObj ? ui.clockLayerObj : document.documentElement).style;
     st.setProperty('--pos-x', F[ax]);
     st.setProperty('--pos-y', F[ay]);
     st.setProperty('--ox', O[ax]);

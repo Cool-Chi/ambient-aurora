@@ -64,8 +64,9 @@
         clockSize,
         bgColor
       } = ui.store.getState();
-      const root = document.documentElement;
-      const sp = (k, v) => root.style.setProperty(k, v);
+      const layerEl = ui.clockLayerObj || document.documentElement;
+      const clockEl = ui.clockEl || layerEl;
+      const sp = (k, v) => layerEl.style.setProperty(k, v);
       const rgba = (hex, a) => `rgba(${AA.UIManager.hexToRgb(hex).map(x => Math.round(x * 255)).join(', ')}, ${a})`;
       const nightCol = `rgba(110, 63, 32, ${op})`;
       sp('--clock-font', AA.UIManager.FONTS[clockFont]);
@@ -163,7 +164,7 @@
       _lastMat = clockMaterial;
       if (clockMaterial !== 3) {
         stopGlassLoop();
-        sp('--glass-press', '1');
+        clockEl.style.setProperty('--glass-press', '1');
       }
       sp('--clock-color', cColor);
       sp('--clock-fill', fill);
@@ -274,7 +275,7 @@
           g.prismCFlood.setAttribute('flood-opacity', ((0.38 + p * 0.12) * op).toFixed(3));
           g.prismWFlood.setAttribute('flood-opacity', ((0.34 + p * 0.12) * op).toFixed(3));
         }
-        document.documentElement.style.setProperty('--glass-press', (1 - p * 0.032).toFixed(4));
+        (ui.clockEl || document.documentElement).style.setProperty('--glass-press', (1 - p * 0.032).toFixed(4));
       }
     }
 

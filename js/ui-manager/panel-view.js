@@ -168,15 +168,15 @@
         rowEl.classList.remove('is-hidden', 'is-animating-row');
         rowEl.style.display = '';
         refreshBlock();
+        if (e.type === 'segmented') ui.updateSegmentHighlight(ctrl, st[e.key], true);
         const cs = getComputedStyle(rowEl);
         const natPT = parseFloat(cs.paddingTop) || 0;
         const natPB = parseFloat(cs.paddingBottom) || 0;
         const targetH = rowEl.getBoundingClientRect().height || rowEl.scrollHeight || 44;
-        if (e.type === 'segmented') ui.updateSegmentHighlight(ctrl, st[e.key], true);
         rowEl.classList.add('is-animating-row');
         anim = rowEl.animate([
-          { height: `${startH}px`, minHeight: '0px', paddingTop: `${startPT}px`, paddingBottom: `${startPB}px`, opacity: startOp },
-          { height: `${targetH}px`, minHeight: `${targetH}px`, paddingTop: `${natPT}px`, paddingBottom: `${natPB}px`, opacity: 1 }
+          { height: `${startH}px`, paddingTop: `${startPT}px`, paddingBottom: `${startPB}px`, opacity: startOp },
+          { height: `${targetH}px`, paddingTop: `${natPT}px`, paddingBottom: `${natPB}px`, opacity: 1 }
         ], opts);
         _rowAnims.set(rowEl, anim);
         anim.onfinish = () => {
@@ -188,7 +188,6 @@
         };
       } else {
         rowEl.dataset.hiding = '1';
-        refreshBlock();
         if (!running) {
           const cs = getComputedStyle(rowEl);
           startH = rowEl.getBoundingClientRect().height;
@@ -196,10 +195,11 @@
           startPT = parseFloat(cs.paddingTop) || 0;
           startPB = parseFloat(cs.paddingBottom) || 0;
         }
+        refreshBlock();
         rowEl.classList.add('is-animating-row');
         anim = rowEl.animate([
-          { height: `${startH}px`, minHeight: `${startH}px`, paddingTop: `${startPT}px`, paddingBottom: `${startPB}px`, opacity: startOp },
-          { height: '0px', minHeight: '0px', paddingTop: '0px', paddingBottom: '0px', opacity: 0 }
+          { height: `${startH}px`, paddingTop: `${startPT}px`, paddingBottom: `${startPB}px`, opacity: startOp },
+          { height: '0px', paddingTop: '0px', paddingBottom: '0px', opacity: 0 }
         ], opts);
         _rowAnims.set(rowEl, anim);
         anim.onfinish = () => {

@@ -199,8 +199,8 @@
       const changed = full ? null : SCHEMA_BY_KEY[changedKey];
       const ap = changed && changed.apply;
       const entries = full ? SETTINGS_SCHEMA : (changed ? [changed] : []);
-      const root = document.documentElement;
-      const sp = (k, v) => root.style.setProperty(k, v);
+      const layerEl = this.clockLayerObj || document.documentElement;
+      const sp = (k, v) => layerEl.style.setProperty(k, v);
 
       if (full) this.panelView.cancelRowAnims();
 

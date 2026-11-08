@@ -41,6 +41,7 @@
         w.style.setProperty('--p', p);
         const b = qs(w, '.slider-bubble');
         if (b) {
+          b.style.setProperty('--p', p);
           const hit = BINDING_BY_ID[el.id];
           const ent = hit && SCHEMA_BY_KEY[hit[0]];
           const v = Number(el.value);
@@ -50,12 +51,13 @@
     }
 
     function updateSegmentHighlight(container, val, skipAnim = false) {
-      const btn = Array.from(qsa(container, '.segment-btn')).find(b => {
+      const btns = Array.from(qsa(container, '.segment-btn'));
+      const btn = btns.find(b => {
         return String(b.dataset.value) === String(val);
       });
 
       if (btn) {
-        qsa(container, '.segment-btn').forEach(b => {
+        btns.forEach(b => {
           const act = b === btn;
           b.classList.toggle('active', act);
           b.setAttribute('aria-checked', act ? 'true' : 'false');
@@ -67,9 +69,9 @@
         if (container.classList.contains('is-wrapped')) {
           // Multi-row chips: the pill follows the chip in both axes and matches its height
           highlight.style.height = `${btn.offsetHeight}px`;
-          highlight.style.transform = `translate(${btn.offsetLeft}px, ${btn.offsetTop}px)`;
+          highlight.style.transform = `translate3d(${btn.offsetLeft}px, ${btn.offsetTop}px, 0)`;
         } else {
-          highlight.style.transform = `translateX(${btn.offsetLeft}px)`;
+          highlight.style.transform = `translate3d(${btn.offsetLeft}px, 0, 0)`;
         }
         if (skipAnim) {
           requestAnimationFrame(() => requestAnimationFrame(() => {

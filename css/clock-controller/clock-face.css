@@ -23,7 +23,6 @@
   position: relative;
   z-index: 2;
   overflow: visible;
-  transition: gap 300ms var(--ease-out);
   font-family: var(--clock-font);
   will-change: transform,opacity;
   transform: translateZ(0) scale(var(--glass-press,1));
@@ -38,7 +37,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: max-width 300ms var(--ease-out),max-height 300ms var(--ease-out),opacity 300ms var(--ease-out),transform 300ms var(--ease-out),margin 300ms var(--ease-out);
+  transition: opacity 300ms var(--ease-out),transform 300ms var(--ease-out);
 }
 
 .clock-module.is-hidden {
@@ -46,6 +45,8 @@
   opacity: 0 !important;
   margin-left: var(--hide-ml,0) !important;
   transform: scale(.8) translateX(var(--hide-tx,0px)) !important;
+  overflow: hidden;
+  transition: none;
   pointer-events: none;
 }
 
