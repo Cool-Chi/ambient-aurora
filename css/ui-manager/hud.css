@@ -55,16 +55,16 @@ body.is-fullscreen .icon-btn {
 }
 
 .btn-settings {
-  left: 24px;
+  left: max(24px,calc(env(safe-area-inset-left,0px) + 16px));
 }
 
 .btn-fullscreen {
-  right: 24px;
+  right: max(24px,calc(env(safe-area-inset-right,0px) + 16px));
 }
 
 .btn-lowpower {
   top: calc(env(safe-area-inset-top,24px) + 20px);
-  right: 24px;
+  right: max(24px,calc(env(safe-area-inset-right,0px) + 16px));
   bottom: auto;
 }
 

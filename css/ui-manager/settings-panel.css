@@ -3,7 +3,7 @@
   pointer-events: none;
   position: absolute;
   z-index: 30;
-  left: 24px;
+  left: max(24px,calc(env(safe-area-inset-left,0px) + 16px));
   bottom: calc(env(safe-area-inset-bottom,24px) + 84px);
   width: 340px;
   background: rgba(30,30,30,.55);
@@ -45,9 +45,9 @@ body.is-fullscreen .settings-panel.active {
 
 @media (max-width:600px) {
   .settings-panel {
-    left: 16px;
+    left: max(16px,calc(env(safe-area-inset-left,0px) + 16px));
     right: auto;
-    width: calc(100vw - 32px);
+    width: calc(100vw - 32px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));
     max-width: 340px;
     max-height: min(55dvh,calc(100dvh - var(--badge-top-reserve,110px)));
     bottom: calc(env(safe-area-inset-bottom,16px) + 72px);
@@ -72,8 +72,11 @@ body.is-fullscreen .settings-panel.active {
   display: flex;
   gap: 4px;
   border-bottom: 1px solid rgba(255,255,255,.1);
+  margin-top: -9px;
+  padding-top: 9px;
   padding-bottom: 8px;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
   flex-shrink: 0;
 }
@@ -83,6 +86,7 @@ body.is-fullscreen .settings-panel.active {
 }
 
 .tab-nav-btn {
+  position: relative;
   background: transparent;
   border: none;
   color: rgba(255,255,255,.5);
@@ -93,6 +97,12 @@ body.is-fullscreen .settings-panel.active {
   transition: color 200ms,transform 160ms var(--ease-out);
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+.tab-nav-btn::before {
+  content: '';
+  position: absolute;
+  inset: -9px -2px;
 }
 
 .tab-nav-btn.active {
