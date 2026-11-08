@@ -58,14 +58,8 @@ body.is-fullscreen .settings-panel.active {
 .settings-block {
   background: rgba(255,255,255,.06);
   border-radius: 8px;
-  overflow: hidden;
-  contain: layout paint;
+  contain: layout style;
   flex-shrink: 0;
-}
-
-.settings-block:has(.slider-wrap.is-sliding) {
-  overflow: visible;
-  contain: none;
 }
 
 .tab-header {
@@ -182,8 +176,15 @@ body.is-fullscreen .settings-panel.active {
   gap: 16px;
   min-height: 44px;
   padding: 0 16px;
+  box-sizing: border-box;
   border-bottom: .5px solid rgba(255,255,255,.12);
   transition: border-bottom-color 220ms var(--ease-out);
+}
+
+.settings-row .icon-btn,
+.settings-row svg {
+  flex-shrink: 0;
+  display: block;
 }
 
 .settings-row:last-child {

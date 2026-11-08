@@ -324,13 +324,16 @@
           if (gestureInPanel && pType === 'touch' && e.target.type === 'range') {
             rangeEl = e.target;
             rangeOrigVal = e.target.value;
+            if (performance.now() - lastPanelScrollTime >= 100) {
+              intent = 'drag';
+            }
           }
         }
         if (ui.store.getState().clockMaterial === 3) {
           trackGlassPtr(e);
           ui.tryRequestGyro();
         }
-        if (e.target.type === 'range' && e.pointerType !== 'touch') {
+        if (e.target.type === 'range' && (e.pointerType !== 'touch' || intent === 'drag')) {
           document.body.classList.add('is-dragging');
           showSlide(e.target, true);
         }
@@ -389,7 +392,7 @@
             const dragEl = downTarget && downTarget.closest
               ? downTarget.closest('.toggle-switch, .segmented-control, input[type="range"]')
               : null;
-            if (dragEl && adx > ady * 1.5 && adx >= 10) {
+            if (dragEl && adx > ady * 1.5) {
               intent = 'drag';
               if (rangeEl) {
                 document.body.classList.add('is-dragging');
@@ -445,13 +448,10 @@
       };
 
       on(document, 'pointerup', e => {
-        if (rangeEl && e.pointerId === pId && pType === 'touch' && intent === null && maxMove <= 10) {
-          // Plain tap on a touch slider: commit the value it landed on
-          const hit = BINDING_BY_ID[rangeEl.id];
-          if (hit) {
-            const v = parseFloat(rangeEl.value);
-            if (ui.store.getState()[hit[0]] !== v) ui.store.setState(hit[0], v);
-          }
+        if (rangeEl && e.pointerId === pId && pType === 'touch' && intent !== 'scroll') {
+          // Commit final touch slider value and keep fill bar synced
+          commitRange();
+          ui.updateSliderFill(rangeEl);
         }
         endGesture();
       }, { passive: true });
@@ -489,6 +489,7 @@
         }
         const entry = BINDING_BY_ID[e.target.id];
         if (entry && e.target.type !== 'checkbox') {
+          if (e.target.type === 'range') rangeCommitted = true;
           ui.store.setState(entry[0], e.target.type === 'text' ? e.target.value : parseFloat(e.target.value));
         } else if (e.target.classList.contains('tc-input')) {
           ui.store.setState(e.target.dataset.prop, e.target.value);
