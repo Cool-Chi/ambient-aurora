@@ -27,3 +27,4 @@ diff/
 
 *.sh
 *.ps1
+/.agents/
