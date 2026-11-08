@@ -68,7 +68,7 @@
   box-shadow: 0 0 0 2px rgba(255,255,255,.5);
 }
 
-@media (pointer:coarse) {
+@media (max-width:600px),(pointer:coarse) {
   .cp-hex {
     font-size: 16px;
     letter-spacing: -.04em;

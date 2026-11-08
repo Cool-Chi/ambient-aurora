@@ -77,6 +77,7 @@ body.is-fullscreen .settings-panel.active {
   padding-bottom: 8px;
   overflow-x: auto;
   overflow-y: hidden;
+  touch-action: pan-x;
   scrollbar-width: none;
   flex-shrink: 0;
 }
@@ -119,6 +120,7 @@ body.is-fullscreen .settings-panel.active {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  touch-action: pan-y;
   scrollbar-gutter: stable;
   padding-right: 4px;
   margin-right: -4px;
