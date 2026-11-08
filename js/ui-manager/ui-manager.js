@@ -202,7 +202,10 @@
       const layerEl = this.clockLayerObj || document.documentElement;
       const sp = (k, v) => layerEl.style.setProperty(k, v);
 
-      if (full) this.panelView.cancelRowAnims();
+      if (full) {
+        this.panelView.cancelRowAnims();
+        this._chrome.syncExitHint();
+      }
 
       if (!full && !skipAnim && ap && ap.typoTarget) {
         const targetEl = ap.typoTarget === 'wrapper' ? this.clockWrapperEl : this.clockEl;

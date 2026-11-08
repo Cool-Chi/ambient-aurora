@@ -209,12 +209,17 @@ body.is-fullscreen .settings-panel.active {
   font-size: 14px;
   font-weight: 500;
   color: rgba(255,255,255,.85);
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   width: auto;
   max-width: none;
   white-space: nowrap;
-  min-width: auto;
-  overflow: visible;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-row:has(.swatches-container) .row-label {
+  flex-grow: 0;
 }
 
 .settings-row.col-layout {

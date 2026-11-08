@@ -21,17 +21,28 @@
  *   (+ ui-assets.js if UI_ICONS change, or schema/system.js if the low-power button schema entry changes)
  */
 (function (AA) {
-  const { $, on } = AA.util;
+  const { $, qs, on } = AA.util;
   const { DICT } = AA;
   const { SETTINGS_SCHEMA, UI_ICONS } = AA.UI_CONFIG;
 
   const LOWPOWER_KEY = (SETTINGS_SCHEMA.find(s => s.type === 'button') || {}).key;
 
   AA.createChrome = function createChrome(ui) {
+    const exitHint = qs(document, '.exit-hint');
+    let exitMode = window.matchMedia?.('(pointer: coarse)').matches ? 'touch' : 'key';
+
+    function syncExitHint(mode) {
+      if (mode) exitMode = mode;
+      if (!exitHint) return;
+      const d = DICT[ui.store.getState().lang];
+      if (d) exitHint.textContent = exitMode === 'touch' ? d.exitTouch : d.exitKey;
+    }
+
     function initIcons() {
       UI_ICONS.forEach(([id, size, cls, paths]) => {
         $(id).innerHTML = AA.UIManager.renderIcon(paths, cls, size);
       });
+      syncExitHint();
     }
 
     function handleShellClick(e) {
@@ -68,6 +79,10 @@
     }
 
     function bindEvents() {
+      on(document, 'pointerdown', e => {
+        if (e.pointerType === 'touch') syncExitHint('touch');
+      }, { passive: true });
+
       on(document, 'keydown', e => {
         if (e.key === 'Escape' && ui._cp && ui._cp.isOpen()) ui._cp.close();
       });
@@ -87,6 +102,7 @@
           e.preventDefault();
           if (!e.repeat) {
             ui.touchStartX = null;
+            syncExitHint('key');
             ui.exitApp(true);
           }
         }
@@ -97,6 +113,6 @@
       });
     }
 
-    return { initIcons, handleShellClick, bindEvents };
+    return { initIcons, syncExitHint, handleShellClick, bindEvents };
   };
 })(window.AA);

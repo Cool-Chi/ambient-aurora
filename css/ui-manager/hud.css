@@ -124,17 +124,8 @@ body.is-fullscreen .icon-btn {
   transition: opacity 200ms var(--ease-out);
 }
 
-.exit-hint::after {
-  content: "長按空白鍵可退出";
-}
-
-@media (pointer:coarse) {
-  .exit-hint::after {
-    content: "長按畫面可退出";
-  }
-}
-
-body.is-fullscreen .exit-hint {
+body.is-fullscreen .exit-hint,
+.clock-layer.exiting~.ui-layer .exit-hint {
   opacity: 1;
 }
 

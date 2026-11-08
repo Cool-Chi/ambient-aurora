@@ -108,7 +108,7 @@
       svgMin: '<path d="M12 6L8 18M12 6L16 18M9.5 14H14.5" stroke-linecap="round" stroke-linejoin="round"/>',
       svgMax: '<path d="M12 3L5 21M12 3L19 21M8 15H16" stroke-linecap="round" stroke-linejoin="round"/>',
       formatVal: fmtInt,
-      apply: { visual: true, cssVar: '--clock-size', cssFormat: v => `clamp(4rem, ${v}vw, 20vw)` }
+      apply: { visual: true, cssVar: '--clock-size', cssFormat: v => `clamp(3rem, min(${v}vw, 28dvh), 20vw)` }
     },
     {
       key: 'clockWeight',
@@ -274,7 +274,7 @@
       key: 'clockCustomText',
       default: 'Ambient Aurora',
       validate: v => typeof v === 'string',
-      normalize: v => v.slice(0, 30),
+      normalize: v => Array.from(v).slice(0, 30).join(''),
       type: 'custom-text',
       tab: 0,
       block: 4,

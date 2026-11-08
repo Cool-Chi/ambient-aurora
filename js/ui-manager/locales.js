@@ -4,6 +4,8 @@
       tabs: ['Clock', 'Background', 'System'],
       lpOn: "Low Power Mode: On",
       lpOff: "Low Power Mode: Off",
+      exitKey: "Hold Space to exit",
+      exitTouch: "Hold screen to exit",
       tc: "Color",
       df: "Format"
     },
@@ -11,6 +13,8 @@
       tabs: ['時鐘', '背景', '系統'],
       lpOn: "低功耗模式：已開啟",
       lpOff: "低功耗模式：已關閉",
+      exitKey: "長按空白鍵可退出",
+      exitTouch: "長按畫面可退出",
       tc: "字體色彩",
       df: "格式"
     }

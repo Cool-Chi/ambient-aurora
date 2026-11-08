@@ -97,6 +97,9 @@
       ui.bgLayer.classList.toggle('exiting', isStarting);
       ui.clockLayerObj.classList.toggle('exiting', isStarting);
       if (isStarting) {
+        if (ui._chrome && ui._chrome.syncExitHint) {
+          ui._chrome.syncExitHint(ui.touchStartX === null ? 'key' : 'touch');
+        }
         haptic(15);
         holdTimeout = setTimeout(() => {
           holdTimeout = null;

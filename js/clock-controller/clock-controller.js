@@ -51,10 +51,10 @@
 
       this.evadeRaf = null;
       this.layoutObserver = new ResizeObserver(() => {
-        if (!this.store.getState().isPanelOpen || this.evadeRaf) return;
+        if (this.evadeRaf) return;
         this.evadeRaf = requestAnimationFrame(() => {
           this.evadeRaf = null;
-          if (this.store.getState().isPanelOpen) this.updateEvasion();
+          this.updateEvasion();
         });
       });
       this.layoutObserver.observe(this.panel);
@@ -350,19 +350,26 @@
       let y = 0;
       let k = 1;
 
-      if (isPanelOpen) {
-        const ww = window.innerWidth;
-        const wh = window.innerHeight;
-        const p = this.panel;
+      const ww = window.innerWidth;
+      const wh = window.innerHeight;
+      const cw = this.clockWrapper;
+      const bw = cw.offsetWidth;
+      const bh = cw.offsetHeight;
+
+      if (bw > 0 && bh > 0) {
         const m = 16;
-        const cw = this.clockWrapper;
+        const pad = Math.min(ww, wh) * 0.04;
+        const edge = Math.min(pad, m);
+        const maxW = Math.max(1, ww - pad * 2);
+        const maxH = Math.max(1, wh - pad * 2);
+        k = clamp(Math.min(1, maxW / bw, maxH / bh), 0.35, 1);
+
         const B = {
           l: cw.offsetLeft,
-          r: cw.offsetLeft + cw.offsetWidth,
+          r: cw.offsetLeft + bw,
           t: cw.offsetTop,
-          b: cw.offsetTop + cw.offsetHeight
+          b: cw.offsetTop + bh
         };
-        const pad = Math.min(ww, wh) * 0.04;
         const ox = [pad, ww / 2, ww - pad][clockAnchor % 3];
         const oy = [pad, wh / 2, wh - pad][Math.floor(clockAnchor / 3)];
         const dx = clockOffsetX * ww / 100;
@@ -373,30 +380,39 @@
           t: oy + f * (B.t - oy) + dy,
           b: oy + f * (B.b - oy) + dy
         });
-        const P = {
-          l: p.offsetLeft - m,
-          r: p.offsetLeft + p.offsetWidth + m,
-          t: p.offsetTop - m,
-          b: p.offsetTop + p.offsetHeight + m
-        };
-        let r = R(1);
-        if (r.l < P.r && r.r > P.l && r.t < P.b && r.b > P.t) {
-          if (ww <= 600) {
-            if (r.t + (P.t - r.b) < m) {
-              k = clamp((P.t - m) / (B.b - B.t), 0.35, 1);
+
+        let r = R(k);
+        if (isPanelOpen) {
+          const p = this.panel;
+          const P = {
+            l: p.offsetLeft - m,
+            r: p.offsetLeft + p.offsetWidth + m,
+            t: p.offsetTop - m,
+            b: p.offsetTop + p.offsetHeight + m
+          };
+          if (r.l < P.r && r.r > P.l && r.t < P.b && r.b > P.t) {
+            if (ww <= 600) {
+              if (r.t + (P.t - r.b) < m) {
+                k = Math.min(k, clamp((P.t - m) / bh, 0.35, 1));
+                r = R(k);
+              }
+              y = Math.min(0, P.t - r.b);
+            } else if (r.r + (P.r - r.l) <= ww - m) {
+              x = P.r - r.l;
+            } else if (r.t + (P.t - r.b) >= m) {
+              y = P.t - r.b;
+            } else {
+              k = Math.min(k, clamp((ww - m - P.r) / bw, 0.35, 1));
               r = R(k);
+              x = Math.max(0, P.r - r.l);
             }
-            y = Math.min(0, P.t - r.b);
-          } else if (r.r + (P.r - r.l) <= ww - m) {
-            x = P.r - r.l;
-          } else if (r.t + (P.t - r.b) >= m) {
-            y = P.t - r.b;
-          } else {
-            k = clamp((ww - m - P.r) / (B.r - B.l), 0.35, 1);
-            r = R(k);
-            x = Math.max(0, P.r - r.l);
           }
         }
+
+        if (r.l + x < edge) x = edge - r.l;
+        else if (r.r + x > ww - edge) x = ww - edge - r.r;
+        if (r.t + y < edge) y = edge - r.t;
+        else if (r.b + y > wh - edge) y = wh - edge - r.b;
       }
 
       const st = this.container.style;
