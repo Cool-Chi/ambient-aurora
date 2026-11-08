@@ -72,10 +72,54 @@ void main(){
   fragColor=vec4(max(lit+vec3(dither*ditherMask),0.0),1.0);
 }`;
 
+  // Number of lines in a chunk of the assembled source
+  const lineCount = s => s.split('\n').length;
+
+  // 1-based inclusive line ranges of every section of the assembled fragment source (chunks are joined by one blank line)
+  function computeLineMap(header, count, modes, modeChunks, evalScene) {
+    const map = [];
+    let cursor = 1;
+
+    const headerLines = lineCount(header);
+    const headerOnly = count > 0 ? headerLines - count : headerLines;
+    map.push({ kind: 'section', name: 'header', startLine: 1, endLine: headerOnly, bodyStart: 1 });
+    if (count > 0) {
+      map.push({ kind: 'section', name: 'mode_consts', startLine: headerOnly + 1, endLine: headerLines, bodyStart: headerOnly + 1 });
+    }
+    cursor += headerLines + 1;
+
+    const sharedLines = lineCount(SHARED_GLSL);
+    map.push({ kind: 'section', name: 'shared', startLine: cursor, endLine: cursor + sharedLines - 1, bodyStart: cursor });
+    cursor += sharedLines + 1;
+
+    if (count === 0) {
+      cursor += 2;
+    } else {
+      modeChunks.forEach((chunk, i) => {
+        const n = lineCount(chunk);
+        // The first line of a mode chunk is the "// --- mode: id ---" marker; glsl line 1 is the next line
+        map.push({ kind: 'mode', id: modes[i].id, startLine: cursor, endLine: cursor + n - 1, bodyStart: cursor + 1 });
+        cursor += n + 1;
+      });
+    }
+
+    const evalLines = lineCount(evalScene);
+    map.push({ kind: 'section', name: 'evalScene', startLine: cursor, endLine: cursor + evalLines - 1, bodyStart: cursor });
+    cursor += evalLines + 1;
+
+    const mainLines = lineCount(MAIN_GLSL);
+    map.push({ kind: 'section', name: 'main', startLine: cursor, endLine: cursor + mainLines - 1, bodyStart: cursor });
+    return map;
+  }
+
   // Fragment shader assembly: registered background modes, dual-color, dual-time crossfade (GLSL ES 3.00)
+  //   opts.activeEps   minimum weight counted as active (default 0.001)
+  //   opts.modes       optional custom mode list (default AA.MODES); does not touch AA.MODES or lastLineMap
+  //   opts.outLineMap  optional array that receives the section line map of this build
   function buildFragmentSource(opts = {}) {
     const activeEps = fmtFloat(opts.activeEps ?? 0.001);
-    const modes = AA.MODES;
+    const customModes = Array.isArray(opts.modes);
+    const modes = customModes ? opts.modes : AA.MODES;
     const count = modes.length;
     if (count === 0) console.error('[AA.SHADERS] No background modes registered; fragment shader cannot be built.');
 
@@ -101,7 +145,8 @@ uniform float u_timeMix;
 uniform int u_octaves;
 ${modes.map(m => `const float ${m.expConst}=${fmtFloat(m.exposure)};`).join('\n')}`;
 
-    const modeBlocks = modes.map(m => `// --- mode: ${m.id} ---\n${m.glsl}`).join('\n\n');
+    const modeChunks = modes.map(m => `// --- mode: ${m.id} ---\n${m.glsl}`);
+    const modeBlocks = modeChunks.join('\n\n');
 
     const evalScene = `// --- Scene evaluation (weighted sum of active modes) ---
 vec3 evalScene(vec2 uv,float t){
@@ -110,10 +155,48 @@ ${modes.map((m, i) => `  if(u_weights[${i}]>${activeEps})c+=${m.fnName}(uv,t)*${
   return c;
 }`;
 
+    const lineMap = computeLineMap(header, count, modes, modeChunks, evalScene);
+    if (Array.isArray(opts.outLineMap)) {
+      opts.outLineMap.length = 0;
+      lineMap.forEach(e => opts.outLineMap.push(e));
+    }
+    if (!customModes) SHADERS.lastLineMap = lineMap;
+
     return [header, SHARED_GLSL, modeBlocks, evalScene, MAIN_GLSL].join('\n\n');
   }
 
-  const fsSource = buildFragmentSource({ activeEps: 0.001 });
+  // Describes where a line of the assembled source belongs: "[mode:<id> line N]" or "[section:<name> line N]"
+  function locateLine(lineMap, line) {
+    const e = lineMap.find(x => line >= x.startLine && line <= x.endLine);
+    if (!e) return '';
+    const local = line - e.bodyStart + 1;
+    if (e.kind === 'mode') return local < 1 ? `[mode:${e.id} marker]` : `[mode:${e.id} line ${local}]`;
+    return `[section:${e.name} line ${local}]`;
+  }
 
-  AA.SHADERS = { vsSource, fsSource, buildFragmentSource };
+  // Appends the offending mode id / section and its local line number to each line-numbered entry of a
+  // WebGL shader info log (ANGLE "ERROR: 0:N:", Mesa "0:N(", NVIDIA "0(N)"); other lines are left unchanged
+  function formatShaderError(log, lineMap = SHADERS.lastLineMap) {
+    if (typeof log !== 'string' || !log || !Array.isArray(lineMap) || lineMap.length === 0) return log;
+    const patterns = [
+      /^(\s*(?:ERROR|WARNING):\s*\d+:)(\d+)(:)/,
+      /^(\s*\d+:)(\d+)(\()/,
+      /^(\s*\d+\()(\d+)(\))/
+    ];
+    return log.split('\n').map(text => {
+      for (const re of patterns) {
+        const m = re.exec(text);
+        if (m) {
+          const where = locateLine(lineMap, Number(m[2]));
+          return where ? text + ' ' + where : text;
+        }
+      }
+      return text;
+    }).join('\n');
+  }
+
+  const SHADERS = { vsSource, fsSource: '', buildFragmentSource, lastLineMap: [], formatShaderError };
+  SHADERS.fsSource = buildFragmentSource({ activeEps: 0.001 });
+
+  AA.SHADERS = SHADERS;
 })(window.AA);

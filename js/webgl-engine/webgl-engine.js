@@ -244,7 +244,8 @@
       gl.shaderSource(shader, source);
       gl.compileShader(shader);
       if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        console.error(gl.getShaderInfoLog(shader));
+        const rawLog = gl.getShaderInfoLog(shader);
+        console.error(type === gl.FRAGMENT_SHADER && AA.SHADERS.formatShaderError ? AA.SHADERS.formatShaderError(rawLog) : rawLog);
         gl.deleteShader(shader);
         return null;
       }
@@ -274,14 +275,18 @@
         return;
       }
       const gl = this.gl;
+      const bootT0 = performance.now();
       const vs = this.compileShader(gl, this.vsSource, gl.VERTEX_SHADER);
       const fs = this.compileShader(gl, this.fsSource, gl.FRAGMENT_SHADER);
+      if (!(vs && fs)) AA._bootCompileMs = Math.round((performance.now() - bootT0) * 100) / 100;
       if (vs && fs) {
         const program = gl.createProgram();
         gl.attachShader(program, vs);
         gl.attachShader(program, fs);
         gl.linkProgram(program);
-        if (gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        const linked = gl.getProgramParameter(program, gl.LINK_STATUS);
+        AA._bootCompileMs = Math.round((performance.now() - bootT0) * 100) / 100;
+        if (linked) {
           this.program = program;
           gl.useProgram(program);
           this.uniforms = {};
