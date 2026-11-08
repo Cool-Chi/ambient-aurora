@@ -246,6 +246,31 @@ input[type=range]::-webkit-slider-thumb:active {
   transform: scale(.95);
 }
 
+/* Wrapped segmented control (schema wrap: true, 6+ options): balanced chip rows on a column grid.
+   --seg-cols = lcm of the row sizes (set on the control), --seg-span = columns per chip (set per chip),
+   so every chip is a flat child and rows stay equal-width without percentage rounding. */
+.settings-row .segmented-control.is-wrapped {
+  display: grid;
+  grid-template-columns: repeat(var(--seg-cols,1),minmax(0,1fr));
+  gap: 2px;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  min-height: 0;
+}
+
+.segmented-control.is-wrapped .segment-btn {
+  grid-column: span var(--seg-span,1);
+  height: 28px;
+  min-width: 0;
+}
+
+.segmented-control.is-wrapped .segmented-highlight {
+  top: 0;
+  bottom: auto;
+  transition: transform 250ms var(--ease-out),width 250ms var(--ease-out),height 250ms var(--ease-out);
+}
+
 .mtg-control {
   position: relative;
   display: flex;
@@ -582,7 +607,8 @@ input[type=range]::-webkit-slider-thumb:active {
     transform: none;
   }
 
-  .segmented-highlight {
+  .segmented-highlight,
+  .segmented-control.is-wrapped .segmented-highlight {
     transition: none;
   }
 

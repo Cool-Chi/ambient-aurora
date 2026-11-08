@@ -5,10 +5,11 @@
  *   Reads / calls on ui:
  *     - Reads: ui.store
  *     - Calls: AA.UIManager.renderIcon(...), AA.UIManager.rgbToHex(...)
- *   Private helpers: qsa, syncBoundValue, buildRenderers (row, tg, seg, mtg, chips, slider, theme, anchorRow, ctRow)
+ *   Private helpers: qsa, wrapRows, gcd, lcm, syncBoundValue, buildRenderers (row, tg, seg, mtg, chips, slider, theme, anchorRow, ctRow)
  *   Globals: AA.util ($, qs), AA.DICT, AA.UI_CONFIG (THEMES, UI_BINDINGS, BINDING_BY_ID, SCHEMA_BY_KEY)
  *   Co-change guide:
  *     - Tweaking existing control markup or sync -> controls-registry.js + css/ui-manager/settings-controls.css
+ *     - Wrapped segmented grid (wrap: true, 6+ items) -> controls-registry.js + gesture-manager.js (pickWrappedBtn) + css/ui-manager/settings-controls.css (.is-wrapped)
  *     - Adding a new control type -> controls-registry.js + gesture-manager.js (input/click dispatch)
  *       + ui-config.js (BOUND_PROP / SETTINGS_SCHEMA) + css/ui-manager/settings-controls.css
  */
@@ -18,6 +19,17 @@
   const { THEMES, UI_BINDINGS, BINDING_BY_ID, SCHEMA_BY_KEY } = AA.UI_CONFIG;
 
   const qsa = (el, sel) => el.querySelectorAll(sel);
+
+  // Balanced chip rows for a wrapped segmented control (max 5 per row, earlier rows never shorter than later ones):
+  // 6 -> [3,3], 7 -> [4,3], 8 -> [4,4], 9 -> [5,4], 10 -> [5,5], 11 -> [4,4,3]
+  const wrapRows = n => {
+    const rows = Math.ceil(n / 5);
+    const base = Math.floor(n / rows);
+    const rem = n % rows;
+    return Array.from({ length: rows }, (_, r) => (r < rem ? base + 1 : base));
+  };
+  const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+  const lcm = (a, b) => (a / gcd(a, b)) * b;
 
   AA.createControlsRegistry = function createControlsRegistry(ui) {
     function updateSliderFill(el) {
@@ -52,7 +64,13 @@
         const highlight = qs(container, '.segmented-highlight');
         if (skipAnim) highlight.style.transition = 'none';
         highlight.style.width = `${btn.offsetWidth}px`;
-        highlight.style.transform = `translateX(${btn.offsetLeft}px)`;
+        if (container.classList.contains('is-wrapped')) {
+          // Multi-row chips: the pill follows the chip in both axes and matches its height
+          highlight.style.height = `${btn.offsetHeight}px`;
+          highlight.style.transform = `translate(${btn.offsetLeft}px, ${btn.offsetTop}px)`;
+        } else {
+          highlight.style.transform = `translateX(${btn.offsetLeft}px)`;
+        }
         if (skipAnim) {
           requestAnimationFrame(() => requestAnimationFrame(() => {
             highlight.style.transition = '';
@@ -135,12 +153,24 @@
         const label = e.label[lang];
         const options = e.options[lang];
         const isCol = options.length > 3;
-        const style = e.style ? ` style="${e.style}"` : '';
+        // Balanced multi-row chips: only when the schema entry opts in with wrap: true and has 6+ options.
+        // Rows live on a column grid of lcm(row sizes) columns; every chip spans (grid columns / its row size),
+        // so chips stay flat children of .segmented-control and equal-width within their row.
+        const isWrap = !!e.wrap && options.length >= 6;
+        let style = e.style ? ` style="${e.style}"` : '';
+        let spans = null;
+        if (isWrap) {
+          const rows = wrapRows(options.length);
+          const cols = rows.reduce((a, c) => lcm(a, c), 1);
+          spans = rows.flatMap(c => Array(c).fill(cols / c));
+          style = ` style="--seg-cols:${cols}${e.style ? ';' + e.style : ''}"`;
+        }
         const btns = options.map((t, i) => {
           const act = !!e.prerender && String(e.values[i]) === String(state[e.key]);
-          return `<button class="segment-btn${act ? ' active' : ''}" role="radio" aria-checked="${act}" data-value="${e.values[i]}">${t}</button>`;
+          const span = isWrap ? ` style="--seg-span:${spans[i]}"` : '';
+          return `<button class="segment-btn${act ? ' active' : ''}" role="radio" aria-checked="${act}" data-value="${e.values[i]}"${span}>${t}</button>`;
         }).join('');
-        return `<div class="settings-row${isCol ? ' col-layout' : ''}"><span class="row-label" title="${label}">${label}</span><div class="segmented-control${isCol ? '' : ' inline-seg'}" data-prop="${e.key}" role="radiogroup" aria-label="${label}"${style}><div class="segmented-highlight"></div>${btns}</div></div>`;
+        return `<div class="settings-row${isCol ? ' col-layout' : ''}"><span class="row-label" title="${label}">${label}</span><div class="segmented-control${isWrap ? ' is-wrapped' : (isCol ? '' : ' inline-seg')}" data-prop="${e.key}" role="radiogroup" aria-label="${label}"${style}><div class="segmented-highlight"></div>${btns}</div></div>`;
       };
 
       const mtg = grp => {

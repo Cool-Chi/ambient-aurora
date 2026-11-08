@@ -3,7 +3,8 @@
  *
  * Responsibility
  *   Pointer gesture state machine; 10px touch intent lock ('drag' vs 'scroll'); capture-phase
- *   scroll/click/change anti-misfire guards; slider bubble hold timer; 500ms anchor hold-to-reset;
+ *   scroll/click/change anti-misfire guards; 1D / 2D (wrapped chip rows) segmented scrubbing; slider bubble hold
+ *   timer; 500ms anchor hold-to-reset;
  *   color-picker trigger and outside-tap wiring; panel control and shell click dispatch.
  *
  * Returned API
@@ -47,6 +48,41 @@
   };
   const ANCHOR_KEY = keyOfType('anchor');
   const THEME_KEY = keyOfType('theme');
+
+  // 2D hit test for a wrapped segmented control: nearest row for y, then nearest chip in that row for x
+  // (a pointer above / below / beside the grid clamps to the first / last row and the first / last chip)
+  const pickWrappedBtn = (btns, x, y) => {
+    const rects = Array.from(btns, b => b.getBoundingClientRect());
+    const rows = [];
+    rects.forEach((r, i) => {
+      const row = rows.find(w => Math.abs(w.top - r.top) < 2);
+      if (row) {
+        row.items.push(i);
+      } else {
+        rows.push({ top: r.top, bottom: r.bottom, items: [i] });
+      }
+    });
+    let row = rows[0];
+    let best = Infinity;
+    for (const w of rows) {
+      const d = y < w.top ? w.top - y : (y > w.bottom ? y - w.bottom : 0);
+      if (d < best) {
+        best = d;
+        row = w;
+      }
+    }
+    let hit = null;
+    best = Infinity;
+    for (const i of row.items) {
+      const r = rects[i];
+      const d = x < r.left ? r.left - x : (x > r.right ? x - r.right : 0);
+      if (d < best) {
+        best = d;
+        hit = btns[i];
+      }
+    }
+    return hit;
+  };
 
   AA.createGestureManager = function createGestureManager(ui) {
     // Toggle & segmented drag state
@@ -209,18 +245,22 @@
         const btns = segTarget.querySelectorAll('.segment-btn');
         if (!btns.length) return;
         const x = e.clientX;
-        const last = btns[btns.length - 1];
         let hit = null;
-        if (x < btns[0].getBoundingClientRect().left) {
-          hit = btns[0];
-        } else if (x > last.getBoundingClientRect().right) {
-          hit = last;
+        if (segTarget.classList.contains('is-wrapped')) {
+          hit = pickWrappedBtn(btns, x, e.clientY);
         } else {
-          for (const b of btns) {
-            const r = b.getBoundingClientRect();
-            if (x >= r.left && x <= r.right) {
-              hit = b;
-              break;
+          const last = btns[btns.length - 1];
+          if (x < btns[0].getBoundingClientRect().left) {
+            hit = btns[0];
+          } else if (x > last.getBoundingClientRect().right) {
+            hit = last;
+          } else {
+            for (const b of btns) {
+              const r = b.getBoundingClientRect();
+              if (x >= r.left && x <= r.right) {
+                hit = b;
+                break;
+              }
             }
           }
         }

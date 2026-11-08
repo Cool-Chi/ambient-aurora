@@ -14,6 +14,8 @@
  *
  * Co-change guide
  *   bgMode enum -> modes/registry.js, modes/*.js, index.html (this file reads the registry automatically)
+ *   bgMode wrap: true -> controls-registry.js (seg renderer, highlight), gesture-manager.js (scrubSeg),
+ *                        css/ui-manager/settings-controls.css (.segmented-control.is-wrapped)
  *   bgRenderScale -> webgl-engine.js (ENGINE_CFG) and hud.js (scale badge)
  */
 (function (AA) {
@@ -42,7 +44,9 @@
       block: 0,
       label: { en: 'Mode', zh: '背景模式' },
       options: { en: MODES.map(m => m.label.en), zh: MODES.map(m => m.label.zh) },
-      values: MODE_IDS
+      values: MODE_IDS,
+      // Renders as balanced multi-row chips when 6+ modes are registered (5 or fewer stay a single row)
+      wrap: true
     },
     // Dedicated RGB float array [0..1] for WebGL background theme; unrelated to CSS --bg-color (pure black #000 body background).
     {
