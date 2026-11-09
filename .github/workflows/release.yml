@@ -3,7 +3,8 @@ name: Create Release
 on:
   push:
     tags:
-      - 'v*.*.0'
+      - 'v*.*.*'
+      - '!*-flat'     # 排除-flat
 
 permissions:
   contents: write
@@ -13,6 +14,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag is on main branch
+        run: |
+          git fetch origin main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "${{ github.sha }}" refs/remotes/origin/main; then
+            echo "Error: Tag ${{ github.ref_name }} (${{ github.sha }}) is not on the main branch. Aborting."
+            exit 1
+          fi
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
